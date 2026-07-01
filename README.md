@@ -1,5 +1,9 @@
 # CrabCode
 
+<p align="center">
+  <video src="https://github.com/csanelo/Crab-Code-IDE/raw/main/media/crab.mp4" controls width="720"></video>
+</p>
+
 CrabCode is a cross-platform desktop AI development environment built with Electron, React and TypeScript that brings a code editor, an integrated terminal, a file explorer, a built-in web browser and an AI assistant together in one window, so you can open a project, edit files with a Monaco-powered editor, run commands, browse documentation and let an AI agent read, write and reason about your codebase through OpenAI-compatible providers and MCP tools without leaving the app.
 
 ## Requirements
