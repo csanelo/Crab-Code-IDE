@@ -1,5 +1,4 @@
 # CrabCode
-F:\Проекты\clark\media\crab.mp4
 <p align="center">
   <video src="https://github.com/csanelo/Crab-Code-IDE/raw/main/media/crab.mp4" controls width="720"></video>
 </p>
