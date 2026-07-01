@@ -1,0 +1,120 @@
+
+:root {
+  
+  --color-bg: #111111;
+  --color-chrome: #181818;
+  --color-surface: #161616;
+  --color-surface-raised: #1e1e1e;
+  --color-surface-overlay: #262626;
+  --color-border: #2a2a2a;
+  --color-border-strong: #3a3a3a;
+
+  
+  --color-text: #ededed;
+  --color-text-secondary: #9a9a9a;
+  --color-text-muted: #6b6b6b;
+
+  
+  --text-engrave: 0 1px 0 rgba(0, 0, 0, 0.55), 0 -0.5px 0 rgba(255, 255, 255, 0.04);
+  --text-engrave-strong: 0 1px 1px rgba(0, 0, 0, 0.7), 0 -0.5px 0 rgba(255, 255, 255, 0.05);
+
+  
+  --color-accent: #e5e5e5;
+  --color-accent-hover: #ffffff;
+  --color-accent-soft: rgba(255, 255, 255, 0.1);
+
+  
+  --color-success: #3fb950;
+  --color-danger: #f0524a;
+  --color-warning: #d8a13a;
+
+  
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-pill: 999px;
+
+  
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', Consolas, 'Courier New', monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 18px;
+  --leading-body: 1.6;
+
+  
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.55);
+
+  
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 140ms;
+  --dur-base: 220ms;
+
+  
+  --titlebar-h: 36px;
+  --sidebar-w: 248px;
+  --z-base: 0;
+  --z-panel: 10;
+  --z-overlay: 100;
+  --z-modal: 1000;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+  }
+}
+
+
+:root[data-theme='light'] {
+  
+  --color-bg: #e8e8e8;
+  --color-chrome: #dcdcdc;
+  --color-surface: #e2e2e2;
+  --color-surface-raised: #d4d4d4;
+  --color-surface-overlay: #cacaca;
+  --color-border: #c2c2c2;
+  --color-border-strong: #aeaeae;
+
+  
+  --color-text: #1d1d1d;
+  --color-text-secondary: #4c4c4c;
+  --color-text-muted: #6f6f6f;
+
+  
+  --text-engrave: none;
+  --text-engrave-strong: none;
+
+  
+  --color-accent: #1a1a1a;
+  --color-accent-hover: #000000;
+  --color-accent-soft: rgba(0, 0, 0, 0.08);
+
+  
+  --color-success: #1a7f37;
+  --color-danger: #d1242f;
+  --color-warning: #9a6700;
+
+  
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.16);
+}

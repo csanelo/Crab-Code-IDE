@@ -1,0 +1,114 @@
+.ctx-menu {
+  position: fixed;
+  z-index: var(--z-modal);
+  min-width: 180px;
+  padding: 2px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  animation: ctx-in var(--dur-fast) var(--ease-out);
+  transform-origin: top left;
+}
+
+:root[data-theme='light'] .ctx-menu {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+@keyframes ctx-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.ctx-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 26px;
+  padding: 0 8px;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  border-radius: 3px;
+  font-size: var(--text-xs);
+  text-align: left;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.ctx-menu__label {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.ctx-menu__shortcut {
+  margin-left: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.ctx-menu__sep {
+  height: 1px;
+  margin: 3px 4px;
+  background: var(--color-border);
+}
+
+
+.ctx-menu--plain {
+  min-width: 200px;
+}
+
+.ctx-menu--plain .ctx-menu__item {
+  gap: 0;
+  padding: 0 8px;
+}
+
+
+.ctx-menu--narrow {
+  min-width: 160px;
+}
+
+.ctx-menu__item:hover {
+  background: var(--color-surface-raised);
+}
+
+.ctx-menu__icon {
+  display: grid;
+  place-items: center;
+  color: var(--color-text-secondary);
+}
+
+.ctx-menu__item--danger {
+  color: var(--color-danger);
+}
+
+.ctx-menu__item--danger .ctx-menu__icon {
+  color: var(--color-danger);
+}
+
+.ctx-menu__item--danger:hover {
+  background: rgba(240, 82, 74, 0.12);
+}
+
+.ctx-menu__item:disabled {
+  color: var(--color-text-muted);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ctx-menu__item:disabled:hover {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ctx-menu {
+    animation: none;
+  }
+}
