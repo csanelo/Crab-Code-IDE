@@ -20,19 +20,21 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             artifact: crabcode-linux
+            buildCmd: npm run package:linux
             paths: |
               dist/*.AppImage
               dist/*.deb
           - os: windows-latest
             platform: win
             artifact: crabcode-windows
+            buildCmd: npm run package:win
             paths: |
               dist/*.exe
           - os: macos-latest
             platform: mac
             artifact: crabcode-macos
+            buildCmd: npm run build && npx electron-builder --mac zip --publish never
             paths: |
-              dist/*.dmg
               dist/*.zip
 
     steps:
@@ -49,7 +51,7 @@ jobs:
         run: npm ci
 
       - name: Build package
-        run: npm run package:${{ matrix.platform }}
+        run: ${{ matrix.buildCmd }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
