@@ -170,6 +170,7 @@ export function TitleBar({
   onToggleRight,
   onToggleTerminal,
   onToggleBrowser,
+  agentWindow = false,
   leftOpen = false,
   rightOpen = false,
   terminalOpen = false,
@@ -179,6 +180,7 @@ export function TitleBar({
   onToggleRight?: () => void;
   onToggleTerminal?: () => void;
   onToggleBrowser?: () => void;
+  agentWindow?: boolean;
   leftOpen?: boolean;
   rightOpen?: boolean;
   terminalOpen?: boolean;
@@ -191,6 +193,7 @@ export function TitleBar({
     useApp();
   const t = useT();
   const isMac = window.api.window.platform === "darwin";
+  const agentOpen = false;
 
   useEffect(() => {
     window.api.window.isMaximized().then(setMaximized);
@@ -400,17 +403,55 @@ export function TitleBar({
       </span>
 
       <div className="titlebar__controls">
-        <button
-          className={`titlebar__icon-btn titlebar__browser-btn${browserOpen ? " titlebar__icon-btn--on" : ""}`}
-          type="button"
-          aria-label="Browser (agent's eyes)"
-          aria-pressed={browserOpen}
-          title="Internal browser — the agent's eyes"
-          onClick={onToggleBrowser}
-        >
-          <GoogleBrowserIcon />
-        </button>
-        <GithubAvatar />
+        {!agentWindow && (
+          <>
+            <button
+              className="titlebar__icon-btn titlebar__agent-btn"
+              type="button"
+              aria-label="Open Agent"
+              title="Open Agent"
+              onClick={() => void window.api.app.openAgentWindow()}
+            >
+              <span className="titlebar__agent-label">Agent</span>
+            </button>
+            <button
+              className={`titlebar__icon-btn titlebar__browser-btn${browserOpen ? " titlebar__icon-btn--on" : ""}`}
+              type="button"
+              aria-label="Browser (agent's eyes)"
+              aria-pressed={browserOpen}
+              title="Internal browser — the agent's eyes"
+              onClick={onToggleBrowser}
+            >
+              <GoogleBrowserIcon />
+            </button>
+            <GithubAvatar />
+          </>
+        )}
+        {agentWindow && (
+          <>
+            <button
+              className="titlebar__icon-btn titlebar__agent-btn"
+              type="button"
+              aria-label="Open IDE"
+              title="Open IDE"
+              onClick={() =>
+                void window.api.app.returnToIde({
+                  conversations: state.conversations,
+                  repositoryConversationIds: Object.fromEntries(
+                    state.repositories.map((repository) => [
+                      repository.id,
+                      repository.conversationIds,
+                    ]),
+                  ),
+                  activeConversationId: state.activeConversationId,
+                })
+              }
+            >
+              <span className="titlebar__agent-label">IDE</span>
+            </button>
+            <GithubAvatar />
+          </>
+        )}
         <button
           className={`titlebar__icon-btn${leftOpen ? " titlebar__icon-btn--on" : ""}`}
           type="button"
@@ -421,26 +462,30 @@ export function TitleBar({
         >
           <PanelLeftIcon filled={leftOpen} />
         </button>
-        <button
-          className={`titlebar__icon-btn${terminalOpen ? " titlebar__icon-btn--on" : ""}`}
-          type="button"
-          aria-label={t("nav.openTerminal")}
-          aria-pressed={terminalOpen}
-          title={t("nav.openTerminalHint")}
-          onClick={onToggleTerminal}
-        >
-          <PanelBottomIcon filled={terminalOpen} />
-        </button>
-        <button
-          className={`titlebar__icon-btn${rightOpen ? " titlebar__icon-btn--on" : ""}`}
-          type="button"
-          aria-label={t("nav.toggleRight")}
-          aria-pressed={rightOpen}
-          title={t("nav.toggleRightHint")}
-          onClick={onToggleRight}
-        >
-          <PanelRightIcon filled={rightOpen} />
-        </button>
+        {!agentWindow && (
+          <>
+            <button
+              className={`titlebar__icon-btn${terminalOpen ? " titlebar__icon-btn--on" : ""}`}
+              type="button"
+              aria-label={t("nav.openTerminal")}
+              aria-pressed={terminalOpen}
+              title={t("nav.openTerminalHint")}
+              onClick={onToggleTerminal}
+            >
+              <PanelBottomIcon filled={terminalOpen} />
+            </button>
+            <button
+              className={`titlebar__icon-btn${rightOpen ? " titlebar__icon-btn--on" : ""}`}
+              type="button"
+              aria-label={t("nav.toggleRight")}
+              aria-pressed={rightOpen}
+              title={t("nav.toggleRightHint")}
+              onClick={onToggleRight}
+            >
+              <PanelRightIcon filled={rightOpen} />
+            </button>
+          </>
+        )}
 
         {!isMac && <div className="titlebar__controls-sep" />}
 

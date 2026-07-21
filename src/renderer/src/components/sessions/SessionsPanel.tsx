@@ -1,56 +1,59 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState } from "react";
 import {
   Search,
   ArrowLeftRight,
   ChevronRight,
   Sparkles,
   Server,
-  Settings as SettingsIcon,
   Pin,
-  MessageSquare
-} from 'lucide-react'
-import { useApp } from '../../state/AppContext'
-import { useT } from '../../i18n'
-import type { Conversation } from '../../domain/types'
-import { ContextMenu, type MenuItem } from '../sidebar/ContextMenu'
-import { CommandPalette, type PaletteItem } from '../palette/CommandPalette'
-import { McpModal } from '../mcp/McpModal'
-import { PlusIcon } from './PlusIcon'
-import { relativeTime } from '../../utils/relativeTime'
-import { emit as emitAppEvent, queueSettingsSection } from '../../lib/appEvents'
-import './SessionsPanel.css'
+  MessageSquare,
+} from "lucide-react";
+import { useApp } from "../../state/AppContext";
+import { useT } from "../../i18n";
+import type { Conversation } from "../../domain/types";
+import { ContextMenu, type MenuItem } from "../sidebar/ContextMenu";
+import { CommandPalette, type PaletteItem } from "../palette/CommandPalette";
+import { McpModal } from "../mcp/McpModal";
+import { PlusIcon } from "./PlusIcon";
+import { relativeTime } from "../../utils/relativeTime";
+import {
+  emit as emitAppEvent,
+  queueSettingsSection,
+} from "../../lib/appEvents";
+import "./SessionsPanel.css";
 
 interface MenuState {
-  x: number
-  y: number
-  id: string
+  x: number;
+  y: number;
+  id: string;
 }
 
 interface SortMenuState {
-  x: number
-  y: number
+  x: number;
+  y: number;
 }
 
-type SortMode = 'updated' | 'created' | 'alpha'
+type SortMode = "updated" | "created" | "alpha";
 
 interface CustomItem {
-  key: 'skills' | 'mcp' | 'settings'
-  icon: typeof SettingsIcon
-  badge: number | null
-  action: 'settings' | 'mcp' | 'skills' | null
+  key: "skills" | "mcp";
+  icon: typeof Sparkles;
+  badge: number | null;
+  action: "mcp" | "skills";
 }
 
 const CUSTOMIZATIONS: CustomItem[] = [
-  { key: 'skills', icon: Sparkles, badge: null, action: 'skills' },
-  { key: 'mcp', icon: Server, badge: null, action: 'mcp' },
-  { key: 'settings', icon: SettingsIcon, badge: null, action: 'settings' }
-]
+  { key: "skills", icon: Sparkles, badge: null, action: "skills" },
+  { key: "mcp", icon: Server, badge: null, action: "mcp" },
+];
 
-const CUSTOM_LABELS: Record<CustomItem['key'], import('../../i18n/translations').TKey> = {
-  skills: 'sessions.skills',
-  mcp: 'sessions.mcpServers',
-  settings: 'sessions.settings'
-}
+const CUSTOM_LABELS: Record<
+  CustomItem["key"],
+  import("../../i18n/translations").TKey
+> = {
+  skills: "sessions.skills",
+  mcp: "sessions.mcpServers",
+};
 
 export function SessionsPanel(): JSX.Element {
   const {
@@ -61,106 +64,127 @@ export function SessionsPanel(): JSX.Element {
     renameConversation,
     togglePinConversation,
     selectProject,
-    setView
-  } = useApp()
-  const t = useT()
-  const [menu, setMenu] = useState<MenuState | null>(null)
-  const [sortMenu, setSortMenu] = useState<SortMenuState | null>(null)
-  const [sortMode, setSortMode] = useState<SortMode>('updated')
-  const [renamingId, setRenamingId] = useState<string | null>(null)
-  const [customOpen, setCustomOpen] = useState(true)
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [mcpOpen, setMcpOpen] = useState(false)
+    setView,
+  } = useApp();
+  const t = useT();
+  const [menu, setMenu] = useState<MenuState | null>(null);
+  const [sortMenu, setSortMenu] = useState<SortMenuState | null>(null);
+  const [sortMode, setSortMode] = useState<SortMode>("updated");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [customOpen, setCustomOpen] = useState(true);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [mcpOpen, setMcpOpen] = useState(false);
 
   const groups = useMemo(() => {
-    const repo = state.repositories.find((r) => r.id === state.activeRepositoryId)
-    if (!repo) return []
+    const repo = state.repositories.find(
+      (r) => r.id === state.activeRepositoryId,
+    );
+    if (!repo) return [];
     const chats = repo.conversationIds
       .map((id) => state.conversations[id])
       .filter((c): c is Conversation => Boolean(c))
       .sort((a, b) => {
-        const pinDelta = Number(Boolean(b.pinned)) - Number(Boolean(a.pinned))
-        if (pinDelta !== 0) return pinDelta
-        if (sortMode === 'created') return b.createdAt - a.createdAt
-        if (sortMode === 'alpha') return a.title.localeCompare(b.title)
-        return b.updatedAt - a.updatedAt
-      })
-    if (chats.length === 0) return []
-    return [{ repo, chats }]
-  }, [state.repositories, state.conversations, state.activeRepositoryId, sortMode])
+        const pinDelta = Number(Boolean(b.pinned)) - Number(Boolean(a.pinned));
+        if (pinDelta !== 0) return pinDelta;
+        if (sortMode === "created") return b.createdAt - a.createdAt;
+        if (sortMode === "alpha") return a.title.localeCompare(b.title);
+        return b.updatedAt - a.updatedAt;
+      });
+    if (chats.length === 0) return [];
+    return [{ repo, chats }];
+  }, [
+    state.repositories,
+    state.conversations,
+    state.activeRepositoryId,
+    sortMode,
+  ]);
 
   const menuItems: MenuItem[] = useMemo(() => {
-    if (!menu) return []
-    const chat = state.conversations[menu.id]
-    if (!chat) return []
+    if (!menu) return [];
+    const chat = state.conversations[menu.id];
+    if (!chat) return [];
     return [
       {
-        label: chat.pinned ? t('sessions.unpin') : t('sessions.pin'),
-        onClick: () => togglePinConversation(chat.id)
+        label: chat.pinned ? t("sessions.unpin") : t("sessions.pin"),
+        onClick: () => togglePinConversation(chat.id),
       },
-      { label: t('sessions.rename'), shortcut: 'F2', onClick: () => setRenamingId(chat.id) },
+      {
+        label: t("sessions.rename"),
+        shortcut: "F2",
+        onClick: () => setRenamingId(chat.id),
+      },
       { separator: true },
       {
-        label: t('sessions.delete'),
+        label: t("sessions.delete"),
         danger: true,
-        onClick: () => deleteConversation(chat.id)
-      }
-    ]
-  }, [menu, state.conversations, togglePinConversation, deleteConversation, t])
+        onClick: () => deleteConversation(chat.id),
+      },
+    ];
+  }, [menu, state.conversations, togglePinConversation, deleteConversation, t]);
 
   const sortItems: MenuItem[] = useMemo(
     () => [
       {
-        label: sortMode === 'updated' ? `✓ ${t('sessions.sortUpdated')}` : t('sessions.sortUpdated'),
-        onClick: () => setSortMode('updated')
+        label:
+          sortMode === "updated"
+            ? `✓ ${t("sessions.sortUpdated")}`
+            : t("sessions.sortUpdated"),
+        onClick: () => setSortMode("updated"),
       },
       {
-        label: sortMode === 'created' ? `✓ ${t('sessions.sortCreated')}` : t('sessions.sortCreated'),
-        onClick: () => setSortMode('created')
+        label:
+          sortMode === "created"
+            ? `✓ ${t("sessions.sortCreated")}`
+            : t("sessions.sortCreated"),
+        onClick: () => setSortMode("created"),
       },
       {
-        label: sortMode === 'alpha' ? `✓ ${t('sessions.sortAlpha')}` : t('sessions.sortAlpha'),
-        onClick: () => setSortMode('alpha')
-      }
+        label:
+          sortMode === "alpha"
+            ? `✓ ${t("sessions.sortAlpha")}`
+            : t("sessions.sortAlpha"),
+        onClick: () => setSortMode("alpha"),
+      },
     ],
-    [sortMode, t]
-  )
+    [sortMode, t],
+  );
 
-  const searchItems: PaletteItem<{ id: string; repoId: string }>[] = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase()
-    if (!q) return []
-    const out: PaletteItem<{ id: string; repoId: string }>[] = []
-    for (const repo of state.repositories) {
-      for (const id of repo.conversationIds) {
-        const conv = state.conversations[id]
-        if (!conv) continue
-        if (
-          conv.title.toLowerCase().includes(q) ||
-          conv.messages.some((m) => m.content.toLowerCase().includes(q))
-        ) {
-          out.push({
-            id: conv.id,
-            title: conv.title,
-            subtitle: repo.name,
-            data: { id: conv.id, repoId: repo.id }
-          })
+  const searchItems: PaletteItem<{ id: string; repoId: string }>[] =
+    useMemo(() => {
+      const q = searchQuery.trim().toLowerCase();
+      if (!q) return [];
+      const out: PaletteItem<{ id: string; repoId: string }>[] = [];
+      for (const repo of state.repositories) {
+        for (const id of repo.conversationIds) {
+          const conv = state.conversations[id];
+          if (!conv) continue;
+          if (
+            conv.title.toLowerCase().includes(q) ||
+            conv.messages.some((m) => m.content.toLowerCase().includes(q))
+          ) {
+            out.push({
+              id: conv.id,
+              title: conv.title,
+              subtitle: repo.name,
+              data: { id: conv.id, repoId: repo.id },
+            });
+          }
         }
       }
-    }
-    return out.slice(0, 200)
-  }, [searchQuery, state.repositories, state.conversations])
+      return out.slice(0, 200);
+    }, [searchQuery, state.repositories, state.conversations]);
 
   return (
     <aside className="sessions">
       <header className="sessions__header">
-        <h2 className="sessions__title">{t('sessions.title')}</h2>
+        <h2 className="sessions__title">{t("sessions.title")}</h2>
         <div className="sessions__header-actions">
           <button
             className="sessions__icon sessions__icon--plus"
             type="button"
-            aria-label={t('sessions.new')}
-            title={t('sessions.newHint')}
+            aria-label={t("sessions.new")}
+            title={t("sessions.newHint")}
             onClick={() => createConversation(state.activeRepositoryId)}
           >
             <PlusIcon size={20} />
@@ -168,11 +192,11 @@ export function SessionsPanel(): JSX.Element {
           <button
             className="sessions__icon"
             type="button"
-            aria-label={t('sessions.sort')}
-            title={t('sessions.sort')}
+            aria-label={t("sessions.sort")}
+            title={t("sessions.sort")}
             onClick={(e) => {
-              const r = e.currentTarget.getBoundingClientRect()
-              setSortMenu({ x: r.left, y: r.bottom + 4 })
+              const r = e.currentTarget.getBoundingClientRect();
+              setSortMenu({ x: r.left, y: r.bottom + 4 });
             }}
           >
             <ArrowLeftRight size={14} />
@@ -180,11 +204,11 @@ export function SessionsPanel(): JSX.Element {
           <button
             className="sessions__icon"
             type="button"
-            aria-label={t('sessions.search')}
-            title={t('sessions.searchHint')}
+            aria-label={t("sessions.search")}
+            title={t("sessions.searchHint")}
             onClick={() => {
-              setSearchOpen(true)
-              setSearchQuery('')
+              setSearchOpen(true);
+              setSearchQuery("");
             }}
           >
             <Search size={14} />
@@ -215,13 +239,13 @@ export function SessionsPanel(): JSX.Element {
                   t={t}
                   onSelect={() => selectConversation(conv.id)}
                   onContextMenu={(e) => {
-                    e.preventDefault()
-                    setMenu({ x: e.clientX, y: e.clientY, id: conv.id })
+                    e.preventDefault();
+                    setMenu({ x: e.clientX, y: e.clientY, id: conv.id });
                   }}
                   onRename={(title) => {
-                    const t2 = title.trim()
-                    if (t2) renameConversation(conv.id, t2)
-                    setRenamingId(null)
+                    const t2 = title.trim();
+                    if (t2) renameConversation(conv.id, t2);
+                    setRenamingId(null);
                   }}
                   onCancelRename={() => setRenamingId(null)}
                 />
@@ -240,34 +264,39 @@ export function SessionsPanel(): JSX.Element {
         >
           <ChevronRight
             size={14}
-            className={`sessions__custom-chevron${customOpen ? ' sessions__custom-chevron--open' : ''}`}
+            className={`sessions__custom-chevron${customOpen ? " sessions__custom-chevron--open" : ""}`}
           />
-          <span>{t('sessions.customizations')}</span>
+          <span>{t("sessions.customizations")}</span>
         </button>
-        <div className={`sessions__custom-wrap${customOpen ? ' sessions__custom-wrap--open' : ''}`}>
+        <div
+          className={`sessions__custom-wrap${customOpen ? " sessions__custom-wrap--open" : ""}`}
+        >
           <div className="sessions__custom-list">
             {CUSTOMIZATIONS.map((c) => {
-              const Icon = c.icon
+              const Icon = c.icon;
               return (
                 <button
                   key={c.key}
                   className="sessions__custom"
                   type="button"
                   onClick={() => {
-                    if (c.action === 'settings') setView('settings')
-                    else if (c.action === 'mcp') setMcpOpen(true)
-                    else if (c.action === 'skills') {
-                      queueSettingsSection('skills')
-                      setView('settings')
-                      emitAppEvent('settings:section', { section: 'skills' })
+                    if (c.action === "mcp") setMcpOpen(true);
+                    else if (c.action === "skills") {
+                      queueSettingsSection("skills");
+                      setView("settings");
+                      emitAppEvent("settings:section", { section: "skills" });
                     }
                   }}
                 >
                   <Icon size={14} className="sessions__custom-icon" />
-                  <span className="sessions__custom-label">{t(CUSTOM_LABELS[c.key])}</span>
-                  {c.badge !== null && <span className="sessions__custom-badge">{c.badge}</span>}
+                  <span className="sessions__custom-label">
+                    {t(CUSTOM_LABELS[c.key])}
+                  </span>
+                  {c.badge !== null && (
+                    <span className="sessions__custom-badge">{c.badge}</span>
+                  )}
                 </button>
-              )
+              );
             })}
           </div>
         </div>
@@ -297,20 +326,25 @@ export function SessionsPanel(): JSX.Element {
 
       {searchOpen && (
         <CommandPalette<{ id: string; repoId: string }>
-          placeholder={t('sessions.searchPlaceholder')}
+          placeholder={t("sessions.searchPlaceholder")}
           query={searchQuery}
           onQueryChange={setSearchQuery}
           items={searchItems.map((i) => ({
             ...i,
-            icon: <MessageSquare size={14} />
+            icon: <MessageSquare size={14} />,
           }))}
-          empty={searchQuery.trim() ? t('sessions.nothingFound') : t('sessions.enterQuery')}
+          empty={
+            searchQuery.trim()
+              ? t("sessions.nothingFound")
+              : t("sessions.enterQuery")
+          }
           onSelect={(item) => {
             if (item.data) {
-              if (item.data.repoId !== state.activeRepositoryId) selectProject(item.data.repoId)
-              selectConversation(item.data.id)
+              if (item.data.repoId !== state.activeRepositoryId)
+                selectProject(item.data.repoId);
+              selectConversation(item.data.id);
             }
-            setSearchOpen(false)
+            setSearchOpen(false);
           }}
           onClose={() => setSearchOpen(false)}
         />
@@ -318,7 +352,7 @@ export function SessionsPanel(): JSX.Element {
 
       {mcpOpen && <McpModal onClose={() => setMcpOpen(false)} />}
     </aside>
-  )
+  );
 }
 
 function SessionRow({
@@ -329,18 +363,18 @@ function SessionRow({
   onSelect,
   onContextMenu,
   onRename,
-  onCancelRename
+  onCancelRename,
 }: {
-  conv: Conversation
-  active: boolean
-  renaming: boolean
-  t: import('../../i18n').Translate
-  onSelect: () => void
-  onContextMenu: (e: React.MouseEvent) => void
-  onRename: (title: string) => void
-  onCancelRename: () => void
+  conv: Conversation;
+  active: boolean;
+  renaming: boolean;
+  t: import("../../i18n").Translate;
+  onSelect: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
+  onRename: (title: string) => void;
+  onCancelRename: () => void;
 }): JSX.Element {
-  const streaming = conv.messages.some((m) => m.streaming)
+  const streaming = conv.messages.some((m) => m.streaming);
   if (renaming) {
     return (
       <div className="session">
@@ -351,17 +385,18 @@ function SessionRow({
           onFocus={(e) => e.target.select()}
           onBlur={(e) => onRename(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') onRename((e.target as HTMLInputElement).value)
-            if (e.key === 'Escape') onCancelRename()
+            if (e.key === "Enter")
+              onRename((e.target as HTMLInputElement).value);
+            if (e.key === "Escape") onCancelRename();
           }}
         />
       </div>
-    )
+    );
   }
   return (
     <button
       type="button"
-      className={`session${active ? ' session--active' : ''}`}
+      className={`session${active ? " session--active" : ""}`}
       onClick={onSelect}
       onContextMenu={onContextMenu}
     >
@@ -376,5 +411,5 @@ function SessionRow({
         {streaming && <span className="session__spinner" aria-hidden="true" />}
       </div>
     </button>
-  )
+  );
 }

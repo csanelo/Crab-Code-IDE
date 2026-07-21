@@ -15,7 +15,6 @@
   background: var(--color-bg);
 }
 
-
 .app__row {
   display: flex;
   flex: 1;
@@ -36,7 +35,6 @@
   min-height: 0;
 }
 
-
 .app__panel {
   flex-shrink: 0;
   overflow: hidden;
@@ -45,7 +43,6 @@
   box-shadow: none;
   transition: width var(--dur-base) var(--ease-in-out);
 }
-
 
 .app__main--resizing .app__panel {
   transition: none;
@@ -98,7 +95,6 @@
   min-height: 0;
 }
 
-
 .app__resizer {
   position: relative;
   flex-shrink: 0;
@@ -141,11 +137,66 @@
   overflow: hidden;
 }
 
+.app__agent-center {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  overflow: hidden;
+}
+
+.app--agent .ns__chip-wrap:has(.ns__session-btn) {
+  display: none;
+}
+
+.app--agent .sessions__footer {
+  display: none;
+}
+
+.app--agent {
+  --agent-shell-bg: var(--color-chrome);
+  --agent-chat-bg: color-mix(in srgb, var(--color-chrome) 88%, #000 12%);
+  background: var(--agent-shell-bg);
+}
+
+.app--agent .app__main,
+.app--agent .app__rightside,
+.app--agent .app__row--inner {
+  background: var(--agent-shell-bg);
+}
+
+.app--agent .app__rightside {
+  box-sizing: border-box;
+  padding: 10px;
+}
+
+.app--agent .app__agent-center {
+  background: var(--agent-chat-bg);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.app--agent .chat,
+.app--agent .chat__scroll,
+.app--agent .chat__composer-wrap {
+  background: var(--agent-chat-bg);
+}
+
+.app--agent .chat {
+  border-radius: 18px;
+}
+
+.app--agent .app__terminal--open {
+  margin-top: 10px;
+  border-radius: 18px;
+  background: var(--agent-chat-bg);
+}
 
 .app__content--with-browser {
   flex: 1 1 50%;
 }
-
 
 .app__content--hidden {
   display: none;
@@ -187,7 +238,6 @@
   border-bottom-right-radius: 0;
 }
 
-
 .app__hresizer {
   flex-shrink: 0;
   height: 6px;
@@ -219,7 +269,6 @@
     transition: none;
   }
 }
-
 
 .app__settings-overlay {
   position: absolute;

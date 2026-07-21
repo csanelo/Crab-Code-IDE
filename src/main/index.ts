@@ -57,7 +57,11 @@ let editorWindow: BrowserWindow | null = null;
 
 let mainWindow: BrowserWindow | null = null;
 
+let agentWindow: BrowserWindow | null = null;
+
 let pendingMacOpen: string | null = null;
+
+let isQuitting = false;
 
 function setupAutoUpdate(): void {
   if (isDev) return;
@@ -210,6 +214,74 @@ function createWindow(): BrowserWindow {
     if (mainWindow === win) mainWindow = null;
   });
 
+  function openAgentWindow(): boolean {
+    if (agentWindow && !agentWindow.isDestroyed()) {
+      if (agentWindow.isMinimized()) agentWindow.restore();
+      agentWindow.focus();
+      return true;
+    }
+
+    agentWindow = new BrowserWindow({
+      width: 1100,
+      height: 760,
+      minWidth: 720,
+      minHeight: 520,
+      show: false,
+      ...frameOptions,
+      backgroundColor: "#181818",
+      icon: appIcon,
+      webPreferences: {
+        preload: join(__dirname, "../preload/index.js"),
+        sandbox: false,
+        contextIsolation: true,
+        nodeIntegration: false,
+        webviewTag: true,
+        devTools: false,
+      },
+    });
+
+    agentWindow.on("ready-to-show", () => {
+      const next = agentWindow;
+      if (!next || next.isDestroyed()) return;
+      next.show();
+      next.focus();
+      if (!win.isDestroyed()) win.hide();
+    });
+    agentWindow.on("closed", () => {
+      if (agentWindow) agentWindow = null;
+      if (
+        !isQuitting &&
+        mainWindow &&
+        !mainWindow.isDestroyed() &&
+        !mainWindow.isVisible()
+      ) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    });
+    agentWindow.on("maximize", () =>
+      agentWindow?.webContents.send("window:maximized", true),
+    );
+    agentWindow.on("unmaximize", () =>
+      agentWindow?.webContents.send("window:maximized", false),
+    );
+    agentWindow.webContents.on("did-fail-load", () => {
+      const failed = agentWindow;
+      agentWindow = null;
+      if (failed && !failed.isDestroyed()) failed.destroy();
+    });
+
+    if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
+      agentWindow.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}#agent`);
+    } else {
+      agentWindow.loadFile(join(__dirname, "../renderer/index.html"), {
+        hash: "agent",
+      });
+    }
+
+    return true;
+  }
+
   win.webContents.session.setPermissionRequestHandler(
     (_wc, permission, callback) => {
       if (permission === "media" || permission === "audioCapture") {
@@ -225,21 +297,29 @@ function createWindow(): BrowserWindow {
     return { action: "deny" };
   });
 
-  ipcMain.handle("window:minimize", () => win.minimize());
-  ipcMain.handle("window:toggle-maximize", () => {
-    if (win.isMaximized()) win.unmaximize();
-    else win.maximize();
-    return win.isMaximized();
+  ipcMain.handle("window:minimize", (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.minimize();
   });
-  ipcMain.handle("window:close", () => win.close());
-  ipcMain.handle("window:is-maximized", () => win.isMaximized());
+  ipcMain.handle("window:toggle-maximize", (event) => {
+    const targetWindow = BrowserWindow.fromWebContents(event.sender);
+    if (!targetWindow) return false;
+    if (targetWindow.isMaximized()) targetWindow.unmaximize();
+    else targetWindow.maximize();
+    return targetWindow.isMaximized();
+  });
+  ipcMain.handle("window:close", (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.close();
+  });
+  ipcMain.handle("window:is-maximized", (event) => {
+    return BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false;
+  });
   win.on("maximize", () => win.webContents.send("window:maximized", true));
   win.on("unmaximize", () => win.webContents.send("window:maximized", false));
 
   const ZOOM_MIN = -3;
   const ZOOM_MAX = 6;
-  ipcMain.handle("window:zoom", (_e, delta: number) => {
-    const wc = win.webContents;
+  ipcMain.handle("window:zoom", (event, delta: number) => {
+    const wc = event.sender;
     if (delta === 0) {
       wc.setZoomLevel(0);
     } else {
@@ -249,7 +329,7 @@ function createWindow(): BrowserWindow {
       );
       wc.setZoomLevel(next);
     }
-    return win.webContents.getZoomLevel();
+    return wc.getZoomLevel();
   });
 
   ipcMain.handle("project:open-dialog", async () => {
@@ -260,6 +340,23 @@ function createWindow(): BrowserWindow {
     if (result.canceled || result.filePaths.length === 0) return null;
     const path = result.filePaths[0];
     return { path, name: basename(path) };
+  });
+
+  ipcMain.handle("app:open-agent-window", () => {
+    return openAgentWindow();
+  });
+
+  ipcMain.handle("app:return-to-ide", (event, sessionSnapshot?: unknown) => {
+    if (!mainWindow || mainWindow.isDestroyed()) return false;
+    if (sessionSnapshot) {
+      mainWindow.webContents.send("app:agent-sessions", sessionSnapshot);
+    }
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+    const currentWindow = BrowserWindow.fromWebContents(event.sender);
+    if (currentWindow && currentWindow !== mainWindow) currentWindow.close();
+    return true;
   });
 
   ipcMain.handle("project:reveal", async (_e, path: string) => {
@@ -397,6 +494,7 @@ if (!gotLock) {
 }
 
 app.on("before-quit", () => {
+  isQuitting = true;
   killAllTerminals();
   killAllLsp();
 });
