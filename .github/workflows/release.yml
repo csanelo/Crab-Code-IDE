@@ -50,9 +50,28 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      - name: Cache Electron downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: ${{ runner.os }}-electron-${{ hashFiles('package-lock.json') }}
       - run: npm ci
       - run: npm run build
-      - run: npx electron-builder --linux AppImage deb --x64 --publish never
+      - name: Build Linux packages
+        shell: bash
+        run: |
+          for attempt in 1 2 3 4; do
+            if npx electron-builder --linux AppImage deb --x64 --publish never; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 4 ]; then
+              exit 1
+            fi
+            rm -rf "$HOME/.cache/electron" "$HOME/.cache/electron-builder" dist/linux-unpacked
+            sleep $((attempt * 20))
+          done
       - name: Collect Linux assets
         shell: bash
         run: |
