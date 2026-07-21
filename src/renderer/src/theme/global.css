@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-@import './tokens.css';
-=======
 @import "./tokens.css";
 @import url("https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap");
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 
 *,
 *::before,
@@ -24,12 +20,6 @@ body {
   color: var(--color-text);
   background: var(--color-chrome);
   -webkit-font-smoothing: antialiased;
-<<<<<<< HEAD
-  text-rendering: optimizeLegibility;
-  overflow: hidden;
-}
-
-=======
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   letter-spacing: -0.01em;
@@ -50,7 +40,6 @@ textarea,
   user-select: text;
   -webkit-user-select: text;
 }
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 
 button,
 input,
@@ -75,10 +64,6 @@ h4 {
   text-shadow: var(--text-engrave-strong);
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .composer__input,
 .settings__input,
 .ns__input,
@@ -90,10 +75,6 @@ h4 {
   text-shadow: none;
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .composer__send,
 .composer__send svg {
   text-shadow: none;
@@ -115,10 +96,6 @@ textarea {
   background: var(--color-accent-soft);
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -138,10 +115,6 @@ textarea {
   outline: none;
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 *:focus,
 *:focus-visible,
 input:focus,

@@ -430,16 +430,6 @@ function MessageItemBase({ message }: { message: ChatMessage }): JSX.Element {
         <div className="message__user">
           {message.attachments && message.attachments.length > 0 && (
             <div className="message__images">
-<<<<<<< HEAD
-              {message.attachments.map((a) => (
-                <img
-                  key={a.id}
-                  src={a.dataUrl}
-                  alt={a.name}
-                  className="message__image"
-                />
-              ))}
-=======
               {message.attachments.map((attachment) =>
                 attachment.mimeType.startsWith('image/') ? (
                   <img
@@ -455,7 +445,6 @@ function MessageItemBase({ message }: { message: ChatMessage }): JSX.Element {
                   </div>
                 )
               )}
->>>>>>> baf0023 (release: CrabCode 0.2.8)
             </div>
           )}
           {message.content && (

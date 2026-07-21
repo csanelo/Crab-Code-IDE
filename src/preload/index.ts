@@ -306,10 +306,7 @@ const api = {
         cwd: string | null
         access?: 'normal' | 'high'
         editMode?: 'auto' | 'ask' | 'readonly'
-<<<<<<< HEAD
-=======
         webEnabled?: boolean
->>>>>>> baf0023 (release: CrabCode 0.2.8)
       }
     ) => ipcRenderer.send('agent:send', requestId, messages, opts ?? { cwd: null }),
     abort: (requestId: string) => ipcRenderer.send('agent:abort', requestId),

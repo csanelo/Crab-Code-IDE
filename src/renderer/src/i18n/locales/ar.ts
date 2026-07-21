@@ -66,10 +66,7 @@ export const ar: Record<TKey, string> = {
   'files.refresh': 'تحديث',
   'files.collapseAll': 'طي الكل',
   'files.noChanges': 'لا توجد تغييرات',
-<<<<<<< HEAD
-=======
   'files.noChangesSub': 'ستظهر تعديلات ملفاتك هنا.',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'files.changedCount': '{n} ملفات معدّلة',
   'files.clearChanges': 'مسح',
   'files.revert': 'التراجع عن التغيير',
@@ -96,10 +93,7 @@ export const ar: Record<TKey, string> = {
   'chat.with': 'باستخدام',
   'chat.noProject': 'لا يوجد مشروع',
   'chat.noModels': 'لا توجد نماذج',
-<<<<<<< HEAD
-=======
   'chat.context': 'السياق',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'chat.newChat': 'محادثة جديدة',
   'chat.describe': 'صف ما تريد بناءه',
   'chat.describeAria': 'صف المهمة',
@@ -126,11 +120,7 @@ export const ar: Record<TKey, string> = {
   'chat.at.terminal': 'آخر مخرجات الطرفية',
   'chat.at.web': 'ابحث في الويب عن سياق',
   'chat.at.codebase': 'دع الوكيل يستكشف المشروع',
-<<<<<<< HEAD
-  'chat.getToWork': 'لنبدأ العمل',
-=======
   'chat.getToWork': 'ماذا سنبني اليوم؟',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'github.connectTitle': 'ربط GitHub',
   'github.patHint': 'الصق رمز وصول شخصي (Personal Access Token) بنطاق repo لعرض مستودعاتك واستنساخها.',
   'github.createToken': 'إنشاء رمز على GitHub',

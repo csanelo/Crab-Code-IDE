@@ -2,45 +2,6 @@ import { useEffect, useState } from 'react'
 import {
   GitBranch,
   FileCode,
-<<<<<<< HEAD
-  AlertCircle,
-  Loader2,
-  ArrowUp,
-  Folder,
-  Github,
-  TerminalSquare,
-  Plus,
-  Check,
-  X,
-  Coins,
-  MessageSquare,
-  Clock
-} from 'lucide-react'
-import { useApp } from '../../state/AppContext'
-import { useT } from '../../i18n'
-import type { TKey } from '../../i18n/translations'
-import { fileIcon } from '../files/iconMap'
-import { GithubPanel } from '../center/GithubPanel'
-import { SshPanel } from '../center/SshPanel'
-
-type RepoSource = 'folder' | 'github' | 'ssh'
-
-const REPO_SOURCES: { id: RepoSource; key: TKey; icon: typeof Folder }[] = [
-  { id: 'folder', key: 'chat.source.folder', icon: Folder },
-  { id: 'github', key: 'chat.source.github', icon: Github },
-  { id: 'ssh', key: 'chat.source.ssh', icon: TerminalSquare }
-]
-
-const SOURCE_ICON: Record<RepoSource, typeof Folder> = {
-  folder: Folder,
-  github: Github,
-  ssh: TerminalSquare
-}
-
-export function StatusBar(): JSX.Element {
-  const t = useT()
-  const { state, activeConversation, selectProject, openProject, deleteProject, clearChanges, removeChange } = useApp()
-=======
   Loader2,
   ArrowUp,
   Coins,
@@ -53,7 +14,6 @@ import { fileIcon } from '../files/iconMap'
 export function StatusBar(): JSX.Element {
   const t = useT()
   const { state, activeConversation, clearChanges, removeChange } = useApp()
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   const activeRepo =
     state.repositories.find((r) => r.id === state.activeRepositoryId) ?? null
   const isGithub = activeRepo?.source === 'github'
@@ -64,22 +24,7 @@ export function StatusBar(): JSX.Element {
   const sessionTokens =
     activeConversation?.messages.reduce((sum, m) => sum + (m.tokens ?? 0), 0) ?? 0
 
-<<<<<<< HEAD
-  const [uptime, setUptime] = useState(0)
-  useEffect(() => {
-    const start = Date.now()
-    const tick = (): void => setUptime(Date.now() - start)
-    tick()
-    const id = window.setInterval(tick, 30_000)
-    return () => window.clearInterval(id)
-  }, [])
-
   const [branch, setBranch] = useState<string | null>(null)
-  const [projOpen, setProjOpen] = useState(false)
-  const [repoSource, setRepoSource] = useState<RepoSource>('folder')
-=======
-  const [branch, setBranch] = useState<string | null>(null)
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   const [commitOpen, setCommitOpen] = useState(false)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
@@ -119,172 +64,6 @@ export function StatusBar(): JSX.Element {
   return (
     <footer className="statusbar">
       <div className="statusbar__group">
-<<<<<<< HEAD
-        <div className="statusbar__proj">
-          <button
-            type="button"
-            className="statusbar__item statusbar__btn"
-            onClick={() => setProjOpen((v) => !v)}
-            title={t('status.switchProject')}
-          >
-            {(() => {
-              const Icon = SOURCE_ICON[(activeRepo?.source as RepoSource) ?? 'folder']
-              return <Icon size={12} />
-            })()}
-            {activeRepo ? activeRepo.name : t('status.noProject')}
-          </button>
-          {projOpen && (
-            <>
-              <div className="statusbar__backdrop" onClick={() => setProjOpen(false)} />
-              <div className="statusbar__menu statusbar__menu--wide" role="menu">
-                <div className="ns__menu-tabs" role="tablist">
-                  {REPO_SOURCES.map((s) => {
-                    const TabIcon = s.icon
-                    return (
-                      <button
-                        key={s.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={repoSource === s.id}
-                        className={`ns__menu-tab${repoSource === s.id ? ' ns__menu-tab--on' : ''}`}
-                        onClick={() => setRepoSource(s.id)}
-                      >
-                        <TabIcon size={13} />
-                        <span>{t(s.key)}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-                <div className="ns__menu-sep" />
-
-                {repoSource === 'folder' && (
-                  <>
-                    {state.repositories
-                      .filter((repo) => (repo.source ?? 'folder') === 'folder')
-                      .map((repo) => (
-                        <div key={repo.id} className="ns__menu-row">
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="ns__menu-item ns__menu-item--main"
-                            onClick={() => {
-                              selectProject(repo.id)
-                              setProjOpen(false)
-                            }}
-                          >
-                            <Folder size={13} />
-                            <span className="ns__menu-label">{repo.name}</span>
-                            {repo.id === state.activeRepositoryId && <Check size={13} />}
-                          </button>
-                          <button
-                            type="button"
-                            className="ns__menu-remove"
-                            aria-label={t('chat.removeProject', { name: repo.name })}
-                            title={t('chat.removeFromList')}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              deleteProject(repo.id)
-                            }}
-                          >
-                            <X size={15} />
-                          </button>
-                        </div>
-                      ))}
-                    <div className="ns__menu-sep" />
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="ns__menu-item"
-                      onClick={() => {
-                        setProjOpen(false)
-                        void openProject()
-                      }}
-                    >
-                      <Plus size={13} />
-                      <span className="ns__menu-label">{t('chat.openFolder')}</span>
-                    </button>
-                  </>
-                )}
-
-                {repoSource === 'github' && (
-                  <>
-                    {state.repositories
-                      .filter((repo) => repo.source === 'github')
-                      .map((repo) => (
-                        <div key={repo.id} className="ns__menu-row">
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="ns__menu-item ns__menu-item--main"
-                            onClick={() => {
-                              selectProject(repo.id)
-                              setProjOpen(false)
-                            }}
-                          >
-                            <Github size={13} />
-                            <span className="ns__menu-label">{repo.name}</span>
-                            {repo.id === state.activeRepositoryId && <Check size={13} />}
-                          </button>
-                          <button
-                            type="button"
-                            className="ns__menu-remove"
-                            aria-label={t('chat.removeProject', { name: repo.name })}
-                            title={t('chat.removeFromList')}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              deleteProject(repo.id)
-                            }}
-                          >
-                            <X size={15} />
-                          </button>
-                        </div>
-                      ))}
-                    <GithubPanel onOpened={() => setProjOpen(false)} />
-                  </>
-                )}
-
-                {repoSource === 'ssh' && (
-                  <>
-                    {state.repositories
-                      .filter((repo) => repo.source === 'ssh')
-                      .map((repo) => (
-                        <div key={repo.id} className="ns__menu-row">
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="ns__menu-item ns__menu-item--main"
-                            onClick={() => {
-                              selectProject(repo.id)
-                              setProjOpen(false)
-                            }}
-                          >
-                            <TerminalSquare size={13} />
-                            <span className="ns__menu-label">{repo.name}</span>
-                            {repo.id === state.activeRepositoryId && <Check size={13} />}
-                          </button>
-                          <button
-                            type="button"
-                            className="ns__menu-remove"
-                            aria-label={t('chat.removeProject', { name: repo.name })}
-                            title={t('chat.removeFromList')}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              deleteProject(repo.id)
-                            }}
-                          >
-                            <X size={15} />
-                          </button>
-                        </div>
-                      ))}
-                    <SshPanel onOpened={() => setProjOpen(false)} />
-                  </>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
         {branch && (
           <span className="statusbar__item statusbar__branch">
             <GitBranch size={12} />
@@ -382,17 +161,6 @@ export function StatusBar(): JSX.Element {
             </span>
           </>
         )}
-<<<<<<< HEAD
-        <span className="statusbar__item" title={t('status.uptime')}>
-          <Clock size={12} />
-          {formatUptime(uptime)}
-        </span>
-        <span className="statusbar__item">
-          <AlertCircle size={12} />0
-        </span>
-        <span className="statusbar__item">CrabCode</span>
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
       </div>
     </footer>
   )
@@ -404,13 +172,3 @@ function formatCount(n: number): string {
   return `${(n / 1_000_000).toFixed(1)}M`
 }
 
-<<<<<<< HEAD
-function formatUptime(ms: number): string {
-  const totalMin = Math.floor(ms / 60_000)
-  const h = Math.floor(totalMin / 60)
-  const m = totalMin % 60
-  if (h > 0) return `${h}h ${m}m`
-  return `${m}m`
-}
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)

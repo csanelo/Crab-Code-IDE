@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-<<<<<<< HEAD
-=======
 import { DotLottieReact } from '@lottiefiles/dotlottie-react'
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 import { useApp } from '../../state/AppContext'
 import { useT } from '../../i18n'
 import { on as onAppEvent } from '../../lib/appEvents'
@@ -11,43 +8,6 @@ import { NewSession } from '../center/NewSession'
 import { McpModal } from '../mcp/McpModal'
 import './ChatPanel.css'
 
-<<<<<<< HEAD
-function PixelCrab({ className }: { className?: string }): JSX.Element {
-  const grid = [
-    '1000000000001',
-    '1100000000011',
-    '0110000000110',
-    '0011111111100',
-    '0111111111110',
-    '1110100001011',
-    '1111111111111',
-    '0011011011000',
-    '0110000000110'
-  ]
-  const cell = 8
-  const rects: JSX.Element[] = []
-  grid.forEach((row, y) => {
-    for (let x = 0; x < row.length; x++) {
-      if (row[x] === '1') {
-        rects.push(<rect key={`${x}-${y}`} x={x * cell} y={y * cell} width={cell} height={cell} />)
-      }
-    }
-  })
-  return (
-    <svg
-      className={className}
-      viewBox={`0 0 ${13 * cell} ${9 * cell}`}
-      fill="currentColor"
-      shapeRendering="crispEdges"
-      aria-hidden="true"
-    >
-      {rects}
-    </svg>
-  )
-}
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 export function ChatPanel(): JSX.Element {
   const { state, activeConversation, sendMessage, stopMessage } = useApp()
   const t = useT()
@@ -80,10 +40,6 @@ export function ChatPanel(): JSX.Element {
       <section className="chat">
         <div className="chat__scroll">
           <div className="chat__hero-empty">
-<<<<<<< HEAD
-            <PixelCrab className="chat__hero-icon" />
-            <div className="chat__hero-text">{t('chat.getToWork')}</div>
-=======
             <div className="chat__hero-anim">
               <DotLottieReact
                 src="https://lottie.host/7ab07753-b445-480d-b057-8f1d62cb76e0/GM03isGqsP.lottie"
@@ -92,7 +48,6 @@ export function ChatPanel(): JSX.Element {
               />
             </div>
             <div className="chat__hero-title">{t('chat.getToWork')}</div>
->>>>>>> baf0023 (release: CrabCode 0.2.8)
           </div>
         </div>
         <div className="chat__composer-wrap">

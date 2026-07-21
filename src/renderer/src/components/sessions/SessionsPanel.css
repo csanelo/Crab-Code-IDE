@@ -212,11 +212,7 @@
 
 
 .sessions__footer {
-<<<<<<< HEAD
-  border-top: 1px solid var(--color-border);
-=======
   border-top: none;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   padding: var(--space-2);
   flex-shrink: 0;
 }

@@ -1,0 +1,109 @@
+name: Build and release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+jobs:
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx electron-builder --win nsis --x64 --publish never
+      - name: Collect Windows assets
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release-assets | Out-Null
+          $installer = Get-ChildItem dist -File -Filter "CrabCode_setup_*.exe" | Select-Object -First 1
+          if (-not $installer) { throw "Windows installer was not created" }
+          Copy-Item $installer.FullName release-assets/
+          Get-ChildItem dist -File | Where-Object { $_.Name -match '(^latest.*\.yml$|\.blockmap$)' } | Copy-Item -Destination release-assets/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: release-assets/*
+          if-no-files-found: error
+
+  linux:
+    name: Linux x64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx electron-builder --linux AppImage deb --x64 --publish never
+      - name: Collect Linux assets
+        shell: bash
+        run: |
+          mkdir -p release-assets
+          find dist -maxdepth 1 -type f \( -name 'CrabCode.AppImage' -o -name 'CrabCode_*.deb' -o -name 'latest*.yml' -o -name '*.blockmap' \) -exec cp {} release-assets/ \;
+          test -f release-assets/CrabCode.AppImage
+          test -n "$(find release-assets -maxdepth 1 -type f -name 'CrabCode_*.deb' -print -quit)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          path: release-assets/*
+          if-no-files-found: error
+
+  macos:
+    name: macOS ARM64
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx electron-builder --mac zip --arm64 --publish never
+      - name: Collect macOS assets
+        shell: bash
+        run: |
+          mkdir -p release-assets
+          find dist -maxdepth 1 -type f \( -name 'CrabCode-arm64-mac.zip' -o -name 'latest*.yml' -o -name '*.blockmap' \) -exec cp {} release-assets/ \;
+          test -f release-assets/CrabCode-arm64-mac.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64
+          path: release-assets/*
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - windows
+      - linux
+      - macos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: release-assets/*

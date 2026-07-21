@@ -14,45 +14,29 @@
   height: 38px;
   padding: 0 var(--space-2) 0 var(--space-3);
   flex-shrink: 0;
-<<<<<<< HEAD
-  border-bottom: 1px solid var(--color-border);
-}
-
-.files__tabs {
-=======
   border-bottom: none;
 }
 
 .files__tabs {
   position: relative;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   display: flex;
   align-items: center;
   gap: var(--space-4);
 }
 
 .files__tab {
-<<<<<<< HEAD
-=======
   position: relative;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   border: none;
   background: transparent;
   color: var(--color-text-muted);
   font-size: var(--text-sm);
   font-weight: 500;
   letter-spacing: 0.02em;
-<<<<<<< HEAD
-  padding: 0;
-  cursor: pointer;
-  transition: color var(--dur-fast) var(--ease-out);
-=======
   padding: 2px 0 5px;
   cursor: pointer;
   transition:
     color var(--dur-fast) var(--ease-out),
     opacity var(--dur-fast) var(--ease-out);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .files__tab:hover {
@@ -79,13 +63,9 @@
   background: transparent;
   color: var(--color-text-secondary);
   border-radius: var(--radius-sm);
-<<<<<<< HEAD
-  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-=======
   transition:
     background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .files__icon:hover {
@@ -106,8 +86,6 @@
   background: var(--color-accent-soft);
 }
 
-<<<<<<< HEAD
-=======
 .files__view {
   --files-view-shift: 0;
   min-height: 100%;
@@ -134,7 +112,6 @@
   }
 }
 
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .files__empty {
   display: flex;
   flex-direction: column;
@@ -145,8 +122,6 @@
   padding: var(--space-3);
 }
 
-<<<<<<< HEAD
-=======
 .files__no-folder {
   display: flex;
   flex-direction: column;
@@ -184,18 +159,13 @@
   background: var(--color-surface-raised);
 }
 
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .files__open-btn {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   height: 28px;
   padding: 0 var(--space-3);
-<<<<<<< HEAD
-  border: 1px solid var(--color-border-strong);
-=======
   border: 1px solid transparent;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   background: var(--color-surface-raised);
   color: var(--color-text);
   border-radius: var(--radius-sm);
@@ -230,11 +200,7 @@
   height: 32px;
   padding: 0 var(--space-2);
   background: var(--color-bg);
-<<<<<<< HEAD
-  border: 1px solid var(--color-border-strong);
-=======
   border: 1px solid transparent;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   border-radius: var(--radius-sm);
   color: var(--color-text);
   font-family: var(--font-mono);
@@ -253,11 +219,7 @@
 .ftree__rename-input {
   flex: 1;
   min-width: 0;
-<<<<<<< HEAD
-  border: 1px solid var(--color-border-strong);
-=======
   border: 1px solid transparent;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   background: var(--color-bg);
   color: var(--color-text);
   font-size: var(--text-sm);
@@ -271,10 +233,6 @@
   border-color: var(--color-text-muted);
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .ftree__row {
   display: flex;
   align-items: center;
@@ -287,37 +245,22 @@
   color: var(--color-text-secondary);
   font-size: var(--text-sm);
   text-align: left;
-<<<<<<< HEAD
-  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-}
-
-
-=======
   transition:
     background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
 }
 
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .ftree__guide {
   flex-shrink: 0;
   align-self: stretch;
   width: 14px;
-<<<<<<< HEAD
-  border-left: 1px solid var(--color-border);
-=======
   border-left: none;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .ftree__row .ftree__img {
   margin-right: var(--space-2);
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .ftree__root-title {
   display: flex;
   align-items: center;
@@ -338,10 +281,6 @@
   color: var(--color-accent);
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .ftree__root-actions {
   display: flex;
   align-items: center;
@@ -397,8 +336,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-<<<<<<< HEAD
-=======
   .files__tab {
     transition: none;
   }
@@ -407,16 +344,11 @@
     animation: none;
   }
 
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   .ftree__chevron {
     transition: none;
   }
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .changes {
   position: relative;
   display: flex;
@@ -462,13 +394,9 @@
   cursor: pointer;
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-<<<<<<< HEAD
-  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-=======
   transition:
     background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .changes__clear:hover {
@@ -482,11 +410,7 @@
 }
 
 .changes__item {
-<<<<<<< HEAD
-  border-bottom: 1px solid var(--color-border);
-=======
   border-bottom: none;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .changes__row {
@@ -527,13 +451,9 @@
   color: var(--color-text-muted);
   border-radius: var(--radius-sm);
   cursor: pointer;
-<<<<<<< HEAD
-  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-=======
   transition:
     background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .changes__revert:hover {
@@ -582,19 +502,11 @@
   }
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .ftree__row--dragover {
   background: var(--color-surface-overlay);
   box-shadow: inset 0 0 0 1px var(--color-border-strong);
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .changes__gh-btn {
   display: grid;
   place-items: center;
@@ -606,13 +518,9 @@
   color: var(--color-text-secondary);
   border-radius: var(--radius-sm);
   cursor: pointer;
-<<<<<<< HEAD
-  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-=======
   transition:
     background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .changes__gh-btn:hover {
@@ -620,10 +528,6 @@
   color: var(--color-text);
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .changes__commit-pop {
   position: fixed;
   right: 14px;
@@ -632,20 +536,12 @@
   width: 260px;
   padding: 8px;
   background: var(--color-surface);
-<<<<<<< HEAD
-  border: 1px solid var(--color-border);
-=======
   border: 1px solid transparent;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   border-radius: 6px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
 }
 
-<<<<<<< HEAD
-:root[data-theme='light'] .changes__commit-pop {
-=======
 :root[data-theme="light"] .changes__commit-pop {
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
 }
 
@@ -653,11 +549,7 @@
   width: 100%;
   height: 32px;
   padding: 0 var(--space-2);
-<<<<<<< HEAD
-  border: 1px solid var(--color-border);
-=======
   border: 1px solid transparent;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   border-radius: var(--radius-sm);
   background: var(--color-bg);
   color: var(--color-text);
@@ -689,18 +581,8 @@
   }
 }
 
-<<<<<<< HEAD
-
-
-
-
-
-.diff {
-  border-top: 1px solid var(--color-border);
-=======
 .diff {
   border-top: none;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   background: var(--color-bg);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -769,16 +651,9 @@
   color: var(--color-text);
 }
 
-<<<<<<< HEAD
-
-.changes__diff {
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
-=======
 .changes__diff {
   border-top: none;
   border-bottom: none;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .changes__diff-loading {
@@ -788,10 +663,6 @@
   color: var(--color-text-muted);
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .monaco-editor .line-insert,
 .monaco-editor .char-insert {
   background-color: rgba(63, 185, 80, 0.18) !important;
@@ -812,8 +683,6 @@
 .monaco-editor .gutter-delete {
   background-color: rgba(240, 82, 74, 0.45) !important;
 }
-<<<<<<< HEAD
-=======
 
 .files__empty-state {
   display: flex;
@@ -840,4 +709,3 @@
   font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
->>>>>>> baf0023 (release: CrabCode 0.2.8)

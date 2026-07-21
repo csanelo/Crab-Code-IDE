@@ -66,10 +66,7 @@ export const pt: Record<TKey, string> = {
   'files.refresh': 'Atualizar',
   'files.collapseAll': 'Recolher tudo',
   'files.noChanges': 'Sem alterações',
-<<<<<<< HEAD
-=======
   'files.noChangesSub': 'As alterações nos seus arquivos aparecerão aqui.',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'files.changedCount': '{n} arquivos alterados',
   'files.clearChanges': 'Limpar',
   'files.revert': 'Reverter alteração',
@@ -96,10 +93,7 @@ export const pt: Record<TKey, string> = {
   'chat.with': 'com',
   'chat.noProject': 'Sem projeto',
   'chat.noModels': 'Sem modelos',
-<<<<<<< HEAD
-=======
   'chat.context': 'Contexto',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'chat.newChat': 'Novo chat',
   'chat.describe': 'Descreva o que você quer construir',
   'chat.describeAria': 'Descreva a tarefa',
@@ -108,11 +102,7 @@ export const pt: Record<TKey, string> = {
   'chat.voice': 'Entrada de voz',
   'chat.stopVoice': 'Parar gravação',
   'chat.thinking': 'Pensando…',
-<<<<<<< HEAD
-  'chat.getToWork': 'Vamos ao trabalho',
-=======
   'chat.getToWork': 'O que vamos construir hoje?',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'chat.workWith': 'Trabalhar com',
   'chat.agent': 'Agente',
   'chat.agentSub': 'Execução ponta a ponta de tarefas de desenvolvimento, com suporte ao MCP configurado',

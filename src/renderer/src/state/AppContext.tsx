@@ -48,12 +48,8 @@ interface AppContextValue {
   sendMessage: (
     content: string,
     attachments?: import('../domain/types').Attachment[],
-<<<<<<< HEAD
-    agentContent?: string
-=======
     agentContent?: string,
     webEnabled?: boolean
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   ) => void
 }
 
@@ -153,12 +149,8 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
     function sendMessage(
       content: string,
       attachments?: import('../domain/types').Attachment[],
-<<<<<<< HEAD
-      agentContent?: string
-=======
       agentContent?: string,
       webEnabled = false
->>>>>>> baf0023 (release: CrabCode 0.2.8)
     ): void {
       const trimmed = content.trim()
       if (!trimmed && (!attachments || attachments.length === 0)) return
@@ -213,11 +205,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       const cwd = repo?.path ?? null
       const access = getAccessLevel()
       const editMode = getEditMode()
-<<<<<<< HEAD
-      const dispose = agentService.send(requestId, history, cwd, access, editMode, {
-=======
       const dispose = agentService.send(requestId, history, cwd, access, editMode, webEnabled, {
->>>>>>> baf0023 (release: CrabCode 0.2.8)
         onChunk: (chunk) =>
           dispatch({ type: 'APPEND_CHUNK', conversationId: targetId, messageId: assistantMessageId, chunk }),
         onTool: (tool) => {

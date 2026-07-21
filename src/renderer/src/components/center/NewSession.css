@@ -40,10 +40,7 @@
   color: var(--color-text);
   border-radius: var(--radius-md);
   font-size: var(--text-lg);
-<<<<<<< HEAD
-=======
   line-height: 1;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   transition: background var(--dur-fast) var(--ease-out);
 }
 
@@ -72,23 +69,17 @@
   max-width: 130px;
 }
 
-<<<<<<< HEAD
-=======
 .ns__chip--ghost:hover {
   background: transparent;
   color: var(--color-text);
 }
 
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .ns__chip--ghost span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-<<<<<<< HEAD
-=======
   line-height: normal;
   transform: translateX(-1px);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .ns__box {
@@ -96,13 +87,8 @@
   display: flex;
   flex-direction: column;
   background: var(--color-surface);
-<<<<<<< HEAD
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-=======
   border: 1px solid transparent;
   border-radius: 12px;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   padding: var(--space-2) var(--space-3) var(--space-2);
 }
 
@@ -148,11 +134,7 @@
 .ns__tag {
   font-weight: inherit;
   color: transparent;
-<<<<<<< HEAD
-  border-radius: 3px;
-=======
   border-radius: 6px;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   background: rgba(255, 138, 184, 0.22);
 }
 
@@ -161,18 +143,10 @@
   background: rgba(255, 138, 184, 0.22);
 }
 
-<<<<<<< HEAD
-
-.ns__cmd {
-  font-weight: 600;
-  color: transparent;
-  border-radius: 3px;
-=======
 .ns__cmd {
   font-weight: 600;
   color: transparent;
   border-radius: 6px;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   background: rgba(157, 149, 255, 0.22);
 }
 
@@ -215,13 +189,9 @@
   background: transparent;
   color: var(--color-text-secondary);
   border-radius: var(--radius-md);
-<<<<<<< HEAD
-  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-=======
   transition:
     background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .ns__plus:hover {
@@ -245,17 +215,6 @@
   margin-right: 4px;
   flex-shrink: 0;
   border: none;
-<<<<<<< HEAD
-  background: var(--color-accent);
-  color: var(--color-bg);
-  border-radius: 50%;
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
-}
-
-.ns__send:hover:not(:disabled) {
-  background: var(--color-accent-hover);
-=======
   background: var(--color-surface-overlay);
   color: var(--color-text);
   border-radius: 50%;
@@ -267,7 +226,6 @@
 
 .ns__send:hover:not(:disabled) {
   background: var(--color-surface-raised);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .ns__send:active:not(:disabled) {
@@ -279,10 +237,6 @@
   cursor: not-allowed;
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .ns__send--rec {
   color: #f0524a;
   animation: ns-mic-pulse 1.4s ease-in-out infinite;
@@ -328,10 +282,6 @@
   align-self: flex-start;
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .ns__bottom-row {
   display: flex;
   align-items: center;
@@ -348,13 +298,9 @@
   color: var(--color-text-secondary);
   border-radius: var(--radius-sm);
   cursor: pointer;
-<<<<<<< HEAD
-  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-=======
   transition:
     background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .ns__session-btn:hover {
@@ -397,13 +343,8 @@
   width: 100%;
   height: 26px;
   padding: 0 8px;
-<<<<<<< HEAD
-  border: 1px solid var(--color-border-strong);
-  border-radius: 3px;
-=======
   border: 1px solid transparent;
   border-radius: 6px;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   background: var(--color-bg);
   color: var(--color-text);
   font-size: var(--text-xs);
@@ -421,13 +362,9 @@
   color: var(--color-text-secondary);
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
-<<<<<<< HEAD
-  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-=======
   transition:
     background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .ns__edit:hover {
@@ -435,10 +372,6 @@
   color: var(--color-text);
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .ns__menu {
   position: absolute;
   top: calc(100% + 4px);
@@ -447,23 +380,14 @@
   min-width: 180px;
   padding: 2px;
   background: var(--color-surface);
-<<<<<<< HEAD
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-=======
   border: 1px solid transparent;
   border-radius: 8px;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
   animation: ns-menu var(--dur-fast) var(--ease-out);
   transform-origin: top left;
 }
 
-<<<<<<< HEAD
-:root[data-theme='light'] .ns__menu {
-=======
 :root[data-theme="light"] .ns__menu {
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
@@ -473,14 +397,11 @@
   transform-origin: bottom left;
 }
 
-<<<<<<< HEAD
-=======
 .ns__model-menu {
   width: 164px;
   min-width: 164px;
 }
 
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 @keyframes ns-menu {
   from {
     opacity: 0;
@@ -502,11 +423,7 @@
   border: none;
   background: transparent;
   color: var(--color-text);
-<<<<<<< HEAD
-  border-radius: 3px;
-=======
   border-radius: 6px;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   font-size: var(--text-xs);
   text-align: left;
   transition: background var(--dur-fast) var(--ease-out);
@@ -516,10 +433,6 @@
   background: var(--color-surface-raised);
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .ns__menu-row {
   display: flex;
   align-items: stretch;
@@ -545,13 +458,9 @@
   color: var(--color-text-muted);
   border-radius: var(--radius-sm);
   opacity: 0;
-<<<<<<< HEAD
-  transition: opacity var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-=======
   transition:
     opacity var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .ns__menu-remove:hover {
@@ -599,13 +508,9 @@
   font-size: var(--text-xs);
   font-weight: 500;
   cursor: pointer;
-<<<<<<< HEAD
-  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-=======
   transition:
     background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .ns__menu-tab svg {
@@ -641,10 +546,6 @@
   }
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .ns__slash {
   display: flex;
   flex-direction: column;
@@ -652,13 +553,8 @@
   margin-bottom: var(--space-2);
   padding: 2px;
   background: var(--color-surface);
-<<<<<<< HEAD
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-=======
   border: 1px solid transparent;
   border-radius: 8px;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
   max-height: 240px;
   overflow-y: auto;
@@ -680,11 +576,7 @@
   border: none;
   background: transparent;
   color: var(--color-text);
-<<<<<<< HEAD
-  border-radius: 3px;
-=======
   border-radius: 6px;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   font-size: var(--text-xs);
   text-align: left;
   cursor: pointer;
@@ -730,10 +622,6 @@
   font-size: var(--text-xs);
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .ns__access {
   display: inline-flex;
   align-items: center;
@@ -750,13 +638,9 @@
   white-space: nowrap;
   flex-shrink: 0;
   cursor: pointer;
-<<<<<<< HEAD
-  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-=======
   transition:
     background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .ns__access:hover {
@@ -765,15 +649,6 @@
 }
 
 .ns__access--high {
-<<<<<<< HEAD
-  background: rgba(226, 179, 65, 0.12);
-  color: #e2b341;
-}
-
-.ns__access--high:hover {
-  background: rgba(226, 179, 65, 0.18);
-  color: #e2b341;
-=======
   background: transparent;
   color: var(--color-text-secondary);
 }
@@ -781,7 +656,6 @@
 .ns__access--high:hover {
   background: var(--color-surface-raised);
   color: var(--color-text);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .ns__access-menu {
@@ -836,10 +710,6 @@
   line-height: 1.4;
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .ns__attachments {
   display: flex;
   flex-wrap: wrap;
@@ -853,11 +723,7 @@
   height: 56px;
   border-radius: var(--radius-md);
   overflow: hidden;
-<<<<<<< HEAD
-  border: 1px solid var(--color-border);
-=======
   border: 1px solid transparent;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .ns__attachment-img {
@@ -895,10 +761,6 @@
   background: rgba(0, 0, 0, 0.85);
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .ns__mention-icon {
   width: 16px;
   height: 16px;
@@ -906,20 +768,6 @@
   object-fit: contain;
 }
 
-<<<<<<< HEAD
-
-:root[data-theme='light'] .ns__menu,
-:root[data-theme='light'] .ns__slash {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-}
-
-
-:root[data-theme='light'] .ns__box {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
-}
-
-
-=======
 :root[data-theme="light"] .ns__menu,
 :root[data-theme="light"] .ns__slash {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
@@ -929,7 +777,6 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .ns__gh {
   display: flex;
   flex-direction: column;
@@ -964,11 +811,7 @@
 .ns__gh-input {
   height: 30px;
   padding: 0 var(--space-2);
-<<<<<<< HEAD
-  border: 1px solid var(--color-border);
-=======
   border: 1px solid transparent;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   border-radius: var(--radius-sm);
   background: var(--color-bg);
   color: var(--color-text);
@@ -1013,13 +856,8 @@
   height: 28px;
   border: none;
   border-radius: var(--radius-sm);
-<<<<<<< HEAD
-  background: var(--color-accent);
-  color: var(--color-bg);
-=======
   background: var(--color-surface-overlay);
   color: var(--color-text);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   font-weight: 600;
   cursor: pointer;
 }
@@ -1109,10 +947,6 @@
   }
 }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 .ns__gh-rowfields {
   display: flex;
   gap: var(--space-2);
@@ -1137,11 +971,7 @@
 .ns__gh-authtab {
   flex: 1;
   height: 28px;
-<<<<<<< HEAD
-  border: 1px solid var(--color-border);
-=======
   border: 1px solid transparent;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-muted);
@@ -1163,11 +993,7 @@
 .ns__gh-cancel {
   flex: 1;
   height: 32px;
-<<<<<<< HEAD
-  border: 1px solid var(--color-border);
-=======
   border: 1px solid transparent;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text);
@@ -1211,8 +1037,6 @@
   background: var(--color-surface-raised);
   color: var(--color-danger);
 }
-<<<<<<< HEAD
-=======
 
 .ns__ctxring {
   display: inline-flex;
@@ -1342,4 +1166,3 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
->>>>>>> baf0023 (release: CrabCode 0.2.8)

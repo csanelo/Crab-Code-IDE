@@ -66,10 +66,7 @@ export const zh: Record<TKey, string> = {
   'files.refresh': '刷新',
   'files.collapseAll': '全部折叠',
   'files.noChanges': '无更改',
-<<<<<<< HEAD
-=======
   'files.noChangesSub': '文件的改动会显示在这里。',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'files.changedCount': '{n} 个已更改文件',
   'files.clearChanges': '清除',
   'files.revert': '撤销更改',
@@ -96,10 +93,7 @@ export const zh: Record<TKey, string> = {
   'chat.with': '使用',
   'chat.noProject': '无项目',
   'chat.noModels': '无模型',
-<<<<<<< HEAD
-=======
   'chat.context': '上下文',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'chat.newChat': '新对话',
   'chat.describe': '描述你想要构建的内容',
   'chat.describeAria': '描述任务',
@@ -108,11 +102,7 @@ export const zh: Record<TKey, string> = {
   'chat.voice': '语音输入',
   'chat.stopVoice': '停止录音',
   'chat.thinking': '思考中…',
-<<<<<<< HEAD
-  'chat.getToWork': '开始工作吧',
-=======
   'chat.getToWork': '今天做点什么？',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'chat.workWith': '使用',
   'chat.agent': '智能体',
   'chat.agentSub': '端到端执行日常开发任务，支持已配置的 MCP',

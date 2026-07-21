@@ -66,10 +66,7 @@ export const es: Record<TKey, string> = {
   'files.refresh': 'Actualizar',
   'files.collapseAll': 'Contraer todo',
   'files.noChanges': 'Sin cambios',
-<<<<<<< HEAD
-=======
   'files.noChangesSub': 'Los cambios en tus archivos aparecerán aquí.',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'files.changedCount': '{n} archivos cambiados',
   'files.clearChanges': 'Limpiar',
   'files.revert': 'Revertir cambio',
@@ -96,10 +93,7 @@ export const es: Record<TKey, string> = {
   'chat.with': 'con',
   'chat.noProject': 'Sin proyecto',
   'chat.noModels': 'Sin modelos',
-<<<<<<< HEAD
-=======
   'chat.context': 'Contexto',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'chat.newChat': 'Nuevo chat',
   'chat.describe': 'Describe lo que quieres construir',
   'chat.describeAria': 'Describe la tarea',
@@ -126,11 +120,7 @@ export const es: Record<TKey, string> = {
   'chat.at.terminal': 'Última salida de la terminal',
   'chat.at.web': 'Buscar contexto en la web',
   'chat.at.codebase': 'Dejar que el agente explore el proyecto',
-<<<<<<< HEAD
-  'chat.getToWork': 'Manos a la obra',
-=======
   'chat.getToWork': '¿Qué construimos hoy?',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'github.connectTitle': 'Conectar GitHub',
   'github.patHint': 'Pega un Personal Access Token con alcance repo para listar y clonar tus repositorios.',
   'github.createToken': 'Crear un token en GitHub',

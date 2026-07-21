@@ -46,11 +46,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-<<<<<<< HEAD
-  gap: var(--space-4);
-=======
   gap: var(--space-2);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   height: 100%;
   padding: var(--space-6);
   animation: chat-hero-in 0.5s var(--ease-out);
@@ -67,19 +63,6 @@
   }
 }
 
-<<<<<<< HEAD
-.chat__hero-icon {
-  width: 56px;
-  height: auto;
-  color: var(--color-text);
-}
-
-.chat__hero-text {
-  font-size: var(--text-base);
-  font-weight: 400;
-  letter-spacing: 0.01em;
-  color: var(--color-text-secondary);
-=======
 .chat__hero-anim {
   position: relative;
   width: 110px;
@@ -143,7 +126,6 @@
   font-size: var(--text-lg);
   font-weight: 600;
   color: var(--color-text);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   text-align: center;
 }
 
@@ -195,11 +177,7 @@
   max-width: 240px;
   max-height: 240px;
   border-radius: var(--radius-md);
-<<<<<<< HEAD
-  border: 1px solid var(--color-border);
-=======
   border: 1px solid transparent;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   object-fit: cover;
 }
 
@@ -207,13 +185,8 @@
   max-width: 100%;
   width: fit-content;
   background: var(--color-surface-raised);
-<<<<<<< HEAD
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-=======
   border: 1px solid transparent;
   border-radius: 8px;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   padding: 6px 14px;
   color: var(--color-text);
   font-size: var(--text-md);
@@ -312,11 +285,7 @@
   overflow-y: auto;
   padding: var(--space-1);
   background: var(--color-surface);
-<<<<<<< HEAD
-  border: 1px solid var(--color-border);
-=======
   border: 1px solid transparent;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   border-radius: var(--radius-xl);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   animation: slash-in var(--dur-fast) var(--ease-out);
@@ -384,11 +353,7 @@
   flex-direction: column;
   gap: var(--space-2);
   background: var(--color-surface-raised);
-<<<<<<< HEAD
-  border: 1px solid var(--color-border);
-=======
   border: 1px solid transparent;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   border-radius: 18px;
   padding: var(--space-2) var(--space-3) var(--space-2);
   transition: background var(--dur-fast) var(--ease-out);
@@ -590,23 +555,14 @@
   height: 34px;
   flex-shrink: 0;
   border: none;
-<<<<<<< HEAD
-  background: var(--color-accent);
-  color: var(--color-bg);
-=======
   background: var(--color-surface-overlay);
   color: var(--color-text);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   border-radius: var(--radius-pill);
   transition: background var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
 }
 
 .composer__send:hover:not(:disabled) {
-<<<<<<< HEAD
-  background: var(--color-accent-hover);
-=======
   background: var(--color-surface-raised);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .composer__send:disabled {
@@ -729,11 +685,7 @@
 }
 
 .tool--open {
-<<<<<<< HEAD
-  border: 1px solid var(--color-border);
-=======
   border: 1px solid transparent;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   background: var(--color-surface);
 }
 
@@ -875,11 +827,7 @@
 .tool__result {
   margin: 0;
   padding: var(--space-2) var(--space-3);
-<<<<<<< HEAD
-  border-top: 1px solid var(--color-border);
-=======
   border-top: none;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   background: var(--color-bg);
   color: var(--color-text-secondary);
   font-family: var(--font-mono);
@@ -917,11 +865,7 @@
 
 
 .diff {
-<<<<<<< HEAD
-  border-top: 1px solid var(--color-border);
-=======
   border-top: none;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   background: var(--color-bg);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -992,11 +936,7 @@
 
 
 .cmd-card {
-<<<<<<< HEAD
-  border: 1px solid var(--color-border-strong);
-=======
   border: 1px solid transparent;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   border-radius: var(--radius-md);
   background: var(--color-bg);
   overflow: hidden;
@@ -1008,11 +948,7 @@
   gap: var(--space-2);
   padding: 5px var(--space-2) 5px var(--space-3);
   background: var(--color-surface);
-<<<<<<< HEAD
-  border-bottom: 1px solid var(--color-border);
-=======
   border-bottom: none;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .cmd-card__icon {
@@ -1125,8 +1061,6 @@
 :root[data-theme='light'] .composer__box {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
-<<<<<<< HEAD
-=======
 
 .message__file {
   display: flex;
@@ -1153,4 +1087,3 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
->>>>>>> baf0023 (release: CrabCode 0.2.8)

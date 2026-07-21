@@ -287,16 +287,10 @@ function Workspace(): JSX.Element {
     setResizing('terminal')
     const content = contentRef.current
     if (!content) return
-<<<<<<< HEAD
-    const bottom = content.getBoundingClientRect().bottom
-    const totalHeight = content.getBoundingClientRect().height
-    const max = Math.max(TERM_MIN, totalHeight - 160)
-=======
     const container = content.parentElement ?? content
     const rect = container.getBoundingClientRect()
     const bottom = rect.bottom
     const max = Math.max(TERM_MIN, rect.height - 160)
->>>>>>> baf0023 (release: CrabCode 0.2.8)
     function onMove(ev: PointerEvent): void {
       const next = Math.min(max, Math.max(TERM_MIN, bottom - ev.clientY))
       setTerminalHeight(next)

@@ -6,13 +6,8 @@
   --color-surface: #161616;
   --color-surface-raised: #1e1e1e;
   --color-surface-overlay: #262626;
-<<<<<<< HEAD
-  --color-border: #2a2a2a;
-  --color-border-strong: #3a3a3a;
-=======
   --color-border: #222222;
   --color-border-strong: #303030;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 
   
   --color-text: #ededed;
@@ -20,13 +15,8 @@
   --color-text-muted: #6b6b6b;
 
   
-<<<<<<< HEAD
-  --text-engrave: 0 1px 0 rgba(0, 0, 0, 0.55), 0 -0.5px 0 rgba(255, 255, 255, 0.04);
-  --text-engrave-strong: 0 1px 1px rgba(0, 0, 0, 0.7), 0 -0.5px 0 rgba(255, 255, 255, 0.05);
-=======
   --text-engrave: none;
   --text-engrave-strong: none;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 
   
   --color-accent: #e5e5e5;
@@ -48,18 +38,6 @@
   --space-8: 32px;
 
   
-<<<<<<< HEAD
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-2xl: 20px;
-  --radius-pill: 999px;
-
-  
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-    sans-serif;
-=======
   --radius-sm: 10px;
   --radius-md: 14px;
   --radius-lg: 18px;
@@ -70,7 +48,6 @@
   
   --font-sans: 'General Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, sans-serif;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', Consolas, 'Courier New', monospace;
   --text-xs: 12px;
   --text-sm: 13px;
@@ -80,15 +57,9 @@
   --leading-body: 1.6;
 
   
-<<<<<<< HEAD
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.55);
-=======
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 20px 56px rgba(0, 0, 0, 0.5);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 
   
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -120,13 +91,8 @@
   --color-surface: #e2e2e2;
   --color-surface-raised: #d4d4d4;
   --color-surface-overlay: #cacaca;
-<<<<<<< HEAD
-  --color-border: #c2c2c2;
-  --color-border-strong: #aeaeae;
-=======
   --color-border: #d8d8d8;
   --color-border-strong: #c6c6c6;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 
   
   --color-text: #1d1d1d;

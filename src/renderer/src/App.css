@@ -28,10 +28,7 @@
   flex: 1;
   min-width: 0;
   min-height: 0;
-<<<<<<< HEAD
-=======
   background: var(--color-chrome);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .app__row--inner {
@@ -43,16 +40,10 @@
 .app__panel {
   flex-shrink: 0;
   overflow: hidden;
-<<<<<<< HEAD
-  transition:
-    width var(--dur-base) var(--ease-in-out),
-    border-color var(--dur-base) var(--ease-in-out);
-=======
   background: var(--color-chrome);
   border-radius: 0;
   box-shadow: none;
   transition: width var(--dur-base) var(--ease-in-out);
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 
@@ -68,44 +59,28 @@
 
 .app__panel--left {
   width: var(--left-w);
-<<<<<<< HEAD
-  border-right: 1px solid var(--color-border);
-=======
   border-right: none;
   border-radius: 0;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .app__panel--right {
   width: var(--right-w);
-<<<<<<< HEAD
-  border-left: 1px solid var(--color-border);
-=======
   border-left: none;
   border-radius: 0;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .app__panel--collapsed {
   width: 0;
-<<<<<<< HEAD
-  border-right: none;
-  border-left: none;
-=======
   margin: 0;
   border-right: none;
   border-left: none;
   box-shadow: none;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .app__panel-inner {
   height: 100%;
-<<<<<<< HEAD
-=======
   border-radius: inherit;
   overflow: hidden;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .app__panel-inner--right {
@@ -161,12 +136,9 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-<<<<<<< HEAD
-=======
   background: var(--color-bg);
   border-radius: var(--radius-sm);
   overflow: hidden;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 
@@ -182,11 +154,7 @@
 .app__browser {
   flex: 1 1 50%;
   min-width: 0;
-<<<<<<< HEAD
-  border-left: 1px solid var(--color-border);
-=======
   border-left: none;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   display: flex;
   flex-direction: column;
 }
@@ -202,12 +170,8 @@
   min-height: 0;
   opacity: 0;
   overflow: hidden;
-<<<<<<< HEAD
-  border-top: 1px solid var(--color-border);
-=======
   border-top: none;
   border-radius: 0;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   transition:
     height var(--dur-base) var(--ease-in-out),
     opacity var(--dur-base) var(--ease-in-out);
@@ -218,14 +182,11 @@
   opacity: 1;
 }
 
-<<<<<<< HEAD
-=======
 .app__rightside:has(.app__terminal--open) .app__content {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
 
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 
 .app__hresizer {
   flex-shrink: 0;

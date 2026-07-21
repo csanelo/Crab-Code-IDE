@@ -20,15 +20,6 @@ class AgentService {
     cwd: string | null,
     access: 'normal' | 'high',
     editMode: 'auto' | 'ask' | 'readonly',
-<<<<<<< HEAD
-    handlers: StreamHandlers
-  ): () => void {
-    const wire: WireMessage[] = history.map((m) => ({
-      role: m.role,
-      content: m.content,
-      images: m.attachments?.map((a) => ({ mimeType: a.mimeType, dataUrl: a.dataUrl }))
-    }))
-=======
     webEnabled: boolean,
     handlers: StreamHandlers
   ): () => void {
@@ -45,7 +36,6 @@ class AgentService {
         images: images && images.length > 0 ? images : undefined
       }
     })
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 
     const offChunk = window.api.agent.onChunk((id, chunk) => {
       if (id === requestId) handlers.onChunk(chunk)
@@ -60,11 +50,7 @@ class AgentService {
       if (id === requestId) handlers.onError(message)
     })
 
-<<<<<<< HEAD
-    window.api.agent.send(requestId, wire, { cwd, access, editMode })
-=======
     window.api.agent.send(requestId, wire, { cwd, access, editMode, webEnabled })
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 
     return () => {
       offChunk()

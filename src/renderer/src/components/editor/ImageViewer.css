@@ -40,11 +40,7 @@
   padding: 0 12px;
   flex-shrink: 0;
   background: var(--color-chrome);
-<<<<<<< HEAD
-  border-top: 1px solid var(--color-border);
-=======
   border-top: none;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   font-size: 11px;
   color: var(--color-text-muted);
 }
@@ -95,13 +91,8 @@
   width: 140px;
   padding: 2px;
   background: var(--color-surface);
-<<<<<<< HEAD
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-=======
   border: 1px solid transparent;
   border-radius: 8px;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
 }
 
@@ -119,11 +110,7 @@
   color: var(--color-text);
   font-size: var(--text-xs);
   text-align: left;
-<<<<<<< HEAD
-  border-radius: 3px;
-=======
   border-radius: 6px;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   cursor: pointer;
 }
 

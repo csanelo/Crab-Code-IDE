@@ -28,8 +28,6 @@ npm run package:linux  # Linux AppImage/deb
 
 The build output is written to `out/`, and installers are written to `dist/`.
 
-<<<<<<< HEAD
-=======
 ## Prompt caching
 
 The agent uses provider-side prompt caching to cut token costs on every request:
@@ -40,7 +38,6 @@ The agent uses provider-side prompt caching to cut token costs on every request:
 
 Nothing needs to be configured: caching activates by itself for every provider based on its API type.
 
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 ## Configure the AI provider
 
 Open Settings inside the app and add an OpenAI-compatible provider: set the base URL, model and API key. Keys are stored locally on your machine and are never bundled with the project.
@@ -54,8 +51,6 @@ src/
   renderer/  React UI: editor, chat, files, terminal, browser, settings
 ```
 
-<<<<<<< HEAD
-=======
 ## UI design
 
 The interface uses a modern flat style driven by tokens in `src/renderer/src/theme/tokens.css`:
@@ -74,7 +69,6 @@ The interface uses a modern flat style driven by tokens in `src/renderer/src/the
 
 To restyle the app, edit the token values — components inherit them everywhere.
 
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 ## License
 
 MIT

@@ -25,10 +25,7 @@ export function TerminalPanel({ onClose }: { onClose: () => void }): JSX.Element
   const t = useT()
   const [tabs, setTabs] = useState<Tab[]>(() => [{ id: createId('term_'), title: t('terminal.title') }])
   const [activeId, setActiveId] = useState<string>(() => tabs[0].id)
-<<<<<<< HEAD
-=======
   const [closingIds, setClosingIds] = useState<string[]>([])
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   const sendToAIRef = useRef<(() => void) | null>(null)
 
   function addTab(): void {
@@ -38,22 +35,6 @@ export function TerminalPanel({ onClose }: { onClose: () => void }): JSX.Element
   }
 
   function closeTab(id: string): void {
-<<<<<<< HEAD
-    void window.api.terminal.kill(id)
-    setTabs((prev) => {
-      const idx = prev.findIndex((x) => x.id === id)
-      const next = prev.filter((x) => x.id !== id)
-      if (next.length === 0) {
-        onClose()
-        return prev
-      }
-      if (id === activeId) {
-        const fallback = next[idx] ?? next[idx - 1] ?? next[0]
-        setActiveId(fallback.id)
-      }
-      return next
-    })
-=======
     if (closingIds.includes(id)) return
     void window.api.terminal.kill(id)
     const rest = tabs.filter((x) => x.id !== id)
@@ -71,7 +52,6 @@ export function TerminalPanel({ onClose }: { onClose: () => void }): JSX.Element
       setTabs((prev) => prev.filter((x) => x.id !== id))
       setClosingIds((prev) => prev.filter((x) => x !== id))
     }, 220)
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   }
 
   return (
@@ -81,15 +61,10 @@ export function TerminalPanel({ onClose }: { onClose: () => void }): JSX.Element
           {tabs.map((tab) => (
             <div
               key={tab.id}
-<<<<<<< HEAD
-              className={`terminal__tab${tab.id === activeId ? ' terminal__tab--active' : ''}`}
-              onClick={() => setActiveId(tab.id)}
-=======
               className={`terminal__tab${tab.id === activeId ? ' terminal__tab--active' : ''}${closingIds.includes(tab.id) ? ' terminal__tab--closing' : ''}`}
               onClick={() => {
                 if (!closingIds.includes(tab.id)) setActiveId(tab.id)
               }}
->>>>>>> baf0023 (release: CrabCode 0.2.8)
               role="tab"
               tabIndex={0}
             >

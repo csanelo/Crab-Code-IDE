@@ -66,10 +66,7 @@ export const hi: Record<TKey, string> = {
   'files.refresh': 'रिफ़्रेश करें',
   'files.collapseAll': 'सभी संक्षिप्त करें',
   'files.noChanges': 'कोई परिवर्तन नहीं',
-<<<<<<< HEAD
-=======
   'files.noChangesSub': 'आपकी फ़ाइलों में बदलाव यहाँ दिखेंगे।',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'files.changedCount': '{n} फ़ाइलें बदलीं',
   'files.clearChanges': 'साफ़ करें',
   'files.revert': 'परिवर्तन वापस लें',
@@ -96,10 +93,7 @@ export const hi: Record<TKey, string> = {
   'chat.with': 'के साथ',
   'chat.noProject': 'कोई प्रोजेक्ट नहीं',
   'chat.noModels': 'कोई मॉडल नहीं',
-<<<<<<< HEAD
-=======
   'chat.context': 'संदर्भ',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'chat.newChat': 'नई चैट',
   'chat.describe': 'बताएँ कि आप क्या बनाना चाहते हैं',
   'chat.describeAria': 'कार्य का वर्णन करें',
@@ -108,11 +102,7 @@ export const hi: Record<TKey, string> = {
   'chat.voice': 'वॉइस इनपुट',
   'chat.stopVoice': 'रिकॉर्डिंग रोकें',
   'chat.thinking': 'सोच रहा हूँ…',
-<<<<<<< HEAD
-  'chat.getToWork': 'चलिए काम पर लगें',
-=======
   'chat.getToWork': 'आज क्या बनाएँगे?',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'chat.workWith': 'काम करें',
   'chat.agent': 'एजेंट के साथ',
   'chat.agentSub': 'नियमित विकास कार्यों का एंड-टू-एंड निष्पादन, कॉन्फ़िगर किए गए MCP समर्थन के साथ',

@@ -66,10 +66,7 @@ export const bn: Record<TKey, string> = {
   'files.refresh': 'রিফ্রেশ',
   'files.collapseAll': 'সব সংকুচিত করুন',
   'files.noChanges': 'কোনো পরিবর্তন নেই',
-<<<<<<< HEAD
-=======
   'files.noChangesSub': 'আপনার ফাইলের পরিবর্তনগুলো এখানে দেখা যাবে।',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'files.changedCount': '{n}টি ফাইল পরিবর্তিত',
   'files.clearChanges': 'পরিষ্কার করুন',
   'files.revert': 'পরিবর্তন ফেরান',
@@ -96,10 +93,7 @@ export const bn: Record<TKey, string> = {
   'chat.with': 'সহ',
   'chat.noProject': 'কোনো প্রকল্প নেই',
   'chat.noModels': 'কোনো মডেল নেই',
-<<<<<<< HEAD
-=======
   'chat.context': 'প্রসঙ্গ',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'chat.newChat': 'নতুন চ্যাট',
   'chat.describe': 'আপনি কী তৈরি করতে চান তা বর্ণনা করুন',
   'chat.describeAria': 'কাজটি বর্ণনা করুন',
@@ -126,11 +120,7 @@ export const bn: Record<TKey, string> = {
   'chat.at.terminal': 'সর্বশেষ টার্মিনাল আউটপুট',
   'chat.at.web': 'প্রসঙ্গের জন্য ওয়েবে খুঁজুন',
   'chat.at.codebase': 'এজেন্টকে প্রকল্প অন্বেষণ করতে দিন',
-<<<<<<< HEAD
-  'chat.getToWork': 'চলুন কাজ শুরু করি',
-=======
   'chat.getToWork': 'আজ কী বানাবো?',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'github.connectTitle': 'GitHub সংযুক্ত করুন',
   'github.patHint': 'আপনার রিপোজিটরি তালিকাভুক্ত ও ক্লোন করতে repo স্কোপসহ একটি Personal Access Token পেস্ট করুন।',
   'github.createToken': 'GitHub-এ টোকেন তৈরি করুন',

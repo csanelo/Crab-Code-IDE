@@ -66,10 +66,7 @@ export const id: Record<TKey, string> = {
   'files.refresh': 'Segarkan',
   'files.collapseAll': 'Ciutkan semua',
   'files.noChanges': 'Tidak ada perubahan',
-<<<<<<< HEAD
-=======
   'files.noChangesSub': 'Perubahan pada file Anda akan muncul di sini.',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'files.changedCount': '{n} berkas berubah',
   'files.clearChanges': 'Bersihkan',
   'files.revert': 'Kembalikan perubahan',
@@ -96,10 +93,7 @@ export const id: Record<TKey, string> = {
   'chat.with': 'dengan',
   'chat.noProject': 'Tanpa proyek',
   'chat.noModels': 'Tanpa model',
-<<<<<<< HEAD
-=======
   'chat.context': 'Konteks',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'chat.newChat': 'Obrolan baru',
   'chat.describe': 'Jelaskan apa yang ingin Anda bangun',
   'chat.describeAria': 'Jelaskan tugas',
@@ -108,11 +102,7 @@ export const id: Record<TKey, string> = {
   'chat.voice': 'Masukan suara',
   'chat.stopVoice': 'Hentikan rekaman',
   'chat.thinking': 'Berpikir…',
-<<<<<<< HEAD
-  'chat.getToWork': 'Mari mulai bekerja',
-=======
   'chat.getToWork': 'Apa yang kita buat hari ini?',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'chat.workWith': 'Bekerja dengan',
   'chat.agent': 'Agen',
   'chat.agentSub': 'Eksekusi tugas pengembangan rutin secara menyeluruh, dengan dukungan MCP terkonfigurasi',

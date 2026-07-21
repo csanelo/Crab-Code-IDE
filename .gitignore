@@ -4,11 +4,8 @@ dist
 *.log
 .DS_Store
 *.tsbuildinfo
-<<<<<<< HEAD
-=======
 .env
 .env.*
 !.env.example
 *.pem
 *.key
->>>>>>> baf0023 (release: CrabCode 0.2.8)

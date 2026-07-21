@@ -196,11 +196,7 @@
   gap: 6px;
   height: 26px;
   padding: 0 10px;
-<<<<<<< HEAD
-  border: 1px solid var(--color-border-strong);
-=======
   border: 1px solid transparent;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   background: var(--color-surface);
   color: var(--color-text);
   border-radius: var(--radius-md);
@@ -320,11 +316,7 @@
 .mcp-modal__btn {
   height: 28px;
   padding: 0 12px;
-<<<<<<< HEAD
-  border: 1px solid var(--color-border-strong);
-=======
   border: 1px solid transparent;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   background: var(--color-surface);
   color: var(--color-text);
   border-radius: var(--radius-md);

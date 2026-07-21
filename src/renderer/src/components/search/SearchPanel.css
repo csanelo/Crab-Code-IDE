@@ -32,11 +32,7 @@
   border: none;
   background: transparent;
   color: var(--color-text-muted);
-<<<<<<< HEAD
-  border-radius: 3px;
-=======
   border-radius: 6px;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   cursor: pointer;
 }
 
@@ -78,13 +74,8 @@
   height: 28px;
   padding: 0 4px 0 8px;
   background: var(--color-bg);
-<<<<<<< HEAD
-  border: 1px solid var(--color-border);
-  border-radius: 3px;
-=======
   border: 1px solid transparent;
   border-radius: 6px;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
 }
 
 .searchp__field:focus-within {
@@ -127,11 +118,7 @@
   border: none;
   background: transparent;
   color: var(--color-text-muted);
-<<<<<<< HEAD
-  border-radius: 3px;
-=======
   border-radius: 6px;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   cursor: pointer;
 }
 
@@ -153,11 +140,7 @@
   border: none;
   background: transparent;
   color: var(--color-text-muted);
-<<<<<<< HEAD
-  border-radius: 3px;
-=======
   border-radius: 6px;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   cursor: pointer;
 }
 
@@ -181,13 +164,8 @@
   height: 26px;
   padding: 0 8px;
   background: var(--color-bg);
-<<<<<<< HEAD
-  border: 1px solid var(--color-border);
-  border-radius: 3px;
-=======
   border: 1px solid transparent;
   border-radius: 6px;
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   color: var(--color-text);
   font-size: 11px;
   outline: none;

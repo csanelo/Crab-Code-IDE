@@ -34,10 +34,7 @@
     "win": {
       "icon": "build/icon.ico",
       "target": [
-        {
-          "target": "nsis",
-          "arch": ["x64"]
-        }
+        "nsis"
       ]
     },
     "nsis": {
@@ -46,35 +43,23 @@
       "allowToChangeInstallationDirectory": true,
       "include": "build/installer.nsh",
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "artifactName": "CrabCode_setup_${arch}.${ext}"
     },
     "mac": {
       "icon": "build/icon.png",
       "category": "public.app-category.developer-tools",
       "target": [
-        {
-          "target": "zip",
-          "arch": ["arm64"]
-        }
+        "dmg",
+        "zip"
       ],
-      "hardenedRuntime": false,
-      "gatekeeperAssess": false,
-      "entitlements": null,
-      "entitlementsInherit": null,
-      "identity": null,
-      "type": "distribution"
+      "artifactName": "CrabCode-${arch}-mac.${ext}"
     },
     "linux": {
       "icon": "build/icon.png",
       "target": [
-        {
-          "target": "AppImage",
-          "arch": ["x64"]
-        },
-        {
-          "target": "deb",
-          "arch": ["amd64"]
-        }
+        "AppImage",
+        "deb"
       ],
       "category": "Development",
       "synopsis": "AI development environment",
@@ -82,11 +67,19 @@
       "maintainer": "CrabCode",
       "executableName": "crabcode",
       "desktop": {
-        "Name": "CrabCode",
-        "Comment": "AI development environment",
-        "Categories": "Development;IDE;TextEditor;",
-        "StartupWMClass": "CrabCode"
+        "entry": {
+          "Name": "CrabCode",
+          "Comment": "AI development environment",
+          "Categories": "Development;IDE;TextEditor;",
+          "StartupWMClass": "CrabCode"
+        }
       }
+    },
+    "appImage": {
+      "artifactName": "CrabCode.${ext}"
+    },
+    "deb": {
+      "artifactName": "CrabCode_${arch}.${ext}"
     }
   },
   "scripts": {
