@@ -1,10 +1,6 @@
 {
   "name": "crabcode",
-<<<<<<< HEAD
-  "version": "0.1.0",
-=======
   "version": "0.2.8",
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   "description": "CrabCode — an Electron + React AI development environment.",
   "main": "./out/main/index.js",
   "author": "CrabCode",
@@ -12,14 +8,11 @@
   "build": {
     "appId": "com.crabcode.app",
     "productName": "CrabCode",
-<<<<<<< HEAD
-=======
     "publish": {
       "provider": "github",
       "owner": "csanelo",
       "repo": "Crab-Code-IDE"
     },
->>>>>>> baf0023 (release: CrabCode 0.2.8)
     "directories": {
       "buildResources": "build"
     },
@@ -93,11 +86,8 @@
   },
   "dependencies": {
     "@fontsource/jetbrains-mono": "^5.2.8",
-<<<<<<< HEAD
-=======
     "@lottiefiles/dotlottie-react": "^0.13.5",
     "electron-updater": "^6.3.9",
->>>>>>> baf0023 (release: CrabCode 0.2.8)
     "@lydell/node-pty": "^1.2.0-beta.12",
     "@monaco-editor/react": "^4.6.0",
     "@xterm/addon-fit": "^0.11.0",
