@@ -34,7 +34,10 @@
     "win": {
       "icon": "build/icon.ico",
       "target": [
-        "nsis"
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
       ]
     },
     "nsis": {
@@ -49,15 +52,29 @@
       "icon": "build/icon.png",
       "category": "public.app-category.developer-tools",
       "target": [
-        "dmg",
-        "zip"
-      ]
+        {
+          "target": "zip",
+          "arch": ["arm64"]
+        }
+      ],
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "entitlements": null,
+      "entitlementsInherit": null,
+      "identity": null,
+      "type": "distribution"
     },
     "linux": {
       "icon": "build/icon.png",
       "target": [
-        "AppImage",
-        "deb"
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["amd64"]
+        }
       ],
       "category": "Development",
       "synopsis": "AI development environment",
@@ -65,12 +82,10 @@
       "maintainer": "CrabCode",
       "executableName": "crabcode",
       "desktop": {
-        "entry": {
-          "Name": "CrabCode",
-          "Comment": "AI development environment",
-          "Categories": "Development;IDE;TextEditor;",
-          "StartupWMClass": "CrabCode"
-        }
+        "Name": "CrabCode",
+        "Comment": "AI development environment",
+        "Categories": "Development;IDE;TextEditor;",
+        "StartupWMClass": "CrabCode"
       }
     }
   },

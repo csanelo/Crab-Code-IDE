@@ -12,13 +12,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+  build-windows:
+    runs-on: windows-latest
     
     steps:
       - name: Checkout code
@@ -33,60 +28,83 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Package for Windows
-        if: matrix.os == 'windows-latest'
+      - name: Build and Package for Windows
         run: npm run package:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
-      - name: Package for macOS
-        if: matrix.os == 'macos-latest'
-        run: npm run package:mac
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: false
-          APPLE_ID: ""
-          APPLE_APP_SPECIFIC_PASSWORD: ""
-      
-      - name: Package for Linux
-        if: matrix.os == 'ubuntu-latest'
-        run: npm run package:linux
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
       - name: Upload Windows artifacts
-        if: matrix.os == 'windows-latest' && success()
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
           path: |
             dist/*.exe
             dist/*.zip
-          if-no-files-found: warn
+          if-no-files-found: error
+
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build and Package for macOS
+        run: npm run package:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
       
       - name: Upload macOS artifacts
-        if: matrix.os == 'macos-latest' && success()
         uses: actions/upload-artifact@v4
         with:
           name: macos-build
           path: |
-            dist/*.dmg
             dist/*.zip
-          if-no-files-found: warn
+            dist/*.dmg
+          if-no-files-found: error
+
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build and Package for Linux
+        run: npm run package:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Upload Linux artifacts
-        if: matrix.os == 'ubuntu-latest' && success()
         uses: actions/upload-artifact@v4
         with:
           name: linux-build
           path: |
             dist/*.AppImage
             dist/*.deb
-          if-no-files-found: warn
+          if-no-files-found: error
 
   release:
-    needs: build
+    needs: [build-windows, build-macos, build-linux]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     
