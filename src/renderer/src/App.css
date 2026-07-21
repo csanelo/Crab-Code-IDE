@@ -1,0 +1,293 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  position: relative;
+  background: var(--color-bg);
+}
+
+.app__main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  background: var(--color-bg);
+}
+
+
+.app__row {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.app__rightside {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+<<<<<<< HEAD
+=======
+  background: var(--color-chrome);
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+}
+
+.app__row--inner {
+  flex: 1;
+  min-height: 0;
+}
+
+
+.app__panel {
+  flex-shrink: 0;
+  overflow: hidden;
+<<<<<<< HEAD
+  transition:
+    width var(--dur-base) var(--ease-in-out),
+    border-color var(--dur-base) var(--ease-in-out);
+=======
+  background: var(--color-chrome);
+  border-radius: 0;
+  box-shadow: none;
+  transition: width var(--dur-base) var(--ease-in-out);
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+}
+
+
+.app__main--resizing .app__panel {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app__panel {
+    transition: none;
+  }
+}
+
+.app__panel--left {
+  width: var(--left-w);
+<<<<<<< HEAD
+  border-right: 1px solid var(--color-border);
+=======
+  border-right: none;
+  border-radius: 0;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+}
+
+.app__panel--right {
+  width: var(--right-w);
+<<<<<<< HEAD
+  border-left: 1px solid var(--color-border);
+=======
+  border-left: none;
+  border-radius: 0;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+}
+
+.app__panel--collapsed {
+  width: 0;
+<<<<<<< HEAD
+  border-right: none;
+  border-left: none;
+=======
+  margin: 0;
+  border-right: none;
+  border-left: none;
+  box-shadow: none;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+}
+
+.app__panel-inner {
+  height: 100%;
+<<<<<<< HEAD
+=======
+  border-radius: inherit;
+  overflow: hidden;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+}
+
+.app__panel-inner--right {
+  width: var(--right-w);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.app__panel-inner--left {
+  width: var(--left-w);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+
+.app__resizer {
+  position: relative;
+  flex-shrink: 0;
+  width: 6px;
+  margin: 0 -3px;
+  cursor: col-resize;
+  display: flex;
+  justify-content: center;
+  -webkit-app-region: no-drag;
+  z-index: var(--z-panel);
+}
+
+.app__resizer-line {
+  width: 1px;
+  height: 100%;
+  background: transparent;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.app__resizer:hover .app__resizer-line {
+  background: var(--color-accent);
+}
+
+.app__main--resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.app__main--resizing .app__resizer-line {
+  background: var(--color-accent);
+}
+
+.app__content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+<<<<<<< HEAD
+=======
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+}
+
+
+.app__content--with-browser {
+  flex: 1 1 50%;
+}
+
+
+.app__content--hidden {
+  display: none;
+}
+
+.app__browser {
+  flex: 1 1 50%;
+  min-width: 0;
+<<<<<<< HEAD
+  border-left: 1px solid var(--color-border);
+=======
+  border-left: none;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  display: flex;
+  flex-direction: column;
+}
+
+.app__browser--full {
+  flex: 1 1 100%;
+  border-left: none;
+}
+
+.app__terminal {
+  flex-shrink: 0;
+  height: 0;
+  min-height: 0;
+  opacity: 0;
+  overflow: hidden;
+<<<<<<< HEAD
+  border-top: 1px solid var(--color-border);
+=======
+  border-top: none;
+  border-radius: 0;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  transition:
+    height var(--dur-base) var(--ease-in-out),
+    opacity var(--dur-base) var(--ease-in-out);
+}
+
+.app__terminal--open {
+  height: var(--term-h, 240px);
+  opacity: 1;
+}
+
+<<<<<<< HEAD
+=======
+.app__rightside:has(.app__terminal--open) .app__content {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+
+.app__hresizer {
+  flex-shrink: 0;
+  height: 6px;
+  margin: -3px 0;
+  cursor: row-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-panel);
+}
+
+.app__hresizer-line {
+  height: 1px;
+  width: 100%;
+  background: transparent;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.app__hresizer:hover .app__hresizer-line {
+  background: var(--color-accent);
+}
+
+.app__main--resizing .app__terminal {
+  transition: opacity var(--dur-base) var(--ease-in-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app__terminal {
+    transition: none;
+  }
+}
+
+
+.app__settings-overlay {
+  position: absolute;
+  top: var(--titlebar-h);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-modal);
+  background: var(--color-bg);
+  display: flex;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+
+.app__settings-overlay--open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app__settings-overlay {
+    transition: none;
+  }
+}
+
+.app-boot {
+  position: fixed;
+  inset: 0;
+  background: var(--color-bg);
+}

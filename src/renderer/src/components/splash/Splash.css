@@ -1,0 +1,293 @@
+<<<<<<< HEAD
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: #181818;
+  opacity: 1;
+  transition: opacity 0.4s var(--ease-out);
+}
+
+.splash--leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.splash__icon {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  filter: brightness(0.7);
+  animation: splash-pop 1s var(--ease-out) both;
+}
+
+@keyframes splash-pop {
+  from {
+    opacity: 0;
+    filter: brightness(0.2);
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    filter: brightness(0.7);
+    transform: scale(1);
+=======
+.onboarding {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--color-chrome);
+  color: var(--color-text);
+  opacity: 1;
+  transition: opacity 420ms var(--ease-out), transform 420ms var(--ease-out);
+}
+
+.onboarding--leaving {
+  opacity: 0;
+  transform: scale(1.012);
+  pointer-events: none;
+}
+
+.onboarding__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(520px, calc(100vw - 40px));
+  animation: onboarding-enter 850ms var(--ease-out) both;
+}
+
+.onboarding__title {
+  margin: 0 0 26px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(40px, 4.2vw, 48px);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  color: var(--color-text);
+  text-align: center;
+}
+
+.onboarding__connect {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 30px;
+}
+
+.onboarding__github {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 104px;
+  height: 24px;
+  padding: 0 8px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 6px;
+  background: var(--color-surface-overlay);
+  color: var(--color-text);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    width 360ms var(--ease-out),
+    padding 360ms var(--ease-out),
+    background 180ms var(--ease-out),
+    transform 180ms var(--ease-out);
+}
+
+.onboarding__github:hover {
+  background: var(--color-surface-raised);
+  transform: translateY(-1px);
+}
+
+.onboarding__github span {
+  max-width: 82px;
+  opacity: 1;
+  font-size: 10px;
+  font-weight: 500;
+  transition: max-width 260ms var(--ease-out), opacity 180ms var(--ease-out);
+}
+
+.onboarding__connect--expanded .onboarding__github {
+  width: 28px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.onboarding__connect--expanded .onboarding__github span {
+  max-width: 0;
+  opacity: 0;
+}
+
+.onboarding__github--connected {
+  color: var(--color-text);
+}
+
+.onboarding__token-wrap {
+  position: relative;
+  width: 0;
+  height: 28px;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(-10px);
+  transition:
+    width 420ms var(--ease-out),
+    opacity 240ms var(--ease-out),
+    transform 420ms var(--ease-out);
+}
+
+.onboarding__connect--expanded .onboarding__token-wrap {
+  width: min(300px, calc(100vw - 86px));
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.onboarding__token {
+  width: 100%;
+  height: 28px;
+  padding: 0 34px 0 10px;
+  border: 0;
+  outline: 0;
+  border-radius: 7px;
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  box-shadow: inset 0 0 0 1px transparent;
+  transition: box-shadow 160ms var(--ease-out), background 160ms var(--ease-out);
+}
+
+.onboarding__token:focus {
+  background: var(--color-surface-overlay);
+  box-shadow: inset 0 0 0 1px var(--color-text-muted);
+}
+
+.onboarding__token::placeholder {
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+}
+
+.onboarding__spin {
+  position: absolute;
+  right: 10px;
+  top: 7px;
+  animation: onboarding-spin 800ms linear infinite;
+}
+
+.onboarding__error {
+  min-height: 24px;
+  padding-top: 6px;
+  color: var(--color-danger, #d46a6a);
+  font-size: var(--text-xs);
+  opacity: 0;
+  transform: translateY(-3px);
+  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+}
+
+.onboarding__error--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.onboarding__skip {
+  height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  transition: color 160ms var(--ease-out), background 160ms var(--ease-out);
+}
+
+.onboarding__skip:hover {
+  color: var(--color-text-secondary);
+  background: var(--color-surface-raised);
+}
+
+@keyframes onboarding-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes onboarding-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 560px) {
+  .onboarding__title {
+    margin-bottom: 24px;
+    font-size: clamp(36px, 11vw, 46px);
+  }
+
+  .onboarding__connect--expanded .onboarding__token-wrap {
+    width: calc(100vw - 82px);
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+<<<<<<< HEAD
+  .splash {
+    transition: none;
+  }
+  .splash__icon {
+    animation: none;
+  }
+}
+
+.splash__tagline {
+  font-size: var(--text-md);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #c8c8c8;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  animation: splash-pulse 2s ease-in-out infinite;
+}
+
+@keyframes splash-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash__tagline {
+    animation: none;
+    color: var(--color-text-secondary);
+=======
+  .onboarding,
+  .onboarding__content,
+  .onboarding__github,
+  .onboarding__token-wrap {
+    animation: none;
+    transition-duration: 0ms;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  }
+}

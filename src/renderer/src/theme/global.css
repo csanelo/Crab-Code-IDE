@@ -1,0 +1,156 @@
+<<<<<<< HEAD
+@import './tokens.css';
+=======
+@import "./tokens.css";
+@import url("https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap");
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  color: var(--color-text);
+  background: var(--color-chrome);
+  -webkit-font-smoothing: antialiased;
+<<<<<<< HEAD
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+}
+
+=======
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.chat__messages,
+.chat__messages *,
+input,
+textarea,
+[contenteditable="true"],
+.monaco-editor,
+.monaco-editor *,
+.xterm,
+.xterm * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+
+button,
+input,
+textarea,
+h1,
+h2,
+h3,
+h4,
+p,
+span,
+a,
+label,
+kbd,
+div {
+  text-shadow: var(--text-engrave);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  text-shadow: var(--text-engrave-strong);
+}
+
+<<<<<<< HEAD
+
+=======
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+.composer__input,
+.settings__input,
+.ns__input,
+.ns__highlight,
+.ns__highlight *,
+.browserp__url,
+.searchp__input,
+.searchp__glob {
+  text-shadow: none;
+}
+
+<<<<<<< HEAD
+
+=======
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+.composer__send,
+.composer__send svg {
+  text-shadow: none;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+input,
+textarea {
+  font-family: inherit;
+}
+
+::selection {
+  background: var(--color-accent-soft);
+}
+
+<<<<<<< HEAD
+
+=======
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+  background-clip: padding-box;
+}
+
+:focus-visible {
+  outline: none;
+}
+
+<<<<<<< HEAD
+
+=======
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+*:focus,
+*:focus-visible,
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+button:focus,
+button:focus-visible,
+[contenteditable]:focus {
+  outline: none !important;
+  box-shadow: none;
+}

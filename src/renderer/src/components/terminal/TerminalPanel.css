@@ -1,0 +1,213 @@
+.terminal {
+  display: flex;
+  flex-direction: column;
+<<<<<<< HEAD
+  background: var(--color-bg);
+=======
+  background: var(--color-chrome);
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  overflow: hidden;
+  height: 100%;
+}
+
+.terminal__header {
+  display: flex;
+  align-items: stretch;
+  height: 34px;
+  padding-right: var(--space-2);
+  flex-shrink: 0;
+  background: var(--color-chrome);
+<<<<<<< HEAD
+  border-bottom: 1px solid var(--color-border);
+=======
+  border-bottom: none;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+}
+
+
+.terminal__tabs {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.terminal__tabs::-webkit-scrollbar {
+  height: 0;
+}
+
+.terminal__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 180px;
+  padding: 0 8px 0 12px;
+<<<<<<< HEAD
+  border-right: 1px solid var(--color-border);
+=======
+  border-right: none;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  cursor: pointer;
+<<<<<<< HEAD
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+=======
+  overflow: hidden;
+  white-space: nowrap;
+  animation: terminal-tab-in var(--dur-base) var(--ease-out);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    max-width var(--dur-base) var(--ease-out),
+    padding var(--dur-base) var(--ease-out),
+    opacity var(--dur-base) var(--ease-out);
+}
+
+@keyframes terminal-tab-in {
+  from {
+    max-width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    opacity: 0;
+  }
+  to {
+    max-width: 180px;
+    padding-left: 12px;
+    padding-right: 8px;
+    opacity: 1;
+  }
+}
+
+.terminal__tab--closing {
+  max-width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  opacity: 0;
+  pointer-events: none;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+}
+
+.terminal__tab:hover {
+  color: var(--color-text);
+}
+
+.terminal__tab--active {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.terminal__tab-icon {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.terminal__tab-prompt {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+
+.terminal__tab-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal__tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+}
+
+.terminal__tab-close:hover {
+  color: var(--color-text);
+}
+
+.terminal__new {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.terminal__new:hover {
+  color: var(--color-text);
+}
+
+.terminal__spacer {
+  flex: 1;
+}
+
+.terminal__close,
+.terminal__action {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  align-self: center;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.terminal__close:hover,
+.terminal__action:hover {
+  color: var(--color-text);
+}
+
+
+.terminal__bodies {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+<<<<<<< HEAD
+=======
+  background: var(--color-bg);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  overflow: hidden;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+}
+
+.terminal__xterm {
+  position: absolute;
+  inset: 0;
+  padding: var(--space-2);
+  overflow: hidden;
+}
+
+.terminal__xterm--hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+
+.terminal__xterm * {
+  text-shadow: none !important;
+}
+
+.terminal__xterm .xterm-viewport {
+  background-color: transparent !important;
+}
+
+.terminal__xterm .xterm-viewport::-webkit-scrollbar {
+  width: 8px;
+}
+
+.terminal__xterm .xterm-viewport::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: var(--radius-pill);
+}

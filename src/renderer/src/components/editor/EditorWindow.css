@@ -1,0 +1,236 @@
+.edw {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+
+.edw__bar {
+  display: flex;
+  align-items: stretch;
+  height: 40px;
+  background: var(--color-chrome);
+<<<<<<< HEAD
+  border-bottom: 1px solid var(--color-border);
+=======
+  border-bottom: none;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  -webkit-app-region: drag;
+}
+
+
+.edw__bar--mac {
+  padding-left: 78px;
+}
+
+.edw__tabs {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-app-region: no-drag;
+}
+
+
+.edw__drag {
+  flex: 1;
+  min-width: 40px;
+  -webkit-app-region: drag;
+}
+
+.edw :focus-visible {
+  outline: none;
+}
+
+.edw__tabs::-webkit-scrollbar {
+  height: 0;
+}
+
+.edw__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 200px;
+  padding: 0 10px 0 12px;
+  border: none;
+<<<<<<< HEAD
+  border-right: 1px solid var(--color-border);
+=======
+  border-right: none;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.edw__tab:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.edw__tab--active {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.edw__tab-icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.edw__tab-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edw__tab-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.edw__tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.edw__tab-close:hover {
+  background: var(--color-surface-overlay);
+  color: var(--color-text);
+}
+
+.edw__win-controls {
+  display: flex;
+  align-items: stretch;
+  -webkit-app-region: no-drag;
+}
+
+.edw__win-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.edw__win-btn:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.edw__win-btn--save:hover {
+  background: transparent;
+  color: var(--color-text);
+}
+
+.edw__win-btn--close:hover {
+  background: #e81123;
+  color: #fff;
+}
+
+
+.edw__editor {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.edw__monaco {
+  position: absolute;
+  inset: 0;
+}
+
+.edw__loading {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.edw__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  flex: 1;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.edw__empty-icon {
+  opacity: 0.5;
+}
+
+
+.monaco-editor .line-insert,
+.monaco-editor .char-insert {
+  background-color: rgba(63, 185, 80, 0.18) !important;
+}
+
+.monaco-editor .char-insert {
+  background-color: rgba(63, 185, 80, 0.32) !important;
+}
+
+.monaco-editor .line-delete,
+.monaco-editor .char-delete {
+  background-color: rgba(240, 82, 74, 0.18) !important;
+}
+
+.monaco-editor .char-delete {
+  background-color: rgba(240, 82, 74, 0.32) !important;
+}
+
+
+.monaco-editor .gutter-insert {
+  background-color: rgba(63, 185, 80, 0.45) !important;
+}
+
+.monaco-editor .gutter-delete {
+  background-color: rgba(240, 82, 74, 0.45) !important;
+}
+
+:root[data-theme='light'] .monaco-editor .line-insert,
+:root[data-theme='light'] .monaco-editor .char-insert {
+  background-color: rgba(26, 127, 55, 0.16) !important;
+}
+
+:root[data-theme='light'] .monaco-editor .line-delete,
+:root[data-theme='light'] .monaco-editor .char-delete {
+  background-color: rgba(209, 36, 47, 0.16) !important;
+}
+
+
+.edw__tab-badge {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--color-success);
+  border: 1px solid var(--color-success);
+  border-radius: var(--radius-sm);
+  opacity: 0.8;
+}

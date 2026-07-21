@@ -1,0 +1,843 @@
+.files {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: var(--color-chrome);
+  overflow: hidden;
+}
+
+.files__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 38px;
+  padding: 0 var(--space-2) 0 var(--space-3);
+  flex-shrink: 0;
+<<<<<<< HEAD
+  border-bottom: 1px solid var(--color-border);
+}
+
+.files__tabs {
+=======
+  border-bottom: none;
+}
+
+.files__tabs {
+  position: relative;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.files__tab {
+<<<<<<< HEAD
+=======
+  position: relative;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+<<<<<<< HEAD
+  padding: 0;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out);
+=======
+  padding: 2px 0 5px;
+  cursor: pointer;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+}
+
+.files__tab:hover {
+  color: var(--color-text);
+}
+
+.files__tab--active {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.files__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.files__icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+<<<<<<< HEAD
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+=======
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+}
+
+.files__icon:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+.files__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-1) var(--space-1) var(--space-3);
+}
+
+.files__body--dragover {
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+<<<<<<< HEAD
+=======
+.files__view {
+  --files-view-shift: 0;
+  min-height: 100%;
+  animation: files-view-in 190ms var(--ease-out) both;
+}
+
+.files__view--changes {
+  --files-view-shift: -6px;
+}
+
+.files__view--files {
+  --files-view-shift: 6px;
+}
+
+@keyframes files-view-in {
+  from {
+    opacity: 0;
+    transform: translate3d(var(--files-view-shift), 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+.files__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  padding: var(--space-3);
+}
+
+<<<<<<< HEAD
+=======
+.files__no-folder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+
+.files__no-folder-text {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.files__open-project {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  height: 30px;
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1;
+  background: var(--color-surface-overlay);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.files__open-project:hover {
+  background: var(--color-surface-raised);
+}
+
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+.files__open-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 28px;
+  padding: 0 var(--space-3);
+<<<<<<< HEAD
+  border: 1px solid var(--color-border-strong);
+=======
+  border: 1px solid transparent;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
+
+.files__rename-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: rgba(0, 0, 0, 0.4);
+  display: grid;
+  place-items: center;
+}
+
+.files__rename-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 320px;
+  padding: var(--space-4);
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-md);
+}
+
+.files__rename-label {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.files__rename-input {
+  height: 32px;
+  padding: 0 var(--space-2);
+  background: var(--color-bg);
+<<<<<<< HEAD
+  border: 1px solid var(--color-border-strong);
+=======
+  border: 1px solid transparent;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.files__rename-input:focus {
+  border-color: var(--color-text-muted);
+}
+
+.ftree__rename {
+  cursor: text;
+}
+
+.ftree__rename-input {
+  flex: 1;
+  min-width: 0;
+<<<<<<< HEAD
+  border: 1px solid var(--color-border-strong);
+=======
+  border: 1px solid transparent;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+  outline: none;
+  height: 22px;
+}
+
+.ftree__rename-input:focus {
+  border-color: var(--color-text-muted);
+}
+
+<<<<<<< HEAD
+
+=======
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+.ftree__row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 24px;
+  padding-left: var(--space-2);
+  padding-right: var(--space-2);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  text-align: left;
+<<<<<<< HEAD
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+
+=======
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+.ftree__guide {
+  flex-shrink: 0;
+  align-self: stretch;
+  width: 14px;
+<<<<<<< HEAD
+  border-left: 1px solid var(--color-border);
+=======
+  border-left: none;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+}
+
+.ftree__row .ftree__img {
+  margin-right: var(--space-2);
+}
+
+<<<<<<< HEAD
+
+=======
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+.ftree__root-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) 4px 4px var(--space-3);
+}
+
+.ftree__root-name {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.ftree__root-name--dragover {
+  color: var(--color-accent);
+}
+
+<<<<<<< HEAD
+
+=======
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+.ftree__root-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ftree__root-actions .files__icon {
+  width: 22px;
+  height: 22px;
+}
+
+.ftree__row:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+.ftree__root {
+  font-weight: 600;
+  color: var(--color-text);
+  padding-left: var(--space-2);
+}
+
+.ftree__icon {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.ftree__img {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: block;
+}
+
+.ftree__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ftree__label--root {
+  font-size: var(--text-sm);
+}
+
+.ftree__chevron {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.ftree__chevron--open {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+<<<<<<< HEAD
+=======
+  .files__tab {
+    transition: none;
+  }
+
+  .files__view {
+    animation: none;
+  }
+
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  .ftree__chevron {
+    transition: none;
+  }
+}
+
+<<<<<<< HEAD
+
+=======
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+.changes {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+
+.changes__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.changes__count {
+  flex: 1;
+  min-width: 0;
+}
+
+.changes__totals {
+  display: inline-flex;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.changes__added {
+  color: #3fb950;
+}
+
+.changes__removed {
+  color: #f0524a;
+}
+
+.changes__clear {
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+<<<<<<< HEAD
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+=======
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+}
+
+.changes__clear:hover {
+  background: var(--color-surface-overlay);
+  color: var(--color-text);
+}
+
+.changes__list {
+  display: flex;
+  flex-direction: column;
+}
+
+.changes__item {
+<<<<<<< HEAD
+  border-bottom: 1px solid var(--color-border);
+=======
+  border-bottom: none;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+}
+
+.changes__row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.changes__row:hover {
+  background: var(--color-surface-overlay);
+}
+
+.changes__row-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  padding: 6px var(--space-3);
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--text-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.changes__revert {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-right: var(--space-2);
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+<<<<<<< HEAD
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+=======
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+}
+
+.changes__revert:hover {
+  background: transparent;
+  color: var(--color-text);
+}
+
+.changes__chevron {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.changes__chevron--open {
+  transform: rotate(90deg);
+}
+
+.changes__icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.changes__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.changes__nums {
+  flex-shrink: 0;
+  display: inline-flex;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 11px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .changes__chevron {
+    transition: none;
+  }
+}
+
+<<<<<<< HEAD
+
+=======
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+.ftree__row--dragover {
+  background: var(--color-surface-overlay);
+  box-shadow: inset 0 0 0 1px var(--color-border-strong);
+}
+
+<<<<<<< HEAD
+
+=======
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+.changes__gh-btn {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+<<<<<<< HEAD
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+=======
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+}
+
+.changes__gh-btn:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+}
+
+<<<<<<< HEAD
+
+=======
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+.changes__commit-pop {
+  position: fixed;
+  right: 14px;
+  bottom: 38px;
+  z-index: var(--z-modal);
+  width: 260px;
+  padding: 8px;
+  background: var(--color-surface);
+<<<<<<< HEAD
+  border: 1px solid var(--color-border);
+=======
+  border: 1px solid transparent;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  border-radius: 6px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+}
+
+<<<<<<< HEAD
+:root[data-theme='light'] .changes__commit-pop {
+=======
+:root[data-theme="light"] .changes__commit-pop {
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+}
+
+.changes__commit-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 var(--space-2);
+<<<<<<< HEAD
+  border: 1px solid var(--color-border);
+=======
+  border: 1px solid transparent;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.changes__commit-input:focus {
+  border-color: var(--color-border-strong);
+}
+
+.changes__commit-spin {
+  margin-top: 6px;
+}
+
+.changes__commit-note {
+  margin-top: 6px;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.changes__spin {
+  animation: ns-spin 0.8s linear infinite;
+}
+
+@keyframes ns-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+<<<<<<< HEAD
+
+
+
+
+
+.diff {
+  border-top: 1px solid var(--color-border);
+=======
+.diff {
+  border-top: none;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  background: var(--color-bg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.45;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.diff__line {
+  display: flex;
+  align-items: flex-start;
+  min-height: 16px;
+  min-width: max-content;
+  width: 100%;
+  white-space: pre;
+}
+
+.diff__line--add {
+  background: rgba(63, 185, 80, 0.16);
+}
+
+.diff__line--del {
+  background: rgba(240, 82, 74, 0.16);
+}
+
+.diff__lineno {
+  position: sticky;
+  left: 0;
+  flex-shrink: 0;
+  width: 34px;
+  padding-right: 8px;
+  text-align: right;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  opacity: 0.55;
+  user-select: none;
+  background: inherit;
+}
+
+.diff__sign {
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+  user-select: none;
+  color: var(--color-text-muted);
+}
+
+.diff__line--add .diff__sign {
+  color: #3fb950;
+}
+
+.diff__line--del .diff__sign {
+  color: #f0524a;
+}
+
+.diff__text {
+  flex: 1;
+  min-width: 0;
+  padding-right: var(--space-3);
+  white-space: pre;
+  color: var(--color-text-secondary);
+}
+
+.diff__line--add .diff__text,
+.diff__line--del .diff__text {
+  color: var(--color-text);
+}
+
+<<<<<<< HEAD
+
+.changes__diff {
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+=======
+.changes__diff {
+  border-top: none;
+  border-bottom: none;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+}
+
+.changes__diff-loading {
+  display: grid;
+  place-items: center;
+  height: 80px;
+  color: var(--color-text-muted);
+}
+
+<<<<<<< HEAD
+
+=======
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+.monaco-editor .line-insert,
+.monaco-editor .char-insert {
+  background-color: rgba(63, 185, 80, 0.18) !important;
+}
+.monaco-editor .char-insert {
+  background-color: rgba(63, 185, 80, 0.32) !important;
+}
+.monaco-editor .line-delete,
+.monaco-editor .char-delete {
+  background-color: rgba(240, 82, 74, 0.18) !important;
+}
+.monaco-editor .char-delete {
+  background-color: rgba(240, 82, 74, 0.32) !important;
+}
+.monaco-editor .gutter-insert {
+  background-color: rgba(63, 185, 80, 0.45) !important;
+}
+.monaco-editor .gutter-delete {
+  background-color: rgba(240, 82, 74, 0.45) !important;
+}
+<<<<<<< HEAD
+=======
+
+.files__empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 44px 16px;
+  text-align: center;
+}
+
+.files__empty-state svg {
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
+}
+
+.files__empty-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.files__empty-sub {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+>>>>>>> baf0023 (release: CrabCode 0.2.8)

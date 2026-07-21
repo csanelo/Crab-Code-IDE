@@ -1,0 +1,106 @@
+.toaster {
+  position: fixed;
+  bottom: 40px;
+  right: 16px;
+  z-index: calc(var(--z-modal) + 50);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 240px;
+  max-width: 360px;
+  padding: 9px 10px 9px 11px;
+  background: var(--color-surface-raised);
+<<<<<<< HEAD
+  border: 1px solid var(--color-border);
+=======
+  border: 1px solid transparent;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  border-left: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  color: var(--color-text);
+  font-size: var(--text-xs);
+  pointer-events: auto;
+  animation: toast-in var(--dur-base) var(--ease-out);
+}
+
+.toast--success {
+  border-left-color: var(--color-success);
+}
+
+.toast--error {
+  border-left-color: var(--color-danger);
+}
+
+.toast--info {
+  border-left-color: var(--color-accent);
+}
+
+.toast__icon {
+  flex-shrink: 0;
+}
+
+.toast--success .toast__icon {
+  color: var(--color-success);
+}
+
+.toast--error .toast__icon {
+  color: var(--color-danger);
+}
+
+.toast--info .toast__icon {
+  color: var(--color-accent);
+}
+
+.toast__msg {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.toast__close {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+<<<<<<< HEAD
+  border-radius: 3px;
+=======
+  border-radius: 6px;
+>>>>>>> baf0023 (release: CrabCode 0.2.8)
+  cursor: pointer;
+}
+
+.toast__close:hover {
+  background: var(--color-surface-overlay);
+  color: var(--color-text);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}
