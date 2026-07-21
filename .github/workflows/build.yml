@@ -32,9 +32,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Build application
-        run: npm run build
-      
       - name: Package for Windows
         if: matrix.os == 'windows-latest'
         run: npm run package:win
@@ -46,6 +43,7 @@ jobs:
         run: npm run package:mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
       
       - name: Package for Linux
         if: matrix.os == 'ubuntu-latest'
