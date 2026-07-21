@@ -66,22 +66,14 @@ export const ru: Record<TKey, string> = {
   'files.refresh': 'Обновить',
   'files.collapseAll': 'Свернуть всё',
   'files.noChanges': 'Нет изменений',
-<<<<<<< HEAD
-=======
   'files.noChangesSub': 'Правки файлов появятся здесь.',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'files.changedCount': 'Изменено файлов: {n}',
   'files.clearChanges': 'Очистить',
   'files.revert': 'Откатить изменение',
   'files.viewDiff': 'Показать различия',
-<<<<<<< HEAD
-  'files.noFolder': 'Папка не открыта',
-  'files.openFolder': 'Открыть папку',
-=======
   'files.noFolder': 'Вы ещё не открыли папку.',
   'files.openFolder': 'Открыть папку',
   'files.openProject': 'Открыть проект',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'files.noPath': 'У проекта нет пути на диске',
   'files.menu.open': 'Открыть',
   'files.menu.openInFolder': 'Открыть в папке',
@@ -102,10 +94,7 @@ export const ru: Record<TKey, string> = {
   'chat.with': 'с',
   'chat.noProject': 'Нет проекта',
   'chat.noModels': 'Нет моделей',
-<<<<<<< HEAD
-=======
   'chat.context': 'Контекст',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'chat.newChat': 'Новый чат',
   'chat.describe': 'Опишите, что хотите создать',
   'chat.describeAria': 'Опишите задачу',
@@ -114,11 +103,7 @@ export const ru: Record<TKey, string> = {
   'chat.voice': 'Голосовой ввод',
   'chat.stopVoice': 'Остановить запись',
   'chat.thinking': 'Думаю…',
-<<<<<<< HEAD
-  'chat.getToWork': 'Давайте за работу',
-=======
   'chat.getToWork': 'Что будем делать сегодня?',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'chat.workWith': 'Работа с',
   'chat.agent': 'Агентом',
   'chat.agentSub': 'Сквозное выполнение рутинных задач разработки с поддержкой настроенного MCP',
@@ -238,11 +223,7 @@ export const ru: Record<TKey, string> = {
   'tool.move_path': 'Переместить',
   'tool.copy_path': 'Копировать',
   'tool.read_memory': 'Читает память',
-<<<<<<< HEAD
-  'tool.write_memory': 'Запомнить',
-=======
   'tool.write_memory': 'Запом��ить',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'tool.git_time_travel': 'История Git',
   'tool.command_label': 'Команда',
   'tool.copy': 'Копировать',
@@ -308,11 +289,7 @@ export const ru: Record<TKey, string> = {
   'slash.deleted': 'Сессия удалена',
 
   'settings.title': 'Настройки',
-<<<<<<< HEAD
-  'settings.close': 'Закрыть (Esc)',
-=======
   'settings.close': 'З��крыть (Esc)',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'settings.nav.general': 'Общие',
   'settings.nav.appearance': 'Внешний вид',
   'settings.nav.skills': 'Навыки',

@@ -82,22 +82,14 @@ const en = {
   'files.refresh': 'Refresh',
   'files.collapseAll': 'Collapse all',
   'files.noChanges': 'No changes',
-<<<<<<< HEAD
-=======
   'files.noChangesSub': 'Edits to your files will show up here.',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'files.changedCount': '{n} changed files',
   'files.clearChanges': 'Clear',
   'files.revert': 'Revert change',
   'files.viewDiff': 'View diff',
-<<<<<<< HEAD
-  'files.noFolder': 'No folder open',
-  'files.openFolder': 'Open folder',
-=======
   'files.noFolder': 'You have not yet opened a folder.',
   'files.openFolder': 'Open folder',
   'files.openProject': 'Open Project',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'files.noPath': 'Project has no path on disk',
   'files.menu.open': 'Open',
   'files.menu.openInFolder': 'Open in Folder',
@@ -118,10 +110,7 @@ const en = {
   'chat.with': 'with',
   'chat.noProject': 'No project',
   'chat.noModels': 'No models',
-<<<<<<< HEAD
-=======
   'chat.context': 'Context',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'chat.newChat': 'New chat',
   'chat.describe': 'Describe what you want to build',
   'chat.describeAria': 'Describe the task',
@@ -130,11 +119,7 @@ const en = {
   'chat.voice': 'Voice input',
   'chat.stopVoice': 'Stop recording',
   'chat.thinking': 'Thinking…',
-<<<<<<< HEAD
-  'chat.getToWork': "Let's get to work",
-=======
   'chat.getToWork': 'What are we building today?',
->>>>>>> baf0023 (release: CrabCode 0.2.8)
   'chat.workWith': 'Work with',
   'chat.agent': 'Agent',
   'chat.agentSub': 'End-to-end execution of routine development tasks, with support for configured MCP',
