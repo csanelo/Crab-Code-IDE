@@ -247,6 +247,14 @@ const en = {
   'tool.run': 'Run',
   'tool.running': 'running…',
 
+  'task.changesTitle': 'File changes in task ({n})',
+  'task.accept': 'Accept',
+  'task.reject': 'Reject',
+  'task.accepted': 'Changes accepted',
+  'task.rejected': 'Changes reverted',
+  'task.acceptAll': 'Accept all',
+  'task.rejectAll': 'Reject all',
+
   'palette.searching': 'Searching…',
 
   'welcome.openChat': 'Open Chat',

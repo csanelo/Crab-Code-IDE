@@ -9,6 +9,7 @@ interface Events {
   'composer:mention': { path: string; name: string; isDir: boolean }
   'composer:image': { dataUrl: string; name: string }
   'editor:open': { path: string; line?: number; column?: number }
+  'editor:openDiff': { path: string; before?: string }
   'editor:reload': { path: string }
   'editor:agentEdit': { path: string }
   'github:auth': void

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { X, Code2, ChevronRight, Columns2 } from 'lucide-react'
-import Editor, { type OnMount } from '@monaco-editor/react'
+import Editor, { DiffEditor, type OnMount } from '@monaco-editor/react'
 import { fileIcon } from '../files/iconMap'
 import { ImageViewer, isImagePath } from './ImageViewer'
 import { setupMonaco, languageForFile, monacoThemeFor } from '../../lib/monacoSetup'
@@ -29,6 +29,7 @@ interface OpenFile {
   original: string
   encoding: string
   conflict?: string
+  showDiff?: boolean
 }
 
 function baseName(p: string): string {
@@ -294,6 +295,53 @@ export function CodeEditor(): JSX.Element {
       })
     })
   }, [openFile])
+
+  const openFileWithDiff = useCallback(async (path: string, before?: string) => {
+    const name = baseName(path)
+    if (isImagePath(name)) return
+    const existing = await window.api.fs.readFile(path)
+    const content = existing?.content ?? ''
+    const encoding = existing?.encoding ?? 'utf8'
+    setFiles((prev) => {
+      const idx = prev.findIndex((f) => f.path === path)
+      if (idx >= 0) {
+        const file = prev[idx]
+        const orig = before !== undefined ? before : file.original
+        const nextFile: OpenFile = {
+          ...file,
+          content,
+          original: orig,
+          showDiff: true
+        }
+        return [...prev.slice(0, idx), nextFile, ...prev.slice(idx + 1)]
+      }
+      return [
+        ...prev,
+        {
+          path,
+          name,
+          content,
+          dirty: false,
+          original: before !== undefined ? before : content,
+          encoding,
+          showDiff: true
+        }
+      ]
+    })
+    setActivePath(path)
+  }, [])
+
+  useEffect(() => {
+    return onAppEvent('editor:openDiff', ({ path, before }) => {
+      void openFileWithDiff(path, before)
+    })
+  }, [openFileWithDiff])
+
+  const toggleDiffMode = useCallback((path: string) => {
+    setFiles((prev) =>
+      prev.map((f) => (f.path === path ? { ...f, showDiff: !f.showDiff } : f))
+    )
+  }, [])
 
   const editorStoreKey = activeRepoId ? `editorOpen:${activeRepoId}` : null
   const restoringRef = useRef(false)
@@ -662,6 +710,7 @@ export function CodeEditor(): JSX.Element {
           >
             <img src={fileIcon(f.name)} alt="" className="ceditor__tab-icon" />
             <span className="ceditor__tab-name">{f.name}</span>
+            {f.showDiff && <span className="ceditor__tab-diff-tag">Diff</span>}
             {f.dirty && <span className="ceditor__tab-dot" aria-label="unsaved" />}
             <span
               className="ceditor__tab-close"
@@ -678,6 +727,18 @@ export function CodeEditor(): JSX.Element {
           </button>
         ))}
         <div className="ceditor__tabs-spacer" />
+        {active && (
+          <button
+            type="button"
+            className={`ceditor__diff-btn${active.showDiff ? ' ceditor__diff-btn--on' : ''}`}
+            aria-label="Toggle diff"
+            title={active.showDiff ? 'Показать исходный код' : 'Показать разницу (Diff)'}
+            onClick={() => toggleDiffMode(active.path)}
+          >
+            <Columns2 size={13} />
+            <span>Diff</span>
+          </button>
+        )}
         <button
           type="button"
           className={`ceditor__split-btn${splitPath ? ' ceditor__split-btn--on' : ''}`}
@@ -732,30 +793,57 @@ export function CodeEditor(): JSX.Element {
         <div className={`ceditor__panes${splitPath ? ' ceditor__panes--split' : ''}`}>
           <div className="ceditor__pane">
             <div className="ceditor__pane-editor">
-              <Editor
-                key={active.path}
-                height="100%"
-                loading={<div className="ceditor__loading">…</div>}
-                theme={monacoThemeFor(themeId)}
-                language={activeLang}
-                path={pathToLspUri(active.path)}
-                value={active.content}
-                onChange={(value) => updateContent(value ?? '')}
-                onMount={handleMount}
-                options={{
-                  fontFamily:
-                    "'JetBrains Mono', 'SF Mono', 'Cascadia Code', Consolas, 'Courier New', monospace",
-                  fontSize: 13,
-                  minimap: { enabled: true },
-                  scrollBeyondLastLine: false,
-                  smoothScrolling: true,
-                  cursorBlinking: 'smooth',
-                  renderWhitespace: 'selection',
-                  tabSize: 2,
-                  automaticLayout: true,
-                  padding: { top: 10 }
-                }}
-              />
+              {active.showDiff ? (
+                <DiffEditor
+                  key={`diff:${active.path}`}
+                  height="100%"
+                  loading={<div className="ceditor__loading">…</div>}
+                  theme={monacoThemeFor(themeId)}
+                  language={activeLang}
+                  original={active.original}
+                  modified={active.content}
+                  options={{
+                    fontFamily:
+                      "'JetBrains Mono', 'SF Mono', 'Cascadia Code', Consolas, 'Courier New', monospace",
+                    fontSize: 13,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    smoothScrolling: true,
+                    cursorBlinking: 'smooth',
+                    renderWhitespace: 'selection',
+                    tabSize: 2,
+                    automaticLayout: true,
+                    padding: { top: 10 },
+                    renderSideBySide: false,
+                    readOnly: false
+                  }}
+                />
+              ) : (
+                <Editor
+                  key={active.path}
+                  height="100%"
+                  loading={<div className="ceditor__loading">…</div>}
+                  theme={monacoThemeFor(themeId)}
+                  language={activeLang}
+                  path={pathToLspUri(active.path)}
+                  value={active.content}
+                  onChange={(value) => updateContent(value ?? '')}
+                  onMount={handleMount}
+                  options={{
+                    fontFamily:
+                      "'JetBrains Mono', 'SF Mono', 'Cascadia Code', Consolas, 'Courier New', monospace",
+                    fontSize: 13,
+                    minimap: { enabled: true },
+                    scrollBeyondLastLine: false,
+                    smoothScrolling: true,
+                    cursorBlinking: 'smooth',
+                    renderWhitespace: 'selection',
+                    tabSize: 2,
+                    automaticLayout: true,
+                    padding: { top: 10 }
+                  }}
+                />
+              )}
             </div>
           </div>
           {splitPath && splitFile && (

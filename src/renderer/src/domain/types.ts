@@ -53,6 +53,7 @@ export interface ChatMessage {
   tokens?: number;
   toolCalls?: ToolCall[];
   segments?: MessageSegment[];
+  taskChangesState?: "pending" | "accepted" | "rejected";
 }
 
 export interface Conversation {

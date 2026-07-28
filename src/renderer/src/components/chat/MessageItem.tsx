@@ -21,9 +21,10 @@ import {
   CopyPlus,
   BookOpen,
   History,
+  Undo2,
   type LucideIcon,
 } from "lucide-react";
-import type { ChatMessage, ToolCall } from "../../domain/types";
+import type { ChatMessage, ToolCall, FileChange } from "../../domain/types";
 import { useT } from "../../i18n";
 import type { TKey } from "../../i18n/translations";
 import { Markdown } from "./Markdown";
@@ -598,6 +599,189 @@ function DiffView({ diff }: { diff: string }): JSX.Element {
   );
 }
 
+function TaskChangesCard({
+  message,
+}: {
+  message: ChatMessage;
+}): JSX.Element | null {
+  const t = useT();
+  const { state, setTaskChangesState, removeChange } = useApp();
+  const [open, setOpen] = useState(false);
+  const [localTaskState, setLocalTaskState] = useState<
+    "pending" | "accepted" | "rejected"
+  >(message.taskChangesState ?? "pending");
+
+  const conversationId = state.activeConversationId;
+  const activeRepo = state.repositories.find(
+    (r) => r.id === state.activeRepositoryId,
+  );
+  const repoPath = activeRepo?.path ?? null;
+  const repoId = activeRepo?.id ?? null;
+
+  const fileChangesMap = new Map<string, FileChange>();
+  if (message.toolCalls) {
+    for (const tool of message.toolCalls) {
+      if (tool.status === "done" && tool.mutated && tool.meta?.path) {
+        const meta = tool.meta;
+        const existing = fileChangesMap.get(meta.path);
+        if (existing) {
+          fileChangesMap.set(meta.path, {
+            ...existing,
+            added: existing.added + meta.added,
+            removed: existing.removed + meta.removed,
+            diff: meta.diff || existing.diff,
+          });
+        } else {
+          fileChangesMap.set(meta.path, {
+            path: meta.path,
+            added: meta.added,
+            removed: meta.removed,
+            diff: meta.diff,
+            updatedAt: Date.now(),
+            before: meta.before ?? "",
+            existed: meta.existed ?? false,
+          });
+        }
+      }
+    }
+  }
+
+  const changesList = Array.from(fileChangesMap.values());
+  if (changesList.length === 0) return null;
+
+  const totalAdded = changesList.reduce((s, c) => s + c.added, 0);
+  const totalRemoved = changesList.reduce((s, c) => s + c.removed, 0);
+  const taskState = localTaskState;
+
+  function getAbsPath(p: string): string {
+    if (!repoPath) return p;
+    if (/^([a-zA-Z]:[\\/]|\/)/.test(p)) return p;
+    const sep = repoPath.includes("\\") ? "\\" : "/";
+    return `${repoPath}${sep}${p.replace(/[\\/]/g, sep)}`;
+  }
+
+  const handleAccept = () => {
+    setLocalTaskState("accepted");
+    if (conversationId) {
+      setTaskChangesState(conversationId, message.id, "accepted");
+    }
+  };
+
+  const handleReject = async () => {
+    setLocalTaskState("rejected");
+    if (conversationId) {
+      setTaskChangesState(conversationId, message.id, "rejected");
+    }
+    for (const c of changesList) {
+      const absPath = getAbsPath(c.path);
+      await window.api.fs.revert({
+        path: absPath,
+        before: c.before,
+        existed: c.existed,
+      });
+      emitAppEvent("editor:reload", { path: absPath });
+      if (repoId) {
+        removeChange(repoId, c.path);
+      }
+    }
+    emitAppEvent("fs:changed", undefined);
+  };
+
+  return (
+    <div className={`task-changes task-changes--${taskState}`}>
+      <div className="task-changes__head">
+        <div
+          className="task-changes__main"
+          onClick={() => setOpen((prev) => !prev)}
+        >
+          <span className="task-changes__title">
+            {t("task.changesTitle", { n: changesList.length })}
+          </span>
+          <span className="task-changes__counts">
+            {totalAdded > 0 && <span className="changes__added">+{totalAdded}</span>}
+            {totalRemoved > 0 && <span className="changes__removed">−{totalRemoved}</span>}
+          </span>
+          <ChevronRight
+            size={13}
+            className={`task-changes__chevron${open ? " task-changes__chevron--open" : ""}`}
+          />
+        </div>
+
+        <div className="task-changes__actions">
+          {taskState === "pending" ? (
+            <>
+              <button
+                type="button"
+                className="task-changes__btn task-changes__btn--accept"
+                onClick={handleAccept}
+                title={t("task.accept")}
+              >
+                <CheckIcon size={13} />
+                <span>{t("task.accept")}</span>
+              </button>
+              <button
+                type="button"
+                className="task-changes__btn task-changes__btn--reject"
+                onClick={handleReject}
+                title={t("task.reject")}
+              >
+                <Undo2 size={13} />
+                <span>{t("task.reject")}</span>
+              </button>
+            </>
+          ) : taskState === "accepted" ? (
+            <span className="task-changes__badge task-changes__badge--accepted">
+              <CheckIcon size={12} />
+              <span>{t("task.accepted")}</span>
+            </span>
+          ) : (
+            <span className="task-changes__badge task-changes__badge--rejected">
+              <Undo2 size={12} />
+              <span>{t("task.rejected")}</span>
+            </span>
+          )}
+        </div>
+      </div>
+
+      {open && (
+        <div className="task-changes__list">
+          {changesList.map((c) => {
+            const name = c.path.split(/[\\/]/).pop() ?? c.path;
+            const absPath = getAbsPath(c.path);
+            return (
+              <div
+                key={c.path}
+                className="task-changes__file"
+                onClick={() =>
+                  emitAppEvent("editor:openDiff", {
+                    path: absPath,
+                    before: c.before,
+                  })
+                }
+                title="Открыть diff в редакторе"
+              >
+                <img
+                  className="task-changes__fileicon"
+                  src={fileIcon(name)}
+                  alt=""
+                  aria-hidden="true"
+                />
+                <span className="task-changes__filepath" title={c.path}>
+                  {c.path}
+                </span>
+                <span className="task-changes__filecounts">
+                  {c.added > 0 && <span className="changes__added">+{c.added}</span>}
+                  {c.removed > 0 && <span className="changes__removed">−{c.removed}</span>}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MessageItemBase({ message }: { message: ChatMessage }): JSX.Element {
   const t = useT();
   const { state } = useApp();
@@ -689,6 +873,8 @@ function MessageItemBase({ message }: { message: ChatMessage }): JSX.Element {
               )}
             </>
           )}
+
+          <TaskChangesCard message={message} />
 
           {showMeta && (
             <div className="message__meta" aria-hidden="true">

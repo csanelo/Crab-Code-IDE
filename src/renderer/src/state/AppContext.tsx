@@ -67,6 +67,11 @@ interface AppContextValue {
     agentContent?: string,
     webEnabled?: boolean,
   ) => void;
+  setTaskChangesState: (
+    conversationId: ID,
+    messageId: ID,
+    state: "accepted" | "rejected",
+  ) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -375,6 +380,13 @@ export function AppProvider({
       canGoBack: back.length > 0,
       canGoForward: forward.length > 0,
       sendMessage,
+      setTaskChangesState: (conversationId, messageId, state) =>
+        dispatch({
+          type: "SET_TASK_CHANGES_STATE",
+          conversationId,
+          messageId,
+          state,
+        }),
     };
   }, [
     state,

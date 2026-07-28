@@ -57,6 +57,12 @@ export type Action =
       change: import("../domain/types").FileChange;
     }
   | { type: "FINISH_MESSAGE"; conversationId: ID; messageId: ID }
+  | {
+      type: "SET_TASK_CHANGES_STATE";
+      conversationId: ID;
+      messageId: ID;
+      state: "accepted" | "rejected";
+    }
   | { type: "FAIL_MESSAGE"; conversationId: ID; messageId: ID; error: string }
   | { type: "SYNC_AGENT_SESSIONS"; payload: AgentSessionSnapshot }
   | { type: "SET_VIEW"; view: View };
@@ -447,14 +453,39 @@ export function appReducer(state: AppState, action: Action): AppState {
         messages: conv.messages.map((m) => {
           if (m.id !== action.messageId) return m;
           const tokens = Math.max(1, Math.round(m.content.length / 4));
+          const hasMutations = Boolean(
+            m.toolCalls?.some((c) => c.status === "done" && c.mutated && c.meta),
+          );
           return {
             ...m,
             streaming: false,
             durationMs: now - m.createdAt,
             tokens,
+            taskChangesState:
+              hasMutations && !m.taskChangesState ? "pending" : m.taskChangesState,
           };
         }),
       });
+      return {
+        ...state,
+        conversations: {
+          ...state.conversations,
+          [action.conversationId]: updated,
+        },
+      };
+    }
+
+    case "SET_TASK_CHANGES_STATE": {
+      const conv = state.conversations[action.conversationId];
+      if (!conv) return state;
+      const updated: Conversation = {
+        ...conv,
+        messages: conv.messages.map((m) =>
+          m.id === action.messageId
+            ? { ...m, taskChangesState: action.state }
+            : m,
+        ),
+      };
       return {
         ...state,
         conversations: {
