@@ -7,6 +7,7 @@ import { fileService } from "../../services/fileService";
 import { newRepository } from "../../state";
 import { GithubAvatar } from "./GithubAvatar";
 import { ProjectSwitcher } from "./ProjectSwitcher";
+import { emit as emitAppEvent } from "../../lib/appEvents";
 import { asset } from "../../lib/asset";
 import "./TitleBar.css";
 
@@ -202,6 +203,64 @@ export function TitleBar({
   }, []);
 
   useEffect(() => {
+    return window.api.app.onMenuAction((action) => {
+      switch (action) {
+        case "new-session":
+          createConversation(state.activeRepositoryId);
+          break;
+        case "open-folder":
+          void openFolder();
+          break;
+        case "save":
+        case "save-all":
+          emitAppEvent("editor:saveAll", undefined);
+          break;
+        case "settings":
+          setView("settings");
+          break;
+        case "toggle-sidebar":
+          onToggleSidebar?.();
+          break;
+        case "toggle-chat":
+          onToggleRight?.();
+          break;
+        case "toggle-terminal":
+          onToggleTerminal?.();
+          break;
+        case "toggle-browser":
+          onToggleBrowser?.();
+          break;
+        case "quick-palette":
+          emitAppEvent("palette:open", undefined);
+          break;
+        case "search-workspace":
+          emitAppEvent("search:open", {});
+          break;
+        case "zoom-in":
+          void window.api.window.zoom(1);
+          break;
+        case "zoom-out":
+          void window.api.window.zoom(-1);
+          break;
+        case "zoom-reset":
+          void window.api.window.zoom(0);
+          break;
+        case "about":
+          void window.api.app.showAbout();
+          break;
+      }
+    });
+  }, [
+    createConversation,
+    state.activeRepositoryId,
+    setView,
+    onToggleSidebar,
+    onToggleRight,
+    onToggleTerminal,
+    onToggleBrowser,
+  ]);
+
+  useEffect(() => {
     if (!openMenu) return;
     function onDown(e: MouseEvent): void {
       if (menuBarRef.current && !menuBarRef.current.contains(e.target as Node))
@@ -355,44 +414,45 @@ export function TitleBar({
             className="titlebar__logo"
           />
         )}
-        {menus.map((m) => (
-          <div key={m.id} className="titlebar__menu">
-            <button
-              type="button"
-              className={`titlebar__menu-btn${openMenu === m.id ? " titlebar__menu-btn--on" : ""}`}
-              onClick={() => setOpenMenu((cur) => (cur === m.id ? null : m.id))}
-              onMouseEnter={() => setOpenMenu((cur) => (cur ? m.id : cur))}
-            >
-              {t(m.label)}
-            </button>
-            {openMenu === m.id && (
-              <div className="titlebar__dropdown" role="menu">
-                {m.items.map((item) => (
-                  <div key={item.key}>
-                    {item.separatorBefore && (
-                      <div className="titlebar__dropdown-sep" />
-                    )}
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="titlebar__dropdown-item"
-                      onClick={() => runItem(item)}
-                    >
-                      <span className="titlebar__dropdown-label">
-                        {t(item.key)}
-                      </span>
-                      {item.shortcut && (
-                        <span className="titlebar__dropdown-shortcut">
-                          {item.shortcut}
-                        </span>
+        {!isMac &&
+          menus.map((m) => (
+            <div key={m.id} className="titlebar__menu">
+              <button
+                type="button"
+                className={`titlebar__menu-btn${openMenu === m.id ? " titlebar__menu-btn--on" : ""}`}
+                onClick={() => setOpenMenu((cur) => (cur === m.id ? null : m.id))}
+                onMouseEnter={() => setOpenMenu((cur) => (cur ? m.id : cur))}
+              >
+                {t(m.label)}
+              </button>
+              {openMenu === m.id && (
+                <div className="titlebar__dropdown" role="menu">
+                  {m.items.map((item) => (
+                    <div key={item.key}>
+                      {item.separatorBefore && (
+                        <div className="titlebar__dropdown-sep" />
                       )}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="titlebar__dropdown-item"
+                        onClick={() => runItem(item)}
+                      >
+                        <span className="titlebar__dropdown-label">
+                          {t(item.key)}
+                        </span>
+                        {item.shortcut && (
+                          <span className="titlebar__dropdown-shortcut">
+                            {item.shortcut}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
         <ProjectSwitcher />
       </div>
 

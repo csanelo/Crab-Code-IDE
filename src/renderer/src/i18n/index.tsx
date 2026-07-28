@@ -72,6 +72,7 @@ export function I18nProvider({ children }: { children: ReactNode }): JSX.Element
     document.documentElement.lang = lang
     document.documentElement.dir = RTL_LANGS.includes(lang) ? 'rtl' : 'ltr'
     activeLang = lang
+    void window.api?.app?.setLanguage?.(lang)
   }, [lang])
 
   activeLang = lang

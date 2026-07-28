@@ -12,6 +12,8 @@ export interface ProviderConfig {
   api: ProviderApi;
   baseUrl: string;
   apiKeyEnc?: string;
+  refreshTokenEnc?: string;
+  expiresAt?: number;
   models: StoredModel[];
 }
 
@@ -48,6 +50,8 @@ class ProvidersService {
     baseUrl: string;
     models: StoredModel[];
     apiKey?: string;
+    refreshToken?: string;
+    expiresAt?: number;
   }): Promise<ProvidersState> {
     const state = (await window.api.providers.upsert(config)) as ProvidersState;
     return this.publish(state);
@@ -56,6 +60,33 @@ class ProvidersService {
   async remove(id: string): Promise<ProvidersState> {
     const state = (await window.api.providers.remove(id)) as ProvidersState;
     return this.publish(state);
+  }
+
+  async googleOauth(
+    customClientId?: string,
+  ): Promise<{ accessToken?: string; authUrl?: string }> {
+    if (typeof window.api?.providers?.googleOauth === "function") {
+      return window.api.providers.googleOauth(customClientId) as Promise<{
+        accessToken?: string;
+        authUrl?: string;
+      }>;
+    }
+    const clientId =
+      customClientId?.trim() ||
+      "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com";
+    const authUrl =
+      "https://accounts.google.com/o/oauth2/v2/auth?" +
+      new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: "http://localhost:20128/callback",
+        response_type: "code",
+        scope:
+          "https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/cclog https://www.googleapis.com/auth/experimentsandconfigs",
+        access_type: "offline",
+        prompt: "consent",
+      }).toString();
+    window.open(authUrl, "_blank");
+    return { authUrl };
   }
 
   async setActive(payload: {

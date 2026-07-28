@@ -9,3 +9,4 @@ dist
 !.env.example
 *.pem
 *.key
+9router

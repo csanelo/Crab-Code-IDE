@@ -24,8 +24,8 @@ interface VisionTarget {
   model: string
 }
 
-function pickVisionTarget(): VisionTarget | null {
-  const active = getActiveProvider()
+async function pickVisionTarget(): Promise<VisionTarget | null> {
+  const active = await getActiveProvider()
   if (active && active.apiKey && isVisionModel(active.config.api, active.model)) {
     return {
       api: active.config.api,
@@ -50,7 +50,7 @@ function pickVisionTarget(): VisionTarget | null {
 }
 
 export async function describeImage(dataUrl: string): Promise<string | null> {
-  const target = pickVisionTarget()
+  const target = await pickVisionTarget()
   if (!target) return null
   try {
     if (target.api === 'anthropic') {
@@ -141,7 +141,7 @@ export async function describeImage(dataUrl: string): Promise<string | null> {
   }
 }
 
-export function activeModelHasVision(): boolean {
-  const active = getActiveProvider()
+export async function activeModelHasVision(): Promise<boolean> {
+  const active = await getActiveProvider()
   return Boolean(active && isVisionModel(active.config.api, active.model))
 }

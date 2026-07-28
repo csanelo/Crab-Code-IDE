@@ -37,21 +37,35 @@ function publish(): void {
   subs.forEach((fn) => fn(items))
 }
 
+export function isSamePath(a: string, b: string): boolean {
+  if (a === b) return true
+  const normA = a.replace(/\\/g, '/').toLowerCase()
+  const normB = b.replace(/\\/g, '/').toLowerCase()
+  return normA === normB || normA.endsWith('/' + normB) || normB.endsWith('/' + normA)
+}
+
 export function getPendingEdits(): PendingEdit[] {
   return items
 }
 
 export function getPendingEditFor(path: string): PendingEdit | undefined {
-  return items.find((x) => x.path === path)
+  return items.find((x) => isSamePath(x.path, path))
 }
 
 export function addPendingEdit(edit: PendingEdit): void {
-  items = [...items.filter((x) => x.path !== edit.path), edit]
+  items = [...items.filter((x) => !isSamePath(x.path, edit.path)), edit]
   publish()
 }
 
 export function removePendingEdit(id: string): void {
   const next = items.filter((x) => x.id !== id)
+  if (next.length === items.length) return
+  items = next
+  publish()
+}
+
+export function removePendingEditByPath(path: string): void {
+  const next = items.filter((x) => !isSamePath(x.path, path))
   if (next.length === items.length) return
   items = next
   publish()
@@ -67,3 +81,4 @@ export function subscribePendingEdits(fn: (list: PendingEdit[]) => void): () => 
   subs.add(fn)
   return () => subs.delete(fn)
 }
+

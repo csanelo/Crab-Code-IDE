@@ -31,8 +31,6 @@
 .settings__sidebar-title {
   flex: 1;
   min-width: 0;
-  text-align: center;
-  padding-left: 90px; 
   font-size: 15px;
   font-weight: 700;
   color: var(--color-text);

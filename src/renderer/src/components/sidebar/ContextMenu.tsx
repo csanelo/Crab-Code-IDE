@@ -25,8 +25,40 @@ export function ContextMenu({
   onClose: () => void
   variant?: 'icons' | 'plain'
   className?: string
-}): JSX.Element {
+}): JSX.Element | null {
   const ref = useRef<HTMLDivElement>(null)
+  const isMac = window.api?.window?.platform === 'darwin'
+
+  useEffect(() => {
+    if (!isMac) return
+
+    let canceled = false
+    const payload = items.map((item, idx) => ({
+      id: String(idx),
+      label: item.label,
+      shortcut: item.shortcut,
+      danger: item.danger,
+      disabled: item.disabled,
+      separator: item.separator
+    }))
+
+    void window.api.app.showContextMenu(payload).then((selectedId) => {
+      if (canceled) return
+      if (selectedId !== null) {
+        const idx = Number(selectedId)
+        if (!isNaN(idx) && items[idx]?.onClick) {
+          items[idx].onClick?.()
+        }
+      }
+      onClose()
+    })
+
+    return () => {
+      canceled = true
+    }
+  }, [isMac, items, onClose])
+
+  if (isMac) return null
 
   useEffect(() => {
     function onDocClick(e: MouseEvent): void {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { X, ChevronRight, Columns2, ArrowUp } from 'lucide-react'
-import Editor, { type OnMount } from '@monaco-editor/react'
+import { X, ChevronRight, Columns2, ArrowUp, Code2 } from 'lucide-react'
+import Editor, { DiffEditor, type OnMount } from '@monaco-editor/react'
 import { fileIcon } from '../files/iconMap'
 import { asset } from '../../lib/asset'
 import { ImageViewer, isImagePath } from './ImageViewer'
@@ -15,11 +15,12 @@ import {
   pathToLspUri
 } from '../../lib/lspClient'
 import { on as onAppEvent, emit as emitAppEvent } from '../../lib/appEvents'
-import { getEditMode } from '../../lib/agentEditMode'
 import {
   addPendingEdit,
   getPendingEditFor,
   removePendingEdit,
+  isSamePath,
+  subscribePendingEdits,
   type PendingEdit
 } from '../../lib/pendingEdits'
 import { toastInfo } from '../../lib/toast'
@@ -39,6 +40,7 @@ interface OpenFile {
   original: string
   encoding: string
   conflict?: string
+  showDiff?: boolean
 }
 
 function baseName(p: string): string {
@@ -133,6 +135,33 @@ function lineDiff(before: string, after: string): { added: number; removed: numb
   return { added, removed, diff }
 }
 
+function computeDiffRange(
+  oldText: string,
+  newText: string
+): { startLine: number; endLine: number; beforeSlice: string; afterSlice: string } {
+  const oldLines = oldText === '' ? [] : oldText.split('\n')
+  const newLines = newText === '' ? [] : newText.split('\n')
+
+  let start = 0
+  while (start < oldLines.length && start < newLines.length && oldLines[start] === newLines[start]) {
+    start++
+  }
+
+  let oldEnd = oldLines.length - 1
+  let newEnd = newLines.length - 1
+  while (oldEnd >= start && newEnd >= start && oldLines[oldEnd] === newLines[newEnd]) {
+    oldEnd--
+    newEnd--
+  }
+
+  const startLine = start + 1
+  const endLine = Math.max(startLine, newEnd + 1)
+  const beforeSlice = oldLines.slice(start, oldEnd + 1).join('\n')
+  const afterSlice = newLines.slice(start, newEnd + 1).join('\n')
+
+  return { startLine, endLine, beforeSlice, afterSlice }
+}
+
 const LANGUAGES: { id: string; label: string; sample: string }[] = [
   { id: 'plaintext', label: 'Plain Text', sample: 'file.txt' },
   { id: 'typescript', label: 'TypeScript', sample: 'file.ts' },
@@ -187,12 +216,14 @@ function encLabel(id: string): string {
 
 export function CodeEditor(): JSX.Element {
   const t = useT()
-  const { state, recordChange } = useApp()
+  const { state, recordChange, setTaskChangesState } = useApp()
   const repoPath =
     state.repositories.find((r) => r.id === state.activeRepositoryId)?.path ?? null
   const activeRepoId = state.activeRepositoryId
   const [files, setFiles] = useState<OpenFile[]>([])
   const [activePath, setActivePath] = useState<string | null>(null)
+  const activePathRef = useRef<string | null>(activePath)
+  activePathRef.current = activePath
   const [themeId, setThemeId] = useState(getThemeId())
   const [cursor, setCursor] = useState({ line: 1, col: 1 })
   const [langOverride, setLangOverride] = useState<Record<string, string>>({})
@@ -231,8 +262,8 @@ export function CodeEditor(): JSX.Element {
   const [askClose, setAskClose] = useState<{ path: string; name: string } | null>(
     null
   )
-  const acceptRef = useRef<() => void>(() => {})
-  const rejectRef = useRef<() => void>(() => {})
+  const acceptRef = useRef<() => void>(() => { })
+  const rejectRef = useRef<() => void>(() => { })
 
   const active = files.find((f) => f.path === activePath) ?? null
   const activeIsImage = active ? isImagePath(active.name) : false
@@ -339,6 +370,53 @@ export function CodeEditor(): JSX.Element {
     })
   }, [openFile])
 
+  const openFileWithDiff = useCallback(async (path: string, before?: string) => {
+    const name = baseName(path)
+    if (isImagePath(name)) return
+    const existing = await window.api.fs.readFile(path)
+    const content = existing?.content ?? ''
+    const encoding = existing?.encoding ?? 'utf8'
+    setFiles((prev) => {
+      const idx = prev.findIndex((f) => f.path === path)
+      if (idx >= 0) {
+        const file = prev[idx]
+        const orig = before !== undefined ? before : file.original
+        const nextFile: OpenFile = {
+          ...file,
+          content,
+          original: orig,
+          showDiff: true
+        }
+        return [...prev.slice(0, idx), nextFile, ...prev.slice(idx + 1)]
+      }
+      return [
+        ...prev,
+        {
+          path,
+          name,
+          content,
+          dirty: false,
+          original: before !== undefined ? before : content,
+          encoding,
+          showDiff: true
+        }
+      ]
+    })
+    setActivePath(path)
+  }, [])
+
+  useEffect(() => {
+    return onAppEvent('editor:openDiff', ({ path, before }) => {
+      void openFileWithDiff(path, before)
+    })
+  }, [openFileWithDiff])
+
+  const toggleDiffMode = useCallback((path: string) => {
+    setFiles((prev) =>
+      prev.map((f) => (f.path === path ? { ...f, showDiff: !f.showDiff } : f))
+    )
+  }, [])
+
   const editorStoreKey = activeRepoId ? `editorOpen:${activeRepoId}` : null
   const restoringRef = useRef(false)
 
@@ -418,12 +496,12 @@ export function CodeEditor(): JSX.Element {
         prev.map((f) =>
           f.path === path
             ? {
-                ...f,
-                content: res.content,
-                original: res.content,
-                dirty: false,
-                encoding: res.encoding ?? encoding
-              }
+              ...f,
+              content: res.content,
+              original: res.content,
+              dirty: false,
+              encoding: res.encoding ?? encoding
+            }
             : f
         )
       )
@@ -455,16 +533,16 @@ export function CodeEditor(): JSX.Element {
     return onAppEvent('editor:reload', ({ path }) => {
       void window.api.fs.readFile(path).then((res) => {
         if (!res) {
-          setFiles((prev) => prev.filter((f) => f.path !== path))
+          setFiles((prev) => prev.filter((f) => !isSamePath(f.path, path)))
           return
         }
         setFiles((prev) =>
           prev.map((f) => {
-            if (f.path !== path) return f
-            if (f.dirty && f.content !== res.content) {
+            if (!isSamePath(f.path, path)) return f
+            if (f.dirty && f.content !== res.content && f.original !== res.content) {
               return { ...f, conflict: res.content }
             }
-            return { ...f, content: res.content, original: res.content, dirty: false }
+            return { ...f, content: res.content, original: res.content, dirty: false, conflict: undefined }
           })
         )
       })
@@ -571,11 +649,13 @@ export function CodeEditor(): JSX.Element {
         before: p.before,
         fileBefore: p.fileBefore
       }
+      const lineCount = editor.getModel()?.getLineCount() ?? p.endLine
+      const lineNo = Math.min(Math.max(1, p.endLine), lineCount)
       const anchor = editor.getScrolledVisiblePosition({
-        lineNumber: p.endLine,
+        lineNumber: lineNo,
         column: 1
       })
-      setPending({ id: p.id, top: (anchor?.top ?? 0) + 22 })
+      setPending({ id: p.id, top: anchor ? anchor.top + 22 : 80 })
     },
     []
   )
@@ -693,6 +773,119 @@ export function CodeEditor(): JSX.Element {
       monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyY,
       () => acceptRef.current()
     )
+
+    const container = editor.getContainerDomNode?.()
+    if (container) {
+      container.addEventListener(
+        'contextmenu',
+        (e: MouseEvent) => {
+          const isMac = window.api?.window?.platform === 'darwin'
+          if (!isMac) return
+          setSel(null)
+        },
+        true
+      )
+    }
+
+    editor.onContextMenu((e: any) => {
+      const isMac = window.api?.window?.platform === 'darwin'
+      if (!isMac) return
+
+      try {
+        e.event?.preventDefault?.()
+        e.event?.stopPropagation?.()
+        e.event?.browserEvent?.preventDefault?.()
+        e.event?.browserEvent?.stopPropagation?.()
+      } catch {}
+
+      setSel(null)
+
+      const s = editor.getSelection()
+      const hasSelection = Boolean(s && !s.isEmpty())
+
+      const items = [
+        {
+          id: 'undo',
+          label: t('menu.undo') || 'Отменить',
+          shortcut: 'CmdOrCtrl+Z',
+          onClick: () => editor.trigger('keyboard', 'undo', null)
+        },
+        {
+          id: 'redo',
+          label: t('menu.redo') || 'Повторить',
+          shortcut: 'CmdOrCtrl+Shift+Z',
+          onClick: () => editor.trigger('keyboard', 'redo', null)
+        },
+        { id: 'sep1', separator: true },
+        {
+          id: 'cut',
+          label: t('menu.cut') || 'Вырезать',
+          shortcut: 'CmdOrCtrl+X',
+          disabled: !hasSelection,
+          onClick: () => {
+            editor.focus()
+            document.execCommand('cut')
+          }
+        },
+        {
+          id: 'copy',
+          label: t('menu.copy') || 'Копировать',
+          shortcut: 'CmdOrCtrl+C',
+          disabled: !hasSelection,
+          onClick: () => {
+            editor.focus()
+            document.execCommand('copy')
+          }
+        },
+        {
+          id: 'paste',
+          label: t('menu.paste') || 'Вставить',
+          shortcut: 'CmdOrCtrl+V',
+          onClick: () => {
+            editor.focus()
+            void window.api.app.paste().then((text) => {
+              if (text) editor.trigger('keyboard', 'type', { text })
+              else document.execCommand('paste')
+            })
+          }
+        },
+        { id: 'sep2', separator: true },
+        {
+          id: 'selectAll',
+          label: t('menu.selectAll') || 'Выделить всё',
+          shortcut: 'CmdOrCtrl+A',
+          onClick: () => editor.trigger('keyboard', 'selectAll', null)
+        },
+        { id: 'sep3', separator: true },
+        {
+          id: 'addToChat',
+          label: t('editor.addToChat') || 'Добавить в чат',
+          shortcut: 'CmdOrCtrl+L',
+          onClick: () => addChatRef.current()
+        },
+        {
+          id: 'quickEdit',
+          label: t('editor.quickEdit') || 'Быстрая правка',
+          shortcut: 'CmdOrCtrl+K',
+          onClick: () => openQuickRef.current()
+        }
+      ]
+
+      const payload = items.map(({ id, label, shortcut, disabled, separator }) => ({
+        id,
+        label,
+        shortcut,
+        disabled,
+        separator
+      }))
+
+      void window.api.app.showContextMenu(payload).then((selectedId) => {
+        if (selectedId) {
+          const item = items.find((x) => x.id === selectedId)
+          item?.onClick?.()
+        }
+      })
+    })
 
     // The Undo / Keep bar follows the edited block while scrolling.
     editor.onDidScrollChange(() => {
@@ -817,23 +1010,18 @@ export function CodeEditor(): JSX.Element {
         qe.startLine + out.split('\n').length - 1,
         model.getLineCount()
       )
-      // "Agent" keeps the edit straight away, "Ask" waits for Undo / Keep.
-      if (getEditMode() === 'ask') {
-        const entry: PendingEdit = {
-          id: `qe_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-          path: active.path,
-          name: active.name,
-          startLine: qe.startLine,
-          endLine: lastLine,
-          before: original,
-          after: out,
-          fileBefore: active.original
-        }
-        addPendingEdit(entry)
-        paintPending(editor, monaco, entry)
-      } else {
-        recordFileChange(active.path, active.original, value)
+      const entry: PendingEdit = {
+        id: `qe_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        path: active.path,
+        name: active.name,
+        startLine: qe.startLine,
+        endLine: lastLine,
+        before: original,
+        after: out,
+        fileBefore: active.original
       }
+      addPendingEdit(entry)
+      paintPending(editor, monaco, entry)
       editor.revealLineInCenterIfOutsideViewport(qe.startLine)
       editor.focus()
     }
@@ -909,6 +1097,26 @@ export function CodeEditor(): JSX.Element {
     setPending(null)
   }, [])
 
+  const syncTaskChangesState = useCallback(
+    (filePath: string, newState: 'accepted' | 'rejected') => {
+      const convId = state.activeConversationId
+      if (!convId) return
+      const conv = state.conversations[convId]
+      if (!conv) return
+
+      for (const msg of conv.messages) {
+        if (msg.role !== 'assistant' || !msg.toolCalls) continue
+        const touched = msg.toolCalls.some(
+          (tc) => tc.status === 'done' && tc.mutated && tc.meta?.path && isSamePath(tc.meta.path, filePath)
+        )
+        if (touched) {
+          setTaskChangesState(convId, msg.id, newState)
+        }
+      }
+    },
+    [state.activeConversationId, state.conversations, setTaskChangesState]
+  )
+
   // Keep - confirm the edit and push it into the Changes list.
   const acceptEdit = useCallback((): void => {
     const p = pendingRef.current
@@ -918,8 +1126,9 @@ export function CodeEditor(): JSX.Element {
     if (model) recordFileChange(p.path, p.fileBefore, model.getValue())
     removePendingEdit(p.id)
     clearPendingDecorations()
+    syncTaskChangesState(p.path, 'accepted')
     editor?.focus()
-  }, [recordFileChange, clearPendingDecorations])
+  }, [recordFileChange, clearPendingDecorations, syncTaskChangesState])
 
   // Undo - put the original lines back.
   const rejectEdit = useCallback((): void => {
@@ -948,8 +1157,9 @@ export function CodeEditor(): JSX.Element {
     }
     removePendingEdit(p.id)
     clearPendingDecorations()
+    syncTaskChangesState(p.path, 'rejected')
     editor.focus()
-  }, [clearPendingDecorations])
+  }, [clearPendingDecorations, syncTaskChangesState])
 
   acceptRef.current = acceptEdit
   rejectRef.current = rejectEdit
@@ -977,29 +1187,49 @@ export function CodeEditor(): JSX.Element {
     if (!entry) return
     const model = editor.getModel()
     if (!model) return
-    if (entry.endLine > model.getLineCount()) {
-      removePendingEdit(entry.id)
-      return
-    }
-    const current = model.getValueInRange(
-      new monaco.Range(
-        entry.startLine,
-        1,
-        entry.endLine,
-        model.getLineMaxColumn(entry.endLine)
-      )
-    )
-    if (current.trimEnd() !== entry.after.trimEnd()) {
-      removePendingEdit(entry.id)
-      return
-    }
     paintPending(editor, monaco, entry)
   }, [activePath, editorReady, paintPending])
 
+  useEffect(() => {
+    return subscribePendingEdits((list) => {
+      if (!activePath) return
+      const entry = list.find((x) => isSamePath(x.path, activePath))
+      if (!entry) {
+        clearPendingDecorations()
+      }
+    })
+  }, [activePath, clearPendingDecorations])
+
   // The bar above the composer drives the same two actions.
   useEffect(() => {
-    const offAccept = onAppEvent('edits:accept', () => acceptRef.current())
-    const offReject = onAppEvent('edits:reject', () => rejectRef.current())
+    const offAccept = onAppEvent('edits:accept', (payload) => {
+      if (payload?.path) {
+        setFiles((prev) =>
+          prev.map((f) =>
+            isSamePath(f.path, payload.path!)
+              ? { ...f, dirty: false, conflict: undefined, original: f.content }
+              : f
+          )
+        )
+      }
+      if (!payload?.path || (activePathRef.current && isSamePath(activePathRef.current, payload.path))) {
+        acceptRef.current()
+      }
+    })
+    const offReject = onAppEvent('edits:reject', (payload) => {
+      if (payload?.path) {
+        setFiles((prev) =>
+          prev.map((f) =>
+            isSamePath(f.path, payload.path!)
+              ? { ...f, dirty: false, conflict: undefined }
+              : f
+          )
+        )
+      }
+      if (!payload?.path || (activePathRef.current && isSamePath(activePathRef.current, payload.path))) {
+        rejectRef.current()
+      }
+    })
     return () => {
       offAccept()
       offReject()
@@ -1008,46 +1238,69 @@ export function CodeEditor(): JSX.Element {
 
   useEffect(() => {
     return onAppEvent('editor:agentEdit', ({ path }) => {
-      if (path !== activePath) {
-        void window.api.fs.readFile(path).then((res) => {
-          if (!res) return
-          setFiles((prev) =>
-            prev.map((f) => {
-              if (f.path !== path) return f
-              if (f.dirty && f.content !== res.content) {
-                toastInfo(`${baseName(path)} changed on disk — unsaved edits kept`)
-                return { ...f, conflict: res.content }
-              }
-              return { ...f, content: res.content, original: res.content, dirty: false }
-            })
-          )
-        })
-        return
-      }
-      const editor = editorRef.current
-      const monaco = monacoRef.current
-      if (!editor || !monaco || animatingRef.current) return
       const activeFile = files.find((f) => f.path === path)
+      const oldContent = activeFile?.content ?? ''
+      const fileBefore = activeFile?.original ?? oldContent
+
       void window.api.fs.readFile(path).then((res) => {
-        if (!res) return
-        if (activeFile?.dirty && activeFile.content !== res.content) {
-          toastInfo(`${baseName(path)} changed on disk — resolve the conflict`)
-          setFiles((prev) =>
-            prev.map((f) => (f.path === path ? { ...f, conflict: res.content } : f))
-          )
+        if (!res || res.content === oldContent) return
+
+        const { startLine, endLine, beforeSlice, afterSlice } = computeDiffRange(
+          oldContent,
+          res.content
+        )
+        const entry: PendingEdit = {
+          id: `agent_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          path,
+          name: baseName(path),
+          startLine,
+          endLine,
+          before: beforeSlice,
+          after: afterSlice,
+          fileBefore: fileBefore || oldContent
+        }
+        addPendingEdit(entry)
+
+        const updateTab = (prev: OpenFile[]): OpenFile[] => {
+          const exists = prev.some((f) => f.path === path)
+          if (exists) {
+            return prev.map((f) =>
+              f.path === path ? { ...f, content: res.content, original: fileBefore, dirty: true } : f
+            )
+          }
+          return [
+            ...prev,
+            {
+              path,
+              name: baseName(path),
+              content: res.content,
+              dirty: true,
+              original: fileBefore || res.content,
+              encoding: 'utf8'
+            }
+          ]
+        }
+
+        if (path !== activePath) {
+          setFiles(updateTab)
           return
         }
+
+        const editor = editorRef.current
+        const monaco = monacoRef.current
+        if (!editor || !monaco || animatingRef.current) {
+          setFiles(updateTab)
+          return
+        }
+
         void animateToContent(editor, monaco, res.content).then(() => {
-          setFiles((prev) =>
-            prev.map((f) =>
-              f.path === path ? { ...f, content: res.content, original: res.content, dirty: false } : f
-            )
-          )
+          setFiles(updateTab)
+          paintPending(editor, monaco, entry)
         })
       })
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePath, files])
+  }, [activePath, files, paintPending])
 
   async function animateToContent(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1199,6 +1452,7 @@ export function CodeEditor(): JSX.Element {
           >
             <img src={fileIcon(f.name)} alt="" className="ceditor__tab-icon" />
             <span className="ceditor__tab-name">{f.name}</span>
+            {f.showDiff && <span className="ceditor__tab-diff-tag">Diff</span>}
             {f.dirty && <span className="ceditor__tab-dot" aria-label="unsaved" />}
             <span
               className="ceditor__tab-close"
@@ -1238,6 +1492,18 @@ export function CodeEditor(): JSX.Element {
           />
         )}
         <div className="ceditor__tabs-spacer" />
+        {active && (
+          <button
+            type="button"
+            className={`ceditor__diff-btn${active.showDiff ? ' ceditor__diff-btn--on' : ''}`}
+            aria-label="Toggle diff"
+            title={active.showDiff ? 'Показать исходный код' : 'Показать разницу (Diff)'}
+            onClick={() => toggleDiffMode(active.path)}
+          >
+            <Columns2 size={13} />
+            <span>Diff</span>
+          </button>
+        )}
         <button
           type="button"
           className={`ceditor__split-btn${splitPath ? ' ceditor__split-btn--on' : ''}`}
@@ -1292,130 +1558,162 @@ export function CodeEditor(): JSX.Element {
         <div className={`ceditor__panes${splitPath ? ' ceditor__panes--split' : ''}`}>
           <div className="ceditor__pane">
             <div className="ceditor__pane-editor">
-              <Editor
-                key={active.path}
-                height="100%"
-                loading={<div className="ceditor__loading">…</div>}
-                theme={monacoThemeFor(themeId)}
-                language={activeLang}
-                path={pathToLspUri(active.path)}
-                value={active.content}
-                onChange={(value) => updateContent(value ?? '')}
-                onMount={handleMount}
-                options={{
-                  fontFamily:
-                    "'JetBrains Mono', 'SF Mono', 'Cascadia Code', Consolas, 'Courier New', monospace",
-                  fontSize: 13,
-                  minimap: { enabled: true },
-                  scrollBeyondLastLine: false,
-                  smoothScrolling: true,
-                  cursorBlinking: 'smooth',
-                  renderWhitespace: 'selection',
-                  tabSize: 2,
-                  automaticLayout: true,
-                  padding: { top: 10 }
-                }}
-              />
-              {sel && !quickEdit && (
-                <div
-                  className="ceditor__selmenu"
-                  style={{ top: sel.top, left: sel.left }}
-                  onMouseDown={(e) => e.preventDefault()}
-                >
-                  <button
-                    type="button"
-                    className="ceditor__selmenu-btn"
-                    onClick={addSelectionToChat}
-                  >
-                    {t('editor.addToChat')}
-                    <span className="ceditor__selmenu-kbd">Ctrl+L</span>
-                  </button>
-                  <span className="ceditor__selmenu-sep" />
-                  <button
-                    type="button"
-                    className="ceditor__selmenu-btn"
-                    onClick={openQuickEdit}
-                  >
-                    {t('editor.quickEdit')}
-                    <span className="ceditor__selmenu-kbd">Ctrl+K</span>
-                  </button>
-                </div>
-              )}
-              {quickEdit && (
-                <div
-                  className="ceditor__qedit"
-                  style={{ top: quickEdit.top, left: quickEdit.left }}
-                >
-                  {quickBusy ? (
-                    <span className="ceditor__qedit-gen">
-                      {t('editor.generating')}
-                    </span>
-                  ) : (
-                    <>
-                      <textarea
-                        ref={quickInputRef}
-                        className="ceditor__qedit-input"
-                        rows={1}
-                        spellCheck={false}
-                        placeholder={t('editor.quickEditPlaceholder')}
-                        value={quickPrompt}
-                        onChange={(e) => setQuickPrompt(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Escape') {
-                            e.preventDefault()
-                            closeQuickEdit()
-                          } else if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault()
-                            runQuickEdit()
-                          }
-                        }}
-                      />
+              {active.showDiff ? (
+                <DiffEditor
+                  key={`diff:${active.path}`}
+                  keepCurrentModel={false}
+                  height="100%"
+                  loading={<div className="ceditor__loading">…</div>}
+                  theme={monacoThemeFor(themeId)}
+                  language={activeLang}
+                  original={active.original}
+                  modified={active.content}
+                  options={{
+                    fontFamily:
+                      "'JetBrains Mono', 'SF Mono', 'Cascadia Code', Consolas, 'Courier New', monospace",
+                    fontSize: 13,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    smoothScrolling: true,
+                    cursorBlinking: 'smooth',
+                    renderWhitespace: 'selection',
+                    tabSize: 2,
+                    automaticLayout: true,
+                    padding: { top: 10 },
+                    renderSideBySide: false,
+                    readOnly: false,
+                    contextmenu: false
+                  }}
+                />
+              ) : (
+                <>
+                  <Editor
+                    key={active.path}
+                    height="100%"
+                    loading={<div className="ceditor__loading">…</div>}
+                    theme={monacoThemeFor(themeId)}
+                    language={activeLang}
+                    path={pathToLspUri(active.path)}
+                    value={active.content}
+                    onChange={(value) => updateContent(value ?? '')}
+                    onMount={handleMount}
+                    options={{
+                      fontFamily:
+                        "'JetBrains Mono', 'SF Mono', 'Cascadia Code', Consolas, 'Courier New', monospace",
+                      fontSize: 13,
+                      minimap: { enabled: true },
+                      scrollBeyondLastLine: false,
+                      smoothScrolling: true,
+                      cursorBlinking: 'smooth',
+                      renderWhitespace: 'selection',
+                      tabSize: 2,
+                      automaticLayout: true,
+                      padding: { top: 10 },
+                      contextmenu: false
+                    }}
+                  />
+                  {sel && !quickEdit && (
+                    <div
+                      className="ceditor__selmenu"
+                      style={{ top: sel.top, left: sel.left }}
+                      onMouseDown={(e) => e.preventDefault()}
+                    >
                       <button
                         type="button"
-                        className="ceditor__qedit-send"
-                        aria-label={t('editor.generate')}
-                        disabled={!quickPrompt.trim()}
-                        onClick={runQuickEdit}
+                        className="ceditor__selmenu-btn"
+                        onClick={addSelectionToChat}
                       >
-                        <ArrowUp size={13} />
+                        {t('editor.addToChat')}
+                        <span className="ceditor__selmenu-kbd">Ctrl+L</span>
                       </button>
-                    </>
+                      <span className="ceditor__selmenu-sep" />
+                      <button
+                        type="button"
+                        className="ceditor__selmenu-btn"
+                        onClick={openQuickEdit}
+                      >
+                        {t('editor.quickEdit')}
+                        <span className="ceditor__selmenu-kbd">Ctrl+K</span>
+                      </button>
+                    </div>
                   )}
-                  <button
-                    type="button"
-                    className="ceditor__qedit-close"
-                    aria-label={t('editor.close')}
-                    onClick={closeQuickEdit}
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              )}
-              {pending && (
-                <div
-                  className="ceditor__keepbar"
-                  style={{ top: pending.top }}
-                  onMouseDown={(e) => e.preventDefault()}
-                >
-                  <button
-                    type="button"
-                    className="ceditor__keepbar-btn"
-                    data-tip={t('editor.undoTip')}
-                    onClick={rejectEdit}
-                  >
-                    {t('editor.undo')}
-                    <span className="ceditor__keepbar-kbd">Ctrl+N</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="ceditor__keepbar-btn ceditor__keepbar-btn--keep"
-                    data-tip={t('editor.keepTip')}
-                    onClick={acceptEdit}
-                  >
-                    {t('editor.keep')}
-                    <span className="ceditor__keepbar-kbd">Ctrl+Shift+Y</span>
-                  </button>
-                </div>
+                  {quickEdit && (
+                    <div
+                      className="ceditor__qedit"
+                      style={{ top: quickEdit.top, left: quickEdit.left }}
+                    >
+                      {quickBusy ? (
+                        <span className="ceditor__qedit-gen">
+                          {t('editor.generating')}
+                        </span>
+                      ) : (
+                        <>
+                          <textarea
+                            ref={quickInputRef}
+                            className="ceditor__qedit-input"
+                            rows={1}
+                            spellCheck={false}
+                            placeholder={t('editor.quickEditPlaceholder')}
+                            value={quickPrompt}
+                            onChange={(e) => setQuickPrompt(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Escape') {
+                                e.preventDefault()
+                                closeQuickEdit()
+                              } else if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault()
+                                runQuickEdit()
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="ceditor__qedit-send"
+                            aria-label={t('editor.generate')}
+                            disabled={!quickPrompt.trim()}
+                            onClick={runQuickEdit}
+                          >
+                            <ArrowUp size={13} />
+                          </button>
+                        </>
+                      )}
+                      <button
+                        type="button"
+                        className="ceditor__qedit-close"
+                        aria-label={t('editor.close')}
+                        onClick={closeQuickEdit}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  )}
+                  {pending && (
+                    <div
+                      className="ceditor__keepbar"
+                      style={{ top: pending.top }}
+                      onMouseDown={(e) => e.preventDefault()}
+                    >
+                      <button
+                        type="button"
+                        className="ceditor__keepbar-btn"
+                        data-tip={t('editor.undoTip')}
+                        onClick={rejectEdit}
+                      >
+                        {t('editor.undo')}
+                        <span className="ceditor__keepbar-kbd">Ctrl+N</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="ceditor__keepbar-btn ceditor__keepbar-btn--keep"
+                        data-tip={t('editor.keepTip')}
+                        onClick={acceptEdit}
+                      >
+                        {t('editor.keep')}
+                        <span className="ceditor__keepbar-kbd">Ctrl+Shift+Y</span>
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -1454,7 +1752,8 @@ export function CodeEditor(): JSX.Element {
                     renderWhitespace: 'selection',
                     tabSize: 2,
                     automaticLayout: true,
-                    padding: { top: 10 }
+                    padding: { top: 10 },
+                    contextmenu: false
                   }}
                 />
               </div>

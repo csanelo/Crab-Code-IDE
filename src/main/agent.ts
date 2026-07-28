@@ -239,10 +239,10 @@ function compactHistory(messages: ChatMessage[]): ChatMessage[] {
     const content = latest
       ? message.content
       : truncateMiddle(
-          message.content,
-          OLD_MESSAGE_CHAR_LIMIT,
-          "older message compacted",
-        );
+        message.content,
+        OLD_MESSAGE_CHAR_LIMIT,
+        "older message compacted",
+      );
     return {
       ...message,
       content: `${content}${imageNote}`,
@@ -298,7 +298,7 @@ function compactOldOpenAIToolResults(
 }
 
 function openAICacheKey(
-  active: NonNullable<ReturnType<typeof getActiveProvider>>,
+  active: NonNullable<Awaited<ReturnType<typeof getActiveProvider>>>,
   system: string,
   opts: SendOptions,
 ): string {
@@ -615,7 +615,7 @@ async function runAgent(
   opts: SendOptions,
 ): Promise<void> {
   if (opts.cwd) void warmProjectIndex(opts.cwd);
-  const active = getActiveProvider();
+  const active = await getActiveProvider();
   const compactedMessages = compactHistory(messages);
   const effectiveOpts: SendOptions = {
     ...opts,
@@ -627,7 +627,8 @@ async function runAgent(
     commandExecutionRequested:
       currentUserExplicitlyRequestsCommandExecution(messages),
   };
-  if (!active || !active.apiKey || !active.config.baseUrl) {
+  const isFreeProvider = active?.config.catalogId === 'opencode' || active?.config.baseUrl.includes('opencode.ai')
+  if (!active || (!active.apiKey && !isFreeProvider) || !active.config.baseUrl) {
     await mockStream(send, requestId, compactedMessages);
     return;
   }
@@ -656,12 +657,13 @@ async function runAgent(
         signal,
       );
     } else if (active.config.api === "gemini") {
-      await streamGeminiText(
+      await loopGemini(
         send,
         requestId,
         active,
         system,
         compactedMessages,
+        effectiveOpts,
         signal,
       );
     } else {
@@ -699,7 +701,7 @@ interface OpenAIToolCall {
 async function loopOpenAI(
   send: Emit,
   requestId: string,
-  active: NonNullable<ReturnType<typeof getActiveProvider>>,
+  active: NonNullable<Awaited<ReturnType<typeof getActiveProvider>>>,
   system: string,
   history: ChatMessage[],
   opts: SendOptions,
@@ -729,13 +731,21 @@ async function loopOpenAI(
   for (let step = 0; step < MAX_STEPS; step++) {
     if (signal.aborted) return;
     compactOldOpenAIToolResults(msgs);
+    const isOpencode = active.config.baseUrl.includes('opencode.ai')
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json"
+    }
+    if (active.apiKey) {
+      headers["Authorization"] = `Bearer ${active.apiKey}`
+    }
+    if (isOpencode) {
+      headers["x-opencode-client"] = "desktop"
+    }
+
     const doFetch = (mode: CacheMode): Promise<Response> =>
       fetch(`${active.config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${active.apiKey}`,
-        },
+        headers,
         body: JSON.stringify({
           model: active.model,
           messages: msgs,
@@ -796,7 +806,7 @@ async function loopOpenAI(
           }
         }
         if (choice?.finish_reason) finishReason = choice.finish_reason;
-      } catch {}
+      } catch { }
       return "cont";
     });
 
@@ -864,7 +874,7 @@ async function loopOpenAI(
 async function loopAnthropic(
   send: Emit,
   requestId: string,
-  active: NonNullable<ReturnType<typeof getActiveProvider>>,
+  active: NonNullable<Awaited<ReturnType<typeof getActiveProvider>>>,
   system: string,
   history: ChatMessage[],
   opts: SendOptions,
@@ -905,12 +915,12 @@ async function loopAnthropic(
           model: active.model,
           system: withCache
             ? [
-                {
-                  type: "text",
-                  text: system,
-                  cache_control: { type: "ephemeral" },
-                },
-              ]
+              {
+                type: "text",
+                text: system,
+                cache_control: { type: "ephemeral" },
+              },
+            ]
             : [{ type: "text", text: system }],
           messages: withCache ? withAnthropicCacheMarkers(msgs) : msgs,
           tools: withCache ? cachedTools : plainTools,
@@ -967,7 +977,7 @@ async function loopAnthropic(
         } else if (json.type === "message_stop") {
           return "done";
         }
-      } catch {}
+      } catch { }
       return "cont";
     });
 
@@ -987,11 +997,11 @@ async function loopAnthropic(
         b.type === "text"
           ? { type: "text", text: b.text }
           : {
-              type: "tool_use",
-              id: b.id,
-              name: b.name,
-              input: safeJson(b.input),
-            },
+            type: "tool_use",
+            id: b.id,
+            name: b.name,
+            input: safeJson(b.input),
+          },
       ),
     });
 
@@ -1069,9 +1079,9 @@ function withAnthropicCacheMarkers(
         content: content.map((b, j) =>
           j === content.length - 1
             ? {
-                ...(b as Record<string, unknown>),
-                cache_control: { type: "ephemeral" },
-              }
+              ...(b as Record<string, unknown>),
+              cache_control: { type: "ephemeral" },
+            }
             : b,
         ),
       };
@@ -1141,63 +1151,281 @@ function toGeminiParts(m: ChatMessage): Record<string, unknown>[] {
   return parts;
 }
 
-async function streamGeminiText(
+// ponytail: cloudcode-pa private endpoint used by Gemini Code Assist IDE plugins.
+// Requires loadCodeAssist to get project ID first, then streamGenerateContent wraps
+// request in { project, model, request: { contents, systemInstruction } }.
+const _antigravityProjectCache = new Map<string, string>();
+
+function sanitizeGeminiSchema(schema: unknown): unknown {
+  if (Array.isArray(schema)) {
+    return schema.map(sanitizeGeminiSchema);
+  }
+  if (schema && typeof schema === "object") {
+    const res: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(schema as Record<string, unknown>)) {
+      if (key === "enum" && Array.isArray(val)) {
+        res[key] = val.map((v) => String(v));
+      } else {
+        res[key] = sanitizeGeminiSchema(val);
+      }
+    }
+    return res;
+  }
+  return schema;
+}
+
+async function loopGemini(
   send: Emit,
   requestId: string,
-  active: NonNullable<ReturnType<typeof getActiveProvider>>,
+  active: NonNullable<Awaited<ReturnType<typeof getActiveProvider>>>,
   system: string,
-  messages: ChatMessage[],
+  history: ChatMessage[],
+  opts: SendOptions,
   signal: AbortSignal,
 ): Promise<void> {
-  const base = active.config.baseUrl.replace(/\/$/, "");
-  const url =
-    `${base}/v1beta/models/${active.model}:streamGenerateContent` +
-    `?alt=sse&key=${encodeURIComponent(active.apiKey)}`;
+  const isAntigravity =
+    active.config.catalogId === "google-antigravity" ||
+    active.apiKey.startsWith("ya29.") ||
+    active.apiKey.startsWith("Bearer ");
 
-  const cachedName = await getGeminiSystemCache(
-    base,
-    active.apiKey,
-    active.model,
-    system,
-    signal,
-  );
+  const toolDefs = availableToolDefs(opts);
+  const geminiTools =
+    toolDefs.length > 0
+      ? [
+          {
+            functionDeclarations: toolDefs.map((t) => ({
+              name: t.name,
+              description: t.description,
+              parameters: sanitizeGeminiSchema(t.parameters) as Record<string, unknown>,
+            })),
+          },
+        ]
+      : undefined;
 
-  const doFetch = (cacheName: string | null): Promise<Response> =>
-    fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...(cacheName
-          ? { cachedContent: cacheName }
-          : { systemInstruction: { parts: [{ text: system }] } }),
-        contents: messages.map((m) => ({
-          role: m.role === "assistant" ? "model" : "user",
-          parts: toGeminiParts(m),
-        })),
-      }),
-      signal,
+  const geminiContents: Record<string, unknown>[] = history.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: toGeminiParts(m),
+  }));
+
+  for (let step = 0; step < MAX_STEPS; step++) {
+    if (signal.aborted) return;
+
+    console.log(`[AG Debug] Step ${step} starting. Antigravity: ${isAntigravity}, Model: ${active.model}`);
+    let res: Response;
+    if (isAntigravity) {
+      const CC_BASE = "https://cloudcode-pa.googleapis.com";
+      const token = active.apiKey.replace(/^Bearer\s+/i, "").trim();
+      const clientMetadata = JSON.stringify({ ideType: 9, platform: 2, pluginType: 2 });
+
+      const tokenKey = token.slice(-12);
+      let project = _antigravityProjectCache.get(tokenKey);
+      if (!project) {
+        try {
+          const lcaBody = JSON.stringify({
+            cloudaicompanionProject: "",
+            metadata: { ideType: 9, platform: 2, pluginType: 2 },
+          });
+          const lca = await fetch(`${CC_BASE}/v1internal:loadCodeAssist`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${token}`,
+              "Content-Type": "application/json",
+              "User-Agent": "google-api-nodejs-client/9.15.1",
+              "X-Goog-Api-Client": "google-cloud-sdk vscode_cloudshelleditor/0.1",
+              "Client-Metadata": clientMetadata,
+            },
+            body: lcaBody,
+            signal,
+          });
+          const lcaText = await lca.text();
+          if (lca.ok) {
+            const lcaJson = JSON.parse(lcaText) as { cloudaicompanionProject?: string };
+            project = lcaJson.cloudaicompanionProject ?? "";
+            if (project) _antigravityProjectCache.set(tokenKey, project);
+          }
+        } catch { }
+      }
+
+      const streamHeaders = {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "User-Agent": "antigravity/ide/2.1.1 darwin/arm64",
+        "Accept": "text/event-stream",
+      };
+
+      const streamBody = JSON.stringify({
+        ...(project ? { project } : {}),
+        model: active.model,
+        request: {
+          systemInstruction: { parts: [{ text: system }] },
+          contents: geminiContents,
+          ...(geminiTools ? { tools: geminiTools } : {}),
+        },
+      });
+
+      console.log("[AG Debug] Antigravity Request Body:", streamBody.slice(0, 500));
+
+      res = await fetch(`${CC_BASE}/v1internal:streamGenerateContent?alt=sse`, {
+        method: "POST",
+        headers: streamHeaders,
+        body: streamBody,
+        signal,
+      });
+    } else {
+      const base = active.config.baseUrl.replace(/\/$/, "");
+      const url =
+        `${base}/v1beta/models/${active.model}:streamGenerateContent` +
+        `?alt=sse&key=${encodeURIComponent(active.apiKey)}`;
+
+      const streamBody = JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: geminiContents,
+        ...(geminiTools ? { tools: geminiTools } : {}),
+      });
+
+      console.log("[AG Debug] Gemini Request Body:", streamBody.slice(0, 500));
+
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: streamBody,
+        signal,
+      });
+    }
+
+    console.log(`[AG Debug] Response status: ${res.status} ${res.statusText}`);
+
+    if (!res.ok || !res.body) {
+      const text = await res.text().catch(() => res.statusText);
+      console.error(`[AG Debug] Request failed (${res.status}): ${text}`);
+      send("agent:error", requestId, `Request failed (${res.status}): ${text}`);
+      return;
+    }
+
+    let stepText = "";
+    interface GeminiToolCall {
+      id: string;
+      rawName: string;
+      name: string;
+      args: Record<string, unknown>;
+      thoughtSignature?: string;
+    }
+    const stepToolCalls: GeminiToolCall[] = [];
+
+    let lastThoughtSignature = "";
+    await pumpSSE(res.body, (data) => {
+      console.log("[AG Debug] SSE raw chunk:", data.slice(0, 300));
+      try {
+        const json = JSON.parse(data);
+        const cand = json.response?.candidates?.[0] ?? json.candidates?.[0];
+        if (cand?.content?.parts) {
+          for (const p of cand.content.parts as Record<string, unknown>[]) {
+            if (typeof p.thoughtSignature === "string" && p.thoughtSignature) {
+              lastThoughtSignature = p.thoughtSignature;
+            }
+            if (typeof p.text === "string" && p.text.length > 0) {
+              stepText += p.text;
+              send("agent:chunk", requestId, p.text);
+            }
+            if (p.functionCall && typeof p.functionCall === "object") {
+              const fc = p.functionCall as { name?: string; args?: unknown; id?: string; thoughtSignature?: string };
+              const rawName = fc.name || "";
+              const cleanName = rawName.replace(/^(?:crabcode|mcp):/, "");
+              let args: Record<string, unknown> = {};
+              if (typeof fc.args === "object" && fc.args !== null) {
+                args = fc.args as Record<string, unknown>;
+              } else if (typeof fc.args === "string") {
+                try {
+                  args = JSON.parse(fc.args);
+                } catch { }
+              }
+              const thoughtSig = (p.thoughtSignature as string) || fc.thoughtSignature || lastThoughtSignature;
+              const callId = fc.id || (p.id as string) || `tc_${randomUUID().slice(0, 8)}`;
+              const exists = stepToolCalls.some(
+                (tc) => tc.id === callId || (tc.rawName === rawName && JSON.stringify(tc.args) === JSON.stringify(args)),
+              );
+              if (!exists) {
+                stepToolCalls.push({
+                  id: callId,
+                  rawName,
+                  name: cleanName,
+                  args,
+                  thoughtSignature: thoughtSig,
+                });
+              }
+            }
+          }
+        }
+      } catch { }
+      return "cont";
     });
 
-  let res = await doFetch(cachedName);
-  if (!res.ok && cachedName && [400, 404, 422].includes(res.status)) {
-    invalidateGeminiSystemCache(cachedName);
-    res = await doFetch(null);
+    console.log(`[AG Debug] Step ${step} done. Text len: ${stepText.length}, Tool calls: ${stepToolCalls.length}`);
+
+    if (stepToolCalls.length === 0) {
+      send("agent:done", requestId);
+      return;
+    }
+
+    const modelParts: Record<string, unknown>[] = [];
+    if (stepText) {
+      modelParts.push({ text: stepText });
+    }
+    for (const tc of stepToolCalls) {
+      const part: Record<string, unknown> = {
+        functionCall: {
+          name: tc.rawName,
+          args: tc.args,
+        },
+      };
+      if (tc.thoughtSignature) {
+        part.thoughtSignature = tc.thoughtSignature;
+      }
+      modelParts.push(part);
+    }
+    geminiContents.push({
+      role: "model",
+      parts: modelParts,
+    });
+
+    const funcParts: Record<string, unknown>[] = [];
+    for (const tc of stepToolCalls) {
+      send("agent:tool", requestId, {
+        id: tc.id,
+        name: tc.name,
+        input: tc.args,
+        status: "running",
+      });
+
+      const result = await runToolForRequest(opts, tc.name, tc.args);
+
+      send("agent:tool", requestId, {
+        id: tc.id,
+        name: tc.name,
+        input: tc.args,
+        status: "done",
+        result: result.text.slice(0, 4000),
+        meta: result.meta,
+        command: result.command,
+        mutated: result.mutated,
+      });
+
+      funcParts.push({
+        functionResponse: {
+          name: tc.rawName,
+          response: {
+            output: compactToolResult(result.text),
+          },
+        },
+      });
+    }
+
+    geminiContents.push({
+      role: "user",
+      parts: funcParts,
+    });
   }
 
-  if (!res.ok || !res.body) {
-    const text = await res.text().catch(() => res.statusText);
-    send("agent:error", requestId, `Request failed (${res.status}): ${text}`);
-    return;
-  }
-
-  await pumpSSE(res.body, (data) => {
-    try {
-      const json = JSON.parse(data);
-      const part = json.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (part) send("agent:chunk", requestId, part as string);
-    } catch {}
-    return "cont";
-  });
   send("agent:done", requestId);
 }
 
@@ -1258,7 +1486,7 @@ async function pumpSSE(
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
-  for (;;) {
+  for (; ;) {
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });

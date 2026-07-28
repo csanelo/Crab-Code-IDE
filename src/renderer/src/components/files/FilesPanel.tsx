@@ -699,6 +699,7 @@ function ChangeDiff({
     <div className="changes__diff" style={{ height }}>
       <DiffEditor
         key={`${change.path}:${change.updatedAt}`}
+        keepCurrentModel={false}
         height={height}
         theme={monacoThemeFor(themeId)}
         language={languageForFile(change.path)}
@@ -720,6 +721,7 @@ function ChangeDiff({
           lineNumbersMinChars: 3,
           folding: false,
           scrollbar: { alwaysConsumeMouseWheel: false },
+          contextmenu: false,
         }}
       />
     </div>
@@ -773,6 +775,13 @@ function ChangesView({
     }
   }
 
+  async function revertAll(): Promise<void> {
+    for (const c of [...changes]) {
+      await revert(c);
+    }
+    onClear();
+  }
+
   return (
     <div className="changes">
       <div className="changes__summary">
@@ -787,14 +796,24 @@ function ChangesView({
             <span className="changes__removed">−{totalRemoved}</span>
           )}
         </span>
-        <button
-          type="button"
-          className="changes__clear"
-          onClick={onClear}
-          data-tip={t("files.clearChanges")}
-        >
-          {t("files.clearChanges")}
-        </button>
+        <div className="changes__batch-actions">
+          <button
+            type="button"
+            className="changes__clear"
+            onClick={onClear}
+            data-tip={t("task.acceptAll")}
+          >
+            {t("task.acceptAll")}
+          </button>
+          <button
+            type="button"
+            className="changes__clear changes__clear--reject"
+            onClick={() => void revertAll()}
+            data-tip={t("task.rejectAll")}
+          >
+            {t("task.rejectAll")}
+          </button>
+        </div>
       </div>
 
       <div className="changes__list">
@@ -809,8 +828,14 @@ function ChangesView({
                 <button
                   type="button"
                   className="changes__row-main"
-                  onClick={() => setOpenPath(open ? null : c.path)}
-                  aria-expanded={open}
+                  onClick={() => {
+                    const absPath = abs(c.path);
+                    emitAppEvent("editor:openDiff", {
+                      path: absPath,
+                      before: c.before,
+                    });
+                  }}
+                  title="Открыть diff в редакторе"
                 >
                   <ChevronRight
                     size={12}

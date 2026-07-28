@@ -61,6 +61,27 @@ const api = {
         ipcRenderer.removeListener("app:open-path", listener);
       };
     },
+    onMenuAction: (cb: (action: string) => void) => {
+      const listener = (_e: unknown, action: string): void => cb(action);
+      ipcRenderer.on("menu:action", listener);
+      return () => {
+        ipcRenderer.removeListener("menu:action", listener);
+      };
+    },
+    showContextMenu: (
+      items: Array<{
+        id: string;
+        label?: string;
+        shortcut?: string;
+        danger?: boolean;
+        disabled?: boolean;
+        separator?: boolean;
+      }>,
+    ) =>
+      ipcRenderer.invoke("app:show-context-menu", items) as Promise<
+        string | null
+      >,
+    setLanguage: (lang: string) => ipcRenderer.invoke("app:set-language", lang),
   },
   project: {
     openDialog: () =>
@@ -532,6 +553,16 @@ const api = {
       ipcRenderer.invoke("providers:test", id) as Promise<{
         ok: boolean;
         status?: number;
+        error?: string;
+      }>,
+    googleOauth: () =>
+      ipcRenderer.invoke("providers:google-oauth") as Promise<{
+        authUrl: string;
+      }>,
+    antigravityQuota: (token: string) =>
+      ipcRenderer.invoke("providers:antigravity-quota", token) as Promise<{
+        plan?: string;
+        quotas?: Record<string, { used: number; total: number; remainingPercentage: number; resetAt?: string; displayName?: string }>;
         error?: string;
       }>,
   },

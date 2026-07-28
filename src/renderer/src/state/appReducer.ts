@@ -33,30 +33,36 @@ export type Action =
   | { type: "RENAME_PROJECT"; id: ID; name: string }
   | { type: "TOGGLE_PIN_PROJECT"; id: ID }
   | {
-      type: "ADD_MESSAGE";
-      conversationId: ID;
-      messageId: ID;
-      role: "user" | "assistant";
-      content: string;
-      streaming?: boolean;
-      attachments?: import("../domain/types").Attachment[];
-    }
+    type: "ADD_MESSAGE";
+    conversationId: ID;
+    messageId: ID;
+    role: "user" | "assistant";
+    content: string;
+    streaming?: boolean;
+    attachments?: import("../domain/types").Attachment[];
+  }
   | { type: "APPEND_CHUNK"; conversationId: ID; messageId: ID; chunk: string }
   | {
-      type: "TOOL_EVENT";
-      conversationId: ID;
-      messageId: ID;
-      repositoryId: ID | null;
-      tool: import("../domain/types").ToolCall;
-    }
+    type: "TOOL_EVENT";
+    conversationId: ID;
+    messageId: ID;
+    repositoryId: ID | null;
+    tool: import("../domain/types").ToolCall;
+  }
   | { type: "CLEAR_CHANGES"; repositoryId: ID }
   | { type: "REMOVE_CHANGE"; repositoryId: ID; path: string }
   | {
-      type: "RECORD_CHANGE";
-      repositoryId: ID;
-      change: import("../domain/types").FileChange;
-    }
+    type: "RECORD_CHANGE";
+    repositoryId: ID;
+    change: import("../domain/types").FileChange;
+  }
   | { type: "FINISH_MESSAGE"; conversationId: ID; messageId: ID }
+  | {
+    type: "SET_TASK_CHANGES_STATE";
+    conversationId: ID;
+    messageId: ID;
+    state: "accepted" | "rejected";
+  }
   | { type: "FAIL_MESSAGE"; conversationId: ID; messageId: ID; error: string }
   | { type: "SYNC_AGENT_SESSIONS"; payload: AgentSessionSnapshot }
   | { type: "SET_VIEW"; view: View };
@@ -109,10 +115,10 @@ export function appReducer(state: AppState, action: Action): AppState {
       const conv = newConversation(action.repositoryId);
       const repositories = action.repositoryId
         ? state.repositories.map((r) =>
-            r.id === action.repositoryId
-              ? { ...r, conversationIds: [conv.id, ...r.conversationIds] }
-              : r,
-          )
+          r.id === action.repositoryId
+            ? { ...r, conversationIds: [conv.id, ...r.conversationIds] }
+            : r,
+        )
         : state.repositories;
       return {
         ...state,
@@ -127,10 +133,10 @@ export function appReducer(state: AppState, action: Action): AppState {
       const conv = action.conversation;
       const repositories = conv.repositoryId
         ? state.repositories.map((r) =>
-            r.id === conv.repositoryId
-              ? { ...r, conversationIds: [conv.id, ...r.conversationIds] }
-              : r,
-          )
+          r.id === conv.repositoryId
+            ? { ...r, conversationIds: [conv.id, ...r.conversationIds] }
+            : r,
+        )
         : state.repositories;
       return {
         ...state,
@@ -447,14 +453,39 @@ export function appReducer(state: AppState, action: Action): AppState {
         messages: conv.messages.map((m) => {
           if (m.id !== action.messageId) return m;
           const tokens = Math.max(1, Math.round(m.content.length / 4));
+          const hasMutations = Boolean(
+            m.toolCalls?.some((c) => c.status === "done" && c.mutated && c.meta),
+          );
           return {
             ...m,
             streaming: false,
             durationMs: now - m.createdAt,
             tokens,
+            taskChangesState:
+              hasMutations && !m.taskChangesState ? "pending" : m.taskChangesState,
           };
         }),
       });
+      return {
+        ...state,
+        conversations: {
+          ...state.conversations,
+          [action.conversationId]: updated,
+        },
+      };
+    }
+
+    case "SET_TASK_CHANGES_STATE": {
+      const conv = state.conversations[action.conversationId];
+      if (!conv) return state;
+      const updated: Conversation = {
+        ...conv,
+        messages: conv.messages.map((m) =>
+          m.id === action.messageId
+            ? { ...m, taskChangesState: action.state }
+            : m,
+        ),
+      };
       return {
         ...state,
         conversations: {
@@ -500,7 +531,7 @@ export function appReducer(state: AppState, action: Action): AppState {
       });
       const activeConversationId =
         action.payload.activeConversationId &&
-        conversations[action.payload.activeConversationId]
+          conversations[action.payload.activeConversationId]
           ? action.payload.activeConversationId
           : state.activeConversationId;
       return { ...state, repositories, conversations, activeConversationId };

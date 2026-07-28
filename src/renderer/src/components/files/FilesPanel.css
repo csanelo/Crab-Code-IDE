@@ -408,6 +408,12 @@
   color: #f0524a;
 }
 
+.changes__batch-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .changes__clear {
   border: none;
   background: transparent;
@@ -424,6 +430,11 @@
 .changes__clear:hover {
   background: var(--color-surface-overlay);
   color: var(--color-text);
+}
+
+.changes__clear--reject:hover {
+  background: rgba(248, 81, 73, 0.12);
+  color: #f85149;
 }
 
 .changes__list {

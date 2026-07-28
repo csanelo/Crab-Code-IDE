@@ -6,11 +6,25 @@ import {
   Copy,
   Check as CheckIcon,
   ChevronRight,
-  Pencil,
   CircleAlert,
   Loader2,
+  FilePlus2,
+  FileText,
+  FolderOpen,
+  FolderPlus,
+  Trash2,
+  Search as SearchIcon,
+  Terminal as TerminalIcon,
+  Globe,
+  Link2,
+  ArrowRightLeft,
+  CopyPlus,
+  BookOpen,
+  History,
+  Undo2,
+  type LucideIcon,
 } from "lucide-react";
-import type { ChatMessage, MessageSegment, ToolCall } from "../../domain/types";
+import type { ChatMessage, MessageSegment, ToolCall, FileChange } from "../../domain/types";
 import { useT } from "../../i18n";
 import type { TKey } from "../../i18n/translations";
 import { Markdown } from "./Markdown";
@@ -18,6 +32,7 @@ import { highlightLine } from "../../lib/highlight";
 import { fileIcon } from "../files/iconMap";
 import { emit as emitAppEvent } from "../../lib/appEvents";
 import { copyText } from "../../lib/clipboard";
+import { removePendingEditByPath } from "../../lib/pendingEdits";
 import { useApp } from "../../state/AppContext";
 
 function formatDuration(ms: number): string {
@@ -124,50 +139,50 @@ function ToolGlyph({ name, size = 17, className }: GlyphProps & { name: string }
     switch (name) {
       case "read_file":
       case "read_memory":
-        return <><path d="M3.5 15.8V6.7a2 2 0 0 1 2-2h4l2 2h6.8a2 2 0 0 1 2 2v3.1"/><path d="M11.5 16.2s2-3.2 5.2-3.2 5.2 3.2 5.2 3.2-2 3.2-5.2 3.2-5.2-3.2-5.2-3.2Z"/><circle cx="16.7" cy="16.2" r="1.45"/></>;
+        return <><path d="M3.5 15.8V6.7a2 2 0 0 1 2-2h4l2 2h6.8a2 2 0 0 1 2 2v3.1" /><path d="M11.5 16.2s2-3.2 5.2-3.2 5.2 3.2 5.2 3.2-2 3.2-5.2 3.2-5.2-3.2-5.2-3.2Z" /><circle cx="16.7" cy="16.2" r="1.45" /></>;
       case "write_file":
-        return <><path d="M6 3.5h7l4 4v4.8M13 3.5v4h4M12 20.5H6a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z"/><circle cx="17" cy="17" r="4.5"/><path d="M17 14.8v4.4M14.8 17h4.4"/></>;
+        return <><path d="M6 3.5h7l4 4v4.8M13 3.5v4h4M12 20.5H6a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z" /><circle cx="17" cy="17" r="4.5" /><path d="M17 14.8v4.4M14.8 17h4.4" /></>;
       case "edit_file":
       case "write_memory":
-        return <><path d="M3.5 15.8V6.7a2 2 0 0 1 2-2h4l2 2h6.8a2 2 0 0 1 2 2v2.5"/><path d="m11.5 20 .8-3.4 6.4-6.4a1.5 1.5 0 0 1 2.1 0l.5.5a1.5 1.5 0 0 1 0 2.1l-6.4 6.4-3.4.8Z"/><path d="m17.7 11.2 2.1 2.1"/></>;
+        return <><path d="M3.5 15.8V6.7a2 2 0 0 1 2-2h4l2 2h6.8a2 2 0 0 1 2 2v2.5" /><path d="m11.5 20 .8-3.4 6.4-6.4a1.5 1.5 0 0 1 2.1 0l.5.5a1.5 1.5 0 0 1 0 2.1l-6.4 6.4-3.4.8Z" /><path d="m17.7 11.2 2.1 2.1" /></>;
       case "list_dir":
       case "create_dir":
-        return <><path d="M3.5 18.3V7a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v1.5"/><path d="M4 19h14.5a2 2 0 0 0 1.9-1.4l1.5-5a1.6 1.6 0 0 0-1.5-2.1H8a2 2 0 0 0-1.9 1.3L4 19Z"/></>;
+        return <><path d="M3.5 18.3V7a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v1.5" /><path d="M4 19h14.5a2 2 0 0 0 1.9-1.4l1.5-5a1.6 1.6 0 0 0-1.5-2.1H8a2 2 0 0 0-1.9 1.3L4 19Z" /></>;
       case "delete_path":
-        return <><path d="M4 7h16M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M6.5 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4l.8-12"/><path d="M10 11v5.5M14 11v5.5"/></>;
+        return <><path d="M4 7h16M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7M6.5 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4l.8-12" /><path d="M10 11v5.5M14 11v5.5" /></>;
       case "search":
-        return <><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.3 15.3 4.7 4.7M8 10.5h5"/></>;
+        return <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.3 15.3 4.7 4.7M8 10.5h5" /></>;
       case "web_search":
-        return <><circle cx="11" cy="11" r="7.5"/><path d="M3.5 11h15M11 3.5c2.2 2.4 2.2 12.6 0 15M11 3.5c-2.2 2.4-2.2 12.6 0 15M16.7 16.7 21 21"/></>;
+        return <><circle cx="11" cy="11" r="7.5" /><path d="M3.5 11h15M11 3.5c2.2 2.4 2.2 12.6 0 15M11 3.5c-2.2 2.4-2.2 12.6 0 15M16.7 16.7 21 21" /></>;
       case "run_command":
-        return <><rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="m7 9 3 3-3 3M13 15h4"/></>;
+        return <><rect x="2.5" y="4" width="19" height="16" rx="3" /><path d="m7 9 3 3-3 3M13 15h4" /></>;
       case "fetch_url":
-        return <><path d="M9.5 14.5 14.5 9M7 16.8l-1.2 1.2a3.4 3.4 0 0 1-4.8-4.8l4-4A3.4 3.4 0 0 1 9.8 9M17 7.2 18.2 6A3.4 3.4 0 1 1 23 10.8l-4 4a3.4 3.4 0 0 1-4.8 0"/></>;
+        return <><path d="M9.5 14.5 14.5 9M7 16.8l-1.2 1.2a3.4 3.4 0 0 1-4.8-4.8l4-4A3.4 3.4 0 0 1 9.8 9M17 7.2 18.2 6A3.4 3.4 0 1 1 23 10.8l-4 4a3.4 3.4 0 0 1-4.8 0" /></>;
       case "browser_screenshot":
-        return <><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="12" cy="12" r="3"/><path d="M7 5 8.2 3.5h3"/></>;
+        return <><rect x="3" y="5" width="18" height="14" rx="2.5" /><circle cx="12" cy="12" r="3" /><path d="M7 5 8.2 3.5h3" /></>;
       case "browser_read":
-        return <><path d="M3.5 5.5A2.5 2.5 0 0 1 6 3h5v17H6a2.5 2.5 0 0 0-2.5 2V5.5ZM20.5 5.5A2.5 2.5 0 0 0 18 3h-5v17h5a2.5 2.5 0 0 1 2.5 2V5.5Z"/></>;
+        return <><path d="M3.5 5.5A2.5 2.5 0 0 1 6 3h5v17H6a2.5 2.5 0 0 0-2.5 2V5.5ZM20.5 5.5A2.5 2.5 0 0 0 18 3h-5v17h5a2.5 2.5 0 0 1 2.5 2V5.5Z" /></>;
       case "browser_open":
-        return <><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.8 2.6 15.2 0 18M12 3c-2.6 2.8-2.6 15.2 0 18"/></>;
+        return <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.6 2.8 2.6 15.2 0 18M12 3c-2.6 2.8-2.6 15.2 0 18" /></>;
       case "open_path":
-        return <><path d="M3.5 18.3V7a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v1.5"/><path d="M4 19h14.5a2 2 0 0 0 1.9-1.4l1.5-5a1.6 1.6 0 0 0-1.5-2.1H8a2 2 0 0 0-1.9 1.3L4 19Z"/></>;
+        return <><path d="M3.5 18.3V7a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v1.5" /><path d="M4 19h14.5a2 2 0 0 0 1.9-1.4l1.5-5a1.6 1.6 0 0 0-1.5-2.1H8a2 2 0 0 0-1.9 1.3L4 19Z" /></>;
       case "move_path":
-        return <><path d="M8 5h11M16 2l3 3-3 3M16 19H5M8 16l-3 3 3 3"/></>;
+        return <><path d="M8 5h11M16 2l3 3-3 3M16 19H5M8 16l-3 3 3 3" /></>;
       case "copy_path":
-        return <><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></>;
+        return <><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" /></>;
       case "git_time_travel":
-        return <><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="9" r="2"/><path d="M6 7v10M18 11c0 3-2.5 4-6 4"/></>;
+        return <><circle cx="6" cy="5" r="2" /><circle cx="6" cy="19" r="2" /><circle cx="18" cy="9" r="2" /><path d="M6 7v10M18 11c0 3-2.5 4-6 4" /></>;
       case "add_skill":
-        return <><path d="m12 2 1.4 5.1L18 5l-2.1 4.6L21 11l-5.1 1.4L18 17l-4.6-2.1L12 20l-1.4-5.1L6 17l2.1-4.6L3 11l5.1-1.4L6 5l4.6 2.1L12 2Z"/><circle cx="12" cy="11" r="2"/></>;
+        return <><path d="m12 2 1.4 5.1L18 5l-2.1 4.6L21 11l-5.1 1.4L18 17l-4.6-2.1L12 20l-1.4-5.1L6 17l2.1-4.6L3 11l5.1-1.4L6 5l4.6 2.1L12 2Z" /><circle cx="12" cy="11" r="2" /></>;
       case "add_mcp_server":
       case "list_mcp_servers":
-        return <><rect x="4" y="3" width="16" height="6" rx="2"/><rect x="4" y="15" width="16" height="6" rx="2"/><path d="M8 9v6M16 9v6M8 6h.01M8 18h.01"/></>;
+        return <><rect x="4" y="3" width="16" height="6" rx="2" /><rect x="4" y="15" width="16" height="6" rx="2" /><path d="M8 9v6M16 9v6M8 6h.01M8 18h.01" /></>;
       case "github_connect":
       case "github_status":
       case "github_commit":
-        return <><path d="M8 18c-4.5 1.4-4.5-2.3-6-2.8M14 21v-3.5c0-1 .1-1.7-.5-2.4 3.1-.4 6.5-1.5 6.5-7A5.5 5.5 0 0 0 18.5 4 5 5 0 0 0 18.4.5S17.2.1 14 2a14 14 0 0 0-6 0C4.8.1 3.6.5 3.6.5A5 5 0 0 0 3.5 4 5.5 5.5 0 0 0 2 8.1c0 5.5 3.4 6.6 6.5 7-.6.7-.6 1.3-.5 2.4V21"/></>;
+        return <><path d="M8 18c-4.5 1.4-4.5-2.3-6-2.8M14 21v-3.5c0-1 .1-1.7-.5-2.4 3.1-.4 6.5-1.5 6.5-7A5.5 5.5 0 0 0 18.5 4 5 5 0 0 0 18.4.5S17.2.1 14 2a14 14 0 0 0-6 0C4.8.1 3.6.5 3.6.5A5 5 0 0 0 3.5 4 5.5 5.5 0 0 0 2 8.1c0 5.5 3.4 6.6 6.5 7-.6.7-.6 1.3-.5 2.4V21" /></>;
       default:
-        return <><path d="M7 3.5h7l4 4v13H7a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z"/><path d="M14 3.5v4h4"/></>;
+        return <><path d="M7 3.5h7l4 4v13H7a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z" /><path d="M14 3.5v4h4" /></>;
     }
   })();
   return <svg viewBox="0 0 24 24" width={size} height={size} className={className} shapeRendering="geometricPrecision" focusable="false" aria-hidden="true" {...common}>{glyph}</svg>;
@@ -461,6 +476,198 @@ function DiffView({ diff }: { diff: string }): JSX.Element {
   );
 }
 
+function TaskChangesCard({
+  message,
+}: {
+  message: ChatMessage;
+}): JSX.Element | null {
+  const t = useT();
+  const { state, setTaskChangesState, removeChange } = useApp();
+  const [open, setOpen] = useState(false);
+  const [localTaskState, setLocalTaskState] = useState<
+    "pending" | "accepted" | "rejected"
+  >(message.taskChangesState ?? "pending");
+
+  const conversationId = state.activeConversationId;
+  const activeRepo = state.repositories.find(
+    (r) => r.id === state.activeRepositoryId,
+  );
+  const repoPath = activeRepo?.path ?? null;
+  const repoId = activeRepo?.id ?? null;
+
+  const fileChangesMap = new Map<string, FileChange>();
+  if (message.toolCalls) {
+    for (const tool of message.toolCalls) {
+      if (tool.status === "done" && tool.mutated && tool.meta?.path) {
+        const meta = tool.meta;
+        const existing = fileChangesMap.get(meta.path);
+        if (existing) {
+          fileChangesMap.set(meta.path, {
+            ...existing,
+            added: existing.added + meta.added,
+            removed: existing.removed + meta.removed,
+            diff: meta.diff || existing.diff,
+          });
+        } else {
+          fileChangesMap.set(meta.path, {
+            path: meta.path,
+            added: meta.added,
+            removed: meta.removed,
+            diff: meta.diff,
+            updatedAt: Date.now(),
+            before: meta.before ?? "",
+            existed: meta.existed ?? false,
+          });
+        }
+      }
+    }
+  }
+
+  const changesList = Array.from(fileChangesMap.values());
+  if (changesList.length === 0) return null;
+
+  const totalAdded = changesList.reduce((s, c) => s + c.added, 0);
+  const totalRemoved = changesList.reduce((s, c) => s + c.removed, 0);
+  const taskState = message.taskChangesState ?? localTaskState;
+
+  function getAbsPath(p: string): string {
+    if (!repoPath) return p;
+    if (/^([a-zA-Z]:[\\/]|\/)/.test(p)) return p;
+    const sep = repoPath.includes("\\") ? "\\" : "/";
+    return `${repoPath}${sep}${p.replace(/[\\/]/g, sep)}`;
+  }
+
+  const handleAccept = () => {
+    setLocalTaskState("accepted");
+    if (conversationId) {
+      setTaskChangesState(conversationId, message.id, "accepted");
+    }
+    for (const c of changesList) {
+      const absPath = getAbsPath(c.path);
+      removePendingEditByPath(absPath);
+      removePendingEditByPath(c.path);
+      emitAppEvent("edits:accept", { path: absPath });
+    }
+  };
+
+  const handleReject = async () => {
+    setLocalTaskState("rejected");
+    if (conversationId) {
+      setTaskChangesState(conversationId, message.id, "rejected");
+    }
+    for (const c of changesList) {
+      const absPath = getAbsPath(c.path);
+      removePendingEditByPath(absPath);
+      removePendingEditByPath(c.path);
+      await window.api.fs.revert({
+        path: absPath,
+        before: c.before,
+        existed: c.existed,
+      });
+      emitAppEvent("edits:reject", { path: absPath });
+      emitAppEvent("editor:reload", { path: absPath });
+      if (repoId) {
+        removeChange(repoId, c.path);
+      }
+    }
+    emitAppEvent("fs:changed", undefined);
+  };
+
+  return (
+    <div className={`task-changes task-changes--${taskState}`}>
+      <div className="task-changes__head">
+        <div
+          className="task-changes__main"
+          onClick={() => setOpen((prev) => !prev)}
+        >
+          <span className="task-changes__title">
+            {t("task.changesTitle", { n: changesList.length })}
+          </span>
+          <span className="task-changes__counts">
+            {totalAdded > 0 && <span className="changes__added">+{totalAdded}</span>}
+            {totalRemoved > 0 && <span className="changes__removed">−{totalRemoved}</span>}
+          </span>
+          <ChevronRight
+            size={13}
+            className={`task-changes__chevron${open ? " task-changes__chevron--open" : ""}`}
+          />
+        </div>
+
+        <div className="task-changes__actions">
+          {taskState === "pending" ? (
+            <>
+              <button
+                type="button"
+                className="task-changes__btn task-changes__btn--accept"
+                onClick={handleAccept}
+                title={t("task.accept")}
+              >
+                <CheckIcon size={13} />
+                <span>{t("task.accept")}</span>
+              </button>
+              <button
+                type="button"
+                className="task-changes__btn task-changes__btn--reject"
+                onClick={handleReject}
+                title={t("task.reject")}
+              >
+                <Undo2 size={13} />
+                <span>{t("task.reject")}</span>
+              </button>
+            </>
+          ) : taskState === "accepted" ? (
+            <span className="task-changes__badge task-changes__badge--accepted">
+              <CheckIcon size={12} />
+              <span>{t("task.accepted")}</span>
+            </span>
+          ) : (
+            <span className="task-changes__badge task-changes__badge--rejected">
+              <Undo2 size={12} />
+              <span>{t("task.rejected")}</span>
+            </span>
+          )}
+        </div>
+      </div>
+
+      {open && (
+        <div className="task-changes__list">
+          {changesList.map((c) => {
+            const name = c.path.split(/[\\/]/).pop() ?? c.path;
+            const absPath = getAbsPath(c.path);
+            return (
+              <div
+                key={c.path}
+                className="task-changes__file"
+                onClick={() =>
+                  emitAppEvent("editor:openDiff", {
+                    path: absPath,
+                    before: c.before,
+                  })
+                }
+                title="Открыть diff в редакторе"
+              >
+                <img
+                  className="task-changes__fileicon"
+                  src={fileIcon(name)}
+                  alt=""
+                  aria-hidden="true"
+                />
+                <span className="task-changes__filepath" title={c.path}>
+                  {c.path}
+                </span>
+                <span className="task-changes__filecounts">
+                  {c.added > 0 && <span className="changes__added">+{c.added}</span>}
+                  {c.removed > 0 && <span className="changes__removed">−{c.removed}</span>}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MessageItemBase({ message }: { message: ChatMessage }): JSX.Element {
   const t = useT();
   const { state } = useApp();
@@ -540,6 +747,8 @@ function MessageItemBase({ message }: { message: ChatMessage }): JSX.Element {
               )}
             </>
           )}
+
+          <TaskChangesCard message={message} />
 
           {showMeta && (
             <div className="message__meta" aria-hidden="true">

@@ -230,6 +230,14 @@ export const ru: Record<TKey, string> = {
   'tool.run': 'Запустить',
   'tool.running': 'выполняется…',
 
+  'task.changesTitle': 'Изменения файлов в задаче ({n})',
+  'task.accept': 'Принять',
+  'task.reject': 'Откатить',
+  'task.accepted': 'Изменения приняты',
+  'task.rejected': 'Изменения откатаны',
+  'task.acceptAll': 'Принять все',
+  'task.rejectAll': 'Откатить все',
+
   'palette.searching': 'Поиск…',
 
   'welcome.openChat': 'Открыть чат',
@@ -294,6 +302,7 @@ export const ru: Record<TKey, string> = {
   'settings.nav.appearance': 'Внешний вид',
   'settings.nav.skills': 'Навыки',
   'settings.nav.providers': 'Провайдеры',
+  'settings.nav.usage': 'Лимиты и Квоты',
   'settings.nav.github': 'GitHub',
   'settings.nav.website': 'Веб-сайт',
   'settings.sections': 'Разделы настроек',

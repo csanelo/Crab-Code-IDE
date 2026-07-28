@@ -474,7 +474,7 @@ export const TOOL_DEFS: ToolDef[] = [
         x: { type: "number", description: "Screen X coordinate." },
         y: { type: "number", description: "Screen Y coordinate." },
         button: { type: "string", enum: ["left", "right", "middle"], description: "Mouse button; defaults to left." },
-        clicks: { type: "number", enum: [1, 2], description: "Click count; defaults to one." },
+        clicks: { type: "number", enum: ["1", "2"], description: "Click count; defaults to 1." },
       },
       required: ["x", "y"],
     },
@@ -937,7 +937,7 @@ export async function runTool(
         if (!res.ok)
           return { text: `Error: ${res.error ?? "could not capture page"}` };
         const where = `${res.url ?? "the page"}${res.title ? ` — ${res.title}` : ""}`;
-        if (activeModelHasVision()) {
+        if (await activeModelHasVision()) {
           return {
             text: `Screenshot of ${where}. Look at the image to judge the layout and visual style.`,
             image: res.data

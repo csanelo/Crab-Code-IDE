@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { X, Sparkles, Plus } from "lucide-react";
+import { X, Sparkles, Plus, Columns2 } from "lucide-react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
@@ -16,9 +16,10 @@ import { getThemeId } from "../../lib/theme";
 import { xtermThemeFor } from "../../theme/themes";
 import "./TerminalPanel.css";
 
-interface Tab {
+interface TabGroup {
   id: string;
   title: string;
+  panes: string[];
 }
 
 export function TerminalPanel({
@@ -27,57 +28,106 @@ export function TerminalPanel({
   onClose: () => void;
 }): JSX.Element {
   const t = useT();
-  const [tabs, setTabs] = useState<Tab[]>(() => [
-    { id: createId("term_"), title: t("terminal.title") },
-  ]);
-  const [activeId, setActiveId] = useState<string>(() => tabs[0].id);
-  const [closingIds, setClosingIds] = useState<string[]>([]);
+  const [groups, setGroups] = useState<TabGroup[]>(() => {
+    const paneId = createId("term_");
+    return [{ id: createId("grp_"), title: t("terminal.title"), panes: [paneId] }];
+  });
+  const [activeGroupId, setActiveGroupId] = useState<string>(() => groups[0].id);
+  const [activePaneId, setActivePaneId] = useState<string>(() => groups[0].panes[0]);
+  const [closingGroupIds, setClosingGroupIds] = useState<string[]>([]);
   const sendToAIRef = useRef<(() => void) | null>(null);
 
   function addTab(): void {
-    const id = createId("term_");
-    setTabs((prev) => [
+    const paneId = createId("term_");
+    const groupId = createId("grp_");
+    setGroups((prev) => [
       ...prev,
-      { id, title: `${t("terminal.title")} ${prev.length + 1}` },
+      { id: groupId, title: `${t("terminal.title")} ${prev.length + 1}`, panes: [paneId] },
     ]);
-    setActiveId(id);
+    setActiveGroupId(groupId);
+    setActivePaneId(paneId);
   }
 
-  function closeTab(id: string): void {
-    if (closingIds.includes(id)) return;
-    void window.api.terminal.kill(id);
-    const rest = tabs.filter((x) => x.id !== id);
+  function splitActiveTerminal(): void {
+    const newPaneId = createId("term_");
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.id !== activeGroupId) return g;
+        return { ...g, panes: [...g.panes, newPaneId] };
+      }),
+    );
+    setActivePaneId(newPaneId);
+  }
+
+  function closePane(groupId: string, paneId: string): void {
+    void window.api.terminal.kill(paneId);
+
+    setGroups((prev) => {
+      const next = prev
+        .map((g) => {
+          if (g.id !== groupId) return g;
+          return { ...g, panes: g.panes.filter((id) => id !== paneId) };
+        })
+        .filter((g) => g.panes.length > 0);
+
+      if (next.length === 0) {
+        onClose();
+        return [];
+      }
+
+      if (paneId === activePaneId || groupId === activeGroupId) {
+        const currentGroup = next.find((g) => g.id === groupId) ?? next[0];
+        setActiveGroupId(currentGroup.id);
+        const fallbackPane = currentGroup.panes[currentGroup.panes.length - 1];
+        setActivePaneId(fallbackPane);
+      }
+
+      return next;
+    });
+  }
+
+  function closeGroup(groupId: string): void {
+    const group = groups.find((g) => g.id === groupId);
+    if (!group) return;
+    group.panes.forEach((id) => void window.api.terminal.kill(id));
+
+    const rest = groups.filter((g) => g.id !== groupId);
     if (rest.length === 0) {
       onClose();
       return;
     }
-    if (id === activeId) {
-      const idx = tabs.findIndex((x) => x.id === id);
-      const fallback = rest[idx] ?? rest[idx - 1] ?? rest[0];
-      setActiveId(fallback.id);
+    if (groupId === activeGroupId) {
+      const fallbackGroup = rest[rest.length - 1];
+      setActiveGroupId(fallbackGroup.id);
+      setActivePaneId(fallbackGroup.panes[0]);
     }
-    setClosingIds((prev) => [...prev, id]);
+    setClosingGroupIds((prev) => [...prev, groupId]);
     window.setTimeout(() => {
-      setTabs((prev) => prev.filter((x) => x.id !== id));
-      setClosingIds((prev) => prev.filter((x) => x !== id));
-    }, 220);
+      setGroups((prev) => prev.filter((g) => g.id !== groupId));
+      setClosingGroupIds((prev) => prev.filter((id) => id !== groupId));
+    }, 200);
   }
 
   return (
     <section className="terminal">
       <header className="terminal__header">
         <div className="terminal__tabs">
-          {tabs.map((tab) => (
+          {groups.map((group) => (
             <div
-              key={tab.id}
-              className={`terminal__tab${tab.id === activeId ? " terminal__tab--active" : ""}${closingIds.includes(tab.id) ? " terminal__tab--closing" : ""}`}
+              key={group.id}
+              className={`terminal__tab${group.id === activeGroupId ? " terminal__tab--active" : ""}${closingGroupIds.includes(group.id) ? " terminal__tab--closing" : ""}`}
               onClick={() => {
-                if (!closingIds.includes(tab.id)) setActiveId(tab.id);
+                if (!closingGroupIds.includes(group.id)) {
+                  setActiveGroupId(group.id);
+                  if (!group.panes.includes(activePaneId)) {
+                    setActivePaneId(group.panes[0]);
+                  }
+                }
               }}
               onAuxClick={(e) => {
-                if (e.button !== 1 || closingIds.includes(tab.id)) return;
+                if (e.button !== 1 || closingGroupIds.includes(group.id)) return;
                 e.preventDefault();
-                closeTab(tab.id);
+                closeGroup(group.id);
               }}
               role="tab"
               tabIndex={0}
@@ -88,7 +138,10 @@ export function TerminalPanel({
               >
                 {">_"}
               </span>
-              <span className="terminal__tab-title">{tab.title}</span>
+              <span className="terminal__tab-title">
+                {group.title}
+                {group.panes.length > 1 ? ` (${group.panes.length})` : ""}
+              </span>
               <span
                 className="terminal__tab-close"
                 role="button"
@@ -96,7 +149,7 @@ export function TerminalPanel({
                 aria-label={t("editor.close")}
                 onClick={(e) => {
                   e.stopPropagation();
-                  closeTab(tab.id);
+                  closeGroup(group.id);
                 }}
               >
                 <X size={15} />
@@ -117,32 +170,70 @@ export function TerminalPanel({
         <button
           className="terminal__action"
           type="button"
+          aria-label="Разделить терминал (Cmd+\\)"
+          title="Разделить терминал (Cmd+\\)"
+          onClick={splitActiveTerminal}
+        >
+          <Columns2 size={15} />
+        </button>
+        <button
+          className="terminal__action"
+          type="button"
           aria-label={t("terminal.sendToAI")}
           data-tip={t("terminal.sendToAI")}
           onClick={() => sendToAIRef.current?.()}
         >
-          <Sparkles size={16} />
+          <Sparkles size={15} />
         </button>
         <button
           className="terminal__close"
           type="button"
           aria-label={t("terminal.close")}
-          onClick={() => closeTab(activeId)}
+          onClick={() => closeGroup(activeGroupId)}
         >
-          <X size={18} />
+          <X size={17} />
         </button>
       </header>
       <div className="terminal__bodies">
-        {tabs.map((tab) => (
-          <TerminalTab
-            key={tab.id}
-            id={tab.id}
-            active={tab.id === activeId}
-            onExit={() => closeTab(tab.id)}
-            registerSendToAI={(fn) => {
-              if (tab.id === activeId) sendToAIRef.current = fn;
-            }}
-          />
+        {groups.map((group) => (
+          <div
+            key={group.id}
+            className={`terminal__group${group.id === activeGroupId ? "" : " terminal__group--hidden"}`}
+          >
+            {group.panes.map((paneId, idx) => (
+              <div
+                key={paneId}
+                className={`terminal__pane${paneId === activePaneId ? " terminal__pane--focused" : ""}`}
+                onClick={() => setActivePaneId(paneId)}
+              >
+                {group.panes.length > 1 && (
+                  <div className="terminal__pane-header">
+                    <span className="terminal__pane-title">{`Terminal ${idx + 1}`}</span>
+                    <button
+                      type="button"
+                      className="terminal__pane-close"
+                      title="Закрыть этот терминал"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        closePane(group.id, paneId);
+                      }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                )}
+                <TerminalTab
+                  id={paneId}
+                  visible={group.id === activeGroupId}
+                  focused={group.id === activeGroupId && paneId === activePaneId}
+                  onExit={() => closePane(group.id, paneId)}
+                  registerSendToAI={(fn) => {
+                    if (group.id === activeGroupId && paneId === activePaneId) sendToAIRef.current = fn;
+                  }}
+                />
+              </div>
+            ))}
+          </div>
         ))}
       </div>
     </section>
@@ -151,12 +242,14 @@ export function TerminalPanel({
 
 function TerminalTab({
   id,
-  active,
+  visible,
+  focused,
   onExit,
   registerSendToAI,
 }: {
   id: string;
-  active: boolean;
+  visible: boolean;
+  focused: boolean;
   onExit: () => void;
   registerSendToAI: (fn: () => void) => void;
 }): JSX.Element {
@@ -198,8 +291,8 @@ function TerminalTab({
   }
 
   useEffect(() => {
-    if (active) registerSendToAI(sendToAI);
-  }, [active]);
+    if (focused) registerSendToAI(sendToAI);
+  }, [focused]);
 
   useEffect(() => {
     const obs = new MutationObserver(() => {
@@ -214,15 +307,27 @@ function TerminalTab({
   }, []);
 
   useEffect(() => {
-    if (active) {
+    if (focused) {
       requestAnimationFrame(() => {
         try {
           fitRef.current?.fit();
+          termRef.current?.refresh(0, (termRef.current?.rows || 1) - 1);
         } catch {}
         termRef.current?.focus();
       });
     }
-  }, [active]);
+  }, [focused]);
+
+  useEffect(() => {
+    if (visible) {
+      requestAnimationFrame(() => {
+        try {
+          fitRef.current?.fit();
+          termRef.current?.refresh(0, (termRef.current?.rows || 1) - 1);
+        } catch {}
+      });
+    }
+  }, [visible]);
 
   useEffect(() => {
     const host = containerRef.current;
@@ -391,9 +496,8 @@ function TerminalTab({
   }, [id, activeRepo?.path]);
 
   return (
-    <div
-      className={`terminal__xterm${active ? "" : " terminal__xterm--hidden"}`}
-      ref={containerRef}
-    />
+    <div className={`terminal__tab-body${visible ? "" : " terminal__tab-body--hidden"}`}>
+      <div className="terminal__xterm" ref={containerRef} />
+    </div>
   );
 }
