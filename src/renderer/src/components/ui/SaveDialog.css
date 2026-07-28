@@ -1,0 +1,118 @@
+.savedlg__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+  animation: savedlg-fade var(--dur-fast) var(--ease-out);
+}
+
+.savedlg {
+  width: min(420px, 92vw);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+  font-family: var(--font-sans);
+  animation: savedlg-pop var(--dur-fast) var(--ease-out);
+}
+
+.savedlg__title {
+  margin-bottom: 6px;
+  color: var(--color-text);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.savedlg__message {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  word-break: break-word;
+}
+
+.savedlg__hint {
+  margin-top: 4px;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-body);
+}
+
+.savedlg__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: var(--space-4);
+}
+
+.savedlg__spacer {
+  flex: 1 1 auto;
+}
+
+.savedlg__btn {
+  height: 30px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.savedlg__btn:hover {
+  background: var(--color-surface-overlay);
+}
+
+.savedlg__btn--ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+
+.savedlg__btn--ghost:hover {
+  background: var(--color-accent-soft);
+  color: var(--color-text);
+}
+
+.savedlg__btn--primary {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+.savedlg__btn--primary:hover {
+  background: var(--color-accent-hover);
+}
+
+@keyframes savedlg-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes savedlg-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .savedlg__backdrop,
+  .savedlg {
+    animation: none;
+  }
+}

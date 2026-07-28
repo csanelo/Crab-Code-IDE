@@ -1,0 +1,39 @@
+.tip {
+  position: fixed;
+  z-index: var(--z-modal);
+  max-width: 280px;
+  padding: 4px 8px;
+  transform: translate(-50%, -100%);
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-menu);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  animation: tip-in var(--dur-fast) var(--ease-out);
+}
+
+.tip--below {
+  transform: translate(-50%, 0);
+}
+
+@keyframes tip-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tip {
+    animation: none;
+  }
+}

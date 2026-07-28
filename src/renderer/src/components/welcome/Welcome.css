@@ -1,0 +1,182 @@
+.welcome {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg);
+  /* No fade-in: the overlay must be opaque on the very first painted frame,
+     otherwise the workspace shows through underneath while it fades. */
+  /* The intro covers the title bar, so keep the window draggable behind it. */
+  -webkit-app-region: drag;
+}
+
+.welcome::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    38% 30% at 50% 42%,
+    rgba(255, 255, 255, 0.05) 0%,
+    transparent 70%
+  );
+}
+
+.welcome--closing {
+  animation: welcome-out 260ms var(--ease-out) both;
+}
+
+.welcome__inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: -3vh;
+}
+
+.welcome__video {
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+  background: transparent;
+  pointer-events: none;
+  user-select: none;
+  animation: welcome-rise 520ms var(--ease-out) both;
+}
+
+.welcome__title {
+  margin: var(--space-5) 0 0;
+  font-family: var(--font-sans);
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+  animation: welcome-rise 520ms 80ms var(--ease-out) both;
+}
+
+.welcome__start {
+  -webkit-app-region: no-drag;
+  margin-top: var(--space-5);
+  min-width: 104px;
+  height: 32px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+  animation: welcome-rise 520ms 140ms var(--ease-out) both;
+}
+
+.welcome__start:hover {
+  background: var(--color-surface-overlay);
+}
+
+.welcome__start:active {
+  background: var(--color-surface);
+}
+
+.welcome__start:focus,
+.welcome__start:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.welcome__hint {
+  -webkit-app-region: no-drag;
+  margin-top: var(--space-3);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  animation: welcome-rise 520ms 200ms var(--ease-out) both;
+}
+
+.welcome__hint:hover {
+  color: var(--color-text-secondary);
+}
+
+/* Window controls, since the intro covers the app title bar. */
+.welcome__winbtns {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  -webkit-app-region: no-drag;
+}
+
+.welcome__win-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.welcome__win-btn:hover {
+  background: var(--color-surface-overlay);
+  color: var(--color-text);
+}
+
+.welcome__win-btn--close:hover {
+  background: #e81123;
+  color: #ffffff;
+}
+
+.welcome__win-btn:focus,
+.welcome__win-btn:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+@keyframes welcome-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes welcome-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome,
+  .welcome--closing,
+  .welcome__video,
+  .welcome__title,
+  .welcome__start,
+  .welcome__hint {
+    animation: none;
+  }
+}
