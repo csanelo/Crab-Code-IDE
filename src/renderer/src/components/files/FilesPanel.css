@@ -10,58 +10,73 @@
 .files__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  height: 38px;
-  padding: 0 var(--space-2) 0 var(--space-3);
+  justify-content: center;
+  height: 40px;
+  padding: 0 8px;
   flex-shrink: 0;
-  border-bottom: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 58%, transparent);
 }
 
-.files__tabs {
-  position: relative;
-  display: flex;
+.files__header-tools {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-4);
+  justify-content: center;
+  gap: 8px;
 }
 
-.files__tab {
+.files__tab,
+.files__header-icon {
   position: relative;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
   border: none;
+  border-radius: 6px;
   background: transparent;
   color: var(--color-text-muted);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  padding: 2px 0 5px;
   cursor: pointer;
   transition:
-    color var(--dur-fast) var(--ease-out),
-    opacity var(--dur-fast) var(--ease-out);
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 
-.files__tab:hover {
-  color: var(--color-text);
+.files__tab:hover,
+.files__header-icon:hover {
+  background: color-mix(in srgb, var(--color-surface-raised) 70%, transparent);
+  color: var(--color-text-secondary);
 }
 
 .files__tab--active {
+  background: color-mix(in srgb, var(--color-surface-raised) 86%, transparent);
   color: var(--color-text);
-  font-weight: 600;
 }
 
-.files__actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
+.files__tab-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 12px;
+  height: 12px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--color-text);
+  color: var(--color-bg);
+  font-size: 7.5px;
+  font-weight: 700;
+  line-height: 12px;
+  text-align: center;
 }
 
 .files__icon {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border: none;
   background: transparent;
-  color: var(--color-text-secondary);
+  color: color-mix(in srgb, var(--color-text-muted) 86%, transparent);
   border-radius: var(--radius-sm);
   transition:
     background var(--dur-fast) var(--ease-out),
@@ -306,12 +321,13 @@
 .ftree__root-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
 }
 
 .ftree__root-actions .files__icon {
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
+  color: color-mix(in srgb, var(--color-text-muted) 82%, transparent);
 }
 
 .ftree__row:hover {

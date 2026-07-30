@@ -31,49 +31,40 @@ import { setAccessLevel } from "../../lib/agentAccess";
 import {
   getEditMode,
   setEditMode,
+  subscribeEditMode,
   type EditMode,
 } from "../../lib/agentEditMode";
 import { on as onAppEvent, emit as emitAppEvent } from "../../lib/appEvents";
 import { toastInfo } from "../../lib/toast";
+import {
+  getReasoningEffort,
+  REASONING_EFFORT_LEVELS,
+  setReasoningEffort,
+  subscribeReasoningEffort,
+  type ReasoningEffort,
+} from "../../lib/reasoningEffort";
 import { fileIcon } from "../files/iconMap";
 import { GithubPanel } from "./GithubPanel";
 import { SshPanel } from "./SshPanel";
 import { WorkspaceFolderIcon } from "../icons/WorkspaceIcons";
+import { getPendingEdits, subscribePendingEdits, removePendingEdit, type PendingEdit } from "../../lib/pendingEdits";
 import "./NewSession.css";
 
-function AgentModeIcon(): JSX.Element {
-  return (
-    <svg className="ns__mode-icon" viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M4.4 5.2c1.6 0 2 5.6 3.6 5.6s2-5.6 3.6-5.6a2.8 2.8 0 0 1 0 5.6c-1.6 0-2-5.6-3.6-5.6s-2 5.6-3.6 5.6a2.8 2.8 0 0 1 0-5.6Z" />
-    </svg>
-  );
-}
-
-function PlanModeIcon(): JSX.Element {
-  return (
-    <svg className="ns__mode-icon" viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M2.8 4.4h3M2.8 8h3M2.8 11.6h3M8.4 4.4h4.8M8.4 8h4.8M8.4 11.6h4.8" />
-    </svg>
-  );
-}
-
-function AskModeIcon(): JSX.Element {
-  return (
-    <svg className="ns__mode-icon" viewBox="0 0 16 16" aria-hidden="true">
-      <path d="M8 2.6c3 0 5.4 2.1 5.4 4.7 0 2.6-2.4 4.7-5.4 4.7-.6 0-1.2-.1-1.7-.2l-2.7 1.4.7-2.3C3.3 9.9 2.6 8.7 2.6 7.3c0-2.6 2.4-4.7 5.4-4.7Z" />
-    </svg>
-  );
-}
-
-const AGENT_MODES: {
-  id: EditMode;
-  label: string;
-  icon: ComponentType;
-}[] = [
-  { id: "auto", label: "Agent", icon: AgentModeIcon },
-  { id: "readonly", label: "Plan", icon: PlanModeIcon },
-  { id: "ask", label: "Ask", icon: AskModeIcon },
+const AGENT_MODES: { id: EditMode; label: string }[] = [
+  { id: "auto", label: "Agent" },
+  { id: "readonly", label: "Plan" },
+  { id: "ask", label: "Ask" },
 ];
+
+function pendingLineStats(before: string, after: string): { added: number; removed: number } {
+  const oldLines = before === '' ? [] : before.split('\n')
+  const newLines = after === '' ? [] : after.split('\n')
+  let start = 0
+  while (start < oldLines.length && start < newLines.length && oldLines[start] === newLines[start]) start++
+  let tail = 0
+  while (tail < oldLines.length - start && tail < newLines.length - start && oldLines[oldLines.length - 1 - tail] === newLines[newLines.length - 1 - tail]) tail++
+  return { added: newLines.length - start - tail, removed: oldLines.length - start - tail }
+}
 
 interface ModelOption {
   providerId: string;
@@ -364,12 +355,18 @@ function expandBuiltinCommand(cmd: string, rest: string): string | null {
   }
 }
 
+/** ~120k tokens at roughly 4 characters per token. */
+const CONTEXT_LIMIT_CHARS = 480_000;
+/** Circumference of the r=7 gauge circle (2 * pi * 7). */
+const CONTEXT_RING = 43.98;
+
 export function NewSession({
   onSend,
   showHeader = true,
   menusDown = false,
   streaming = false,
   onStop,
+  agentMode = false,
 }: {
   onSend: (
     text: string,
@@ -381,9 +378,12 @@ export function NewSession({
   menusDown?: boolean;
   streaming?: boolean;
   onStop?: () => void;
+  /** Agent window only: shows the context-usage ring next to the paperclip. */
+  agentMode?: boolean;
 }): JSX.Element {
   const {
     state,
+    activeConversation,
     selectProject,
     openProject,
     deleteProject,
@@ -395,14 +395,33 @@ export function NewSession({
   const activeRepo =
     state.repositories.find((r) => r.id === state.activeRepositoryId) ?? null;
   const [value, setValue] = useState("");
+  // Rough context gauge: ~4 characters per token against a 120k-token budget.
+  const contextChars =
+    (activeConversation?.messages ?? []).reduce(
+      (sum, message) => sum + (message.content?.length ?? 0),
+      0,
+    ) + value.length;
+  const contextPercent = Math.min(
+    100,
+    Math.round((contextChars / CONTEXT_LIMIT_CHARS) * 100),
+  );
   const [models, setModels] = useState<ModelOption[]>([]);
   const [activeModel, setActiveModel] = useState<ModelOption | null>(null);
   const [editMode, setEditModeState] = useState<EditMode>(getEditMode());
+  const [reasoningEffort, setReasoningEffortState] =
+    useState<ReasoningEffort>(getReasoningEffort());
+
+  useEffect(() => subscribeEditMode(setEditModeState), []);
+  useEffect(
+    () => subscribeReasoningEffort(setReasoningEffortState),
+    [],
+  );
   const [repoOpen, setRepoOpen] = useState(false);
   const [repoSource, setRepoSource] = useState<RepoSource>("folder");
   const [modelOpen, setModelOpen] = useState(false);
   const [modelToolOpen, setModelToolOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [effortOpen, setEffortOpen] = useState(false);
   const [plusOpen, setPlusOpen] = useState(false);
   const [webEnabled, setWebEnabled] = useState(
     () => window.localStorage.getItem("crabcode.composer.web") === "1",
@@ -416,7 +435,26 @@ export function NewSession({
   const modelRef = useRef<HTMLDivElement>(null);
   const modelToolRef = useRef<HTMLDivElement>(null);
   const editRef = useRef<HTMLDivElement>(null);
+  const effortRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [pendingEdits, setPendingEdits] = useState<PendingEdit[]>(() => getPendingEdits());
+  const [changesOpen, setChangesOpen] = useState(false);
+  useEffect(() => subscribePendingEdits(setPendingEdits), []);
+  // Keep and Undo both persist immediately — equivalent to confirming the review
+  // and pressing Ctrl+S, including when the file is not currently open.
+  const keepPending = async (edit: PendingEdit): Promise<void> => {
+    const current = await window.api.fs.readFile(edit.path)
+    if (current) await window.api.fs.save({ path: edit.path, content: current.content, encoding: current.encoding ?? 'utf8' })
+    removePendingEdit(edit.id)
+    emitAppEvent('editor:reload', { path: edit.path })
+  };
+  const undoPending = async (edit: PendingEdit): Promise<void> => {
+    await window.api.fs.save({ path: edit.path, content: edit.fileBefore, encoding: 'utf8' });
+    removePendingEdit(edit.id);
+    emitAppEvent('editor:reload', { path: edit.path });
+  };
+  const keepAllPending = (): void => { void Promise.all(pendingEdits.map(keepPending)); };
+  const undoAllPending = (): void => { void Promise.all(pendingEdits.map(undoPending)); };
   const fileInputRef = useRef<HTMLInputElement>(null);
   const plusRef = useRef<HTMLDivElement>(null);
 
@@ -764,7 +802,8 @@ export function NewSession({
     });
   }, []);
 
-  const slashQuery = /^\/(\S*)$/.exec(value)?.[1] ?? null;
+  const slashTokenMatch = /(^|\s)\/(\S*)$/.exec(value);
+  const slashQuery = slashTokenMatch?.[2] ?? null;
   const builtinMatches =
     slashQuery !== null
       ? SLASH_COMMANDS.filter((c) =>
@@ -796,14 +835,16 @@ export function NewSession({
       s: Awaited<ReturnType<typeof providersService.get>>,
     ): void => {
       if (cancelled) return;
-      const opts: ModelOption[] = s.providers.flatMap((p) =>
-        p.models.map((m) => ({
-          providerId: p.id,
-          providerName: p.name,
-          modelId: m.id,
-          label: m.label || m.id,
-        })),
-      );
+      const opts: ModelOption[] = s.providers
+        .filter((provider) => provider.models.length > 0)
+        .flatMap((provider) =>
+          provider.models.map((model) => ({
+            providerId: provider.id,
+            providerName: provider.name,
+            modelId: model.id,
+            label: model.label || model.id,
+          })),
+        );
       setModels(opts);
       const current =
         opts.find(
@@ -813,6 +854,15 @@ export function NewSession({
         opts[0] ??
         null;
       setActiveModel(current);
+      if (
+        current &&
+        (current.providerId !== s.activeId || current.modelId !== s.activeModel)
+      ) {
+        void providersService.setActive({
+          id: current.providerId,
+          model: current.modelId,
+        });
+      }
     };
     void providersService.get().then(applyProviders);
     const unsubscribe = providersService.subscribe(applyProviders);
@@ -859,6 +909,8 @@ export function NewSession({
         setModelToolOpen(false);
       if (editRef.current && !editRef.current.contains(e.target as Node))
         setEditOpen(false);
+      if (effortRef.current && !effortRef.current.contains(e.target as Node))
+        setEffortOpen(false);
     }
     function onKey(e: globalThis.KeyboardEvent): void {
       if (e.key === "Escape") {
@@ -866,6 +918,7 @@ export function NewSession({
         setModelOpen(false);
         setModelToolOpen(false);
         setEditOpen(false);
+        setEffortOpen(false);
       }
     }
     document.addEventListener("mousedown", onDown);
@@ -883,13 +936,22 @@ export function NewSession({
 
   function applySlash(name: string): void {
     const isSkill = skills.some((s) => s.name === name);
-    if (!isSkill && ["clear", "delete", "mcp", "project"].includes(name)) {
+    const prefix = slashTokenMatch
+      ? `${value.slice(0, slashTokenMatch.index)}${slashTokenMatch[1]}`
+      : "";
+    if (
+      !prefix.trim() &&
+      !isSkill &&
+      ["clear", "delete", "mcp", "project"].includes(name)
+    ) {
       setSlashOpen(false);
       setValue("");
       runUiCommand(name, "");
       return;
     }
-    setValue(`/${name} `);
+    setValue((current) =>
+      current.replace(/(^|\s)\/(\S*)$/, `$1/${name} `),
+    );
     setSlashOpen(false);
     textareaRef.current?.focus();
   }
@@ -933,7 +995,7 @@ export function NewSession({
   }, [value]);
 
   async function submit(): Promise<void> {
-    const text = value.trim();
+    let text = value.trim();
 
     const uiCmd = /^\/(\S+)\s*([\s\S]*)$/.exec(text);
     if (uiCmd && !skills.some((s) => s.name === uiCmd[1].toLowerCase())) {
@@ -1038,10 +1100,12 @@ export function NewSession({
       if (blocks.length) agent = `${agent}\n\n${blocks.join("\n\n")}`;
     }
 
-    const skillMatch = /^\/(\S+)\s*([\s\S]*)$/.exec(text);
+    const skillMatch = /(?:^|\s)\/(\S+)\s*([\s\S]*)$/.exec(text);
     if (skillMatch) {
       const cmd = skillMatch[1].toLowerCase();
-      const rest = skillMatch[2].trim();
+      const prefix = text.slice(0, skillMatch.index).trim();
+      const commandArgs = skillMatch[2].trim();
+      const rest = [commandArgs, prefix].filter(Boolean).join("\n");
       const skill = skills.find((s) => s.name === cmd);
       if (skill) {
         agent =
@@ -1206,6 +1270,13 @@ export function NewSession({
 
   return (
     <div className="ns">
+      {pendingEdits.length > 0 && (
+        <div className="ns__changes">
+          <button type="button" className="ns__changes-title" onClick={() => setChangesOpen((v) => !v)}>Changes <span>{pendingEdits.length}</span></button>
+          <div className="ns__changes-actions"><button type="button" onClick={undoAllPending}>Undo all</button><button type="button" onClick={keepAllPending}>Keep all</button></div>
+          {changesOpen && <div className="ns__changes-list">{pendingEdits.map((edit) => <div className="ns__change-row" key={edit.id}><div className="ns__change-file" role="button" tabIndex={0} onClick={() => emitAppEvent('editor:open', { path: edit.path })} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); emitAppEvent('editor:open', { path: edit.path }); } }}><img src={fileIcon(edit.name)} alt="" /><span>{edit.name}</span>{(() => { const stats = pendingLineStats(edit.fileBefore, edit.after); return <span className="ns__change-stats">{stats.removed > 0 && <b className="ns__change-minus">−{stats.removed}</b>}{stats.added > 0 && <b className="ns__change-plus">+{stats.added}</b>}</span> })()}</div><div className="ns__change-actions"><button type="button" onClick={() => void undoPending(edit)}>Undo</button><button type="button" onClick={() => void keepPending(edit)}>Keep</button></div></div>)}</div>}
+        </div>
+      )}
       {showHeader && (
         <div className="ns__header">
           <span className="ns__label">{t("chat.newSessionIn")}</span>
@@ -1584,20 +1655,14 @@ export function NewSession({
         <div className="ns__row">
           <div className="ns__chip-wrap ns__mode-wrap" ref={editRef}>
             <button
-              className="ns__mode"
+              className={`ns__mode ns__mode--${editMode}`}
               type="button"
               onClick={() => setEditOpen((v) => !v)}
             >
               {(() => {
                 const active =
                   AGENT_MODES.find((m) => m.id === editMode) ?? AGENT_MODES[0];
-                const Icon = active.icon;
-                return (
-                  <>
-                    <Icon />
-                    <span className="ns__mode-label">{active.label}</span>
-                  </>
-                );
+                return <span className="ns__mode-label">{active.label}</span>;
               })()}
               <ChevronDown
                 size={12}
@@ -1609,26 +1674,22 @@ export function NewSession({
                 className={`ns__menu${menusDown ? "" : " ns__menu--up"} ns__mode-menu`}
                 role="menu"
               >
-                {AGENT_MODES.map((mode) => {
-                  const Icon = mode.icon;
-                  return (
-                    <button
-                      key={mode.id}
-                      type="button"
-                      role="menuitem"
-                      className="ns__menu-item"
-                      onClick={() => {
-                        setEditModeState(mode.id);
-                        setEditMode(mode.id);
-                        setEditOpen(false);
-                      }}
-                    >
-                      <Icon />
-                      <span className="ns__menu-label">{mode.label}</span>
-                      {mode.id === editMode && <Check size={13} />}
-                    </button>
-                  );
-                })}
+                {AGENT_MODES.map((mode) => (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    role="menuitem"
+                    className={`ns__menu-item ns__mode-item ns__mode-item--${mode.id}`}
+                    onClick={() => {
+                      setEditModeState(mode.id);
+                      setEditMode(mode.id);
+                      setEditOpen(false);
+                    }}
+                  >
+                    <span className="ns__menu-label">{mode.label}</span>
+                    {mode.id === editMode && <Check size={13} />}
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -1669,6 +1730,69 @@ export function NewSession({
           </div>
 
           <div className="ns__spacer" />
+
+          {agentMode && (
+            <span
+              className="ns__ctx"
+              data-tip={`Context used: ${contextPercent}%`}
+              aria-label={`Context used: ${contextPercent}%`}
+            >
+              <svg viewBox="0 0 18 18" aria-hidden="true">
+                <circle className="ns__ctx-track" cx="9" cy="9" r="7" />
+                <circle
+                  className="ns__ctx-fill"
+                  cx="9"
+                  cy="9"
+                  r="7"
+                  strokeDasharray={`${((contextPercent / 100) * CONTEXT_RING).toFixed(2)} ${CONTEXT_RING}`}
+                />
+              </svg>
+            </span>
+          )}
+
+          <div className="ns__chip-wrap ns__effort-wrap" ref={effortRef}>
+            <button
+              className={`ns__effort ns__effort--${reasoningEffort}${effortOpen ? " ns__effort--open" : ""}`}
+              type="button"
+              aria-label={`Reasoning effort: ${reasoningEffort}`}
+              data-tip={`Reasoning effort: ${reasoningEffort}`}
+              aria-expanded={effortOpen}
+              onClick={() => setEffortOpen((open) => !open)}
+            >
+              <span>{reasoningEffort}</span>
+              <ChevronDown
+                size={11}
+                className={`ns__chevron${effortOpen ? " ns__chevron--open" : ""}`}
+              />
+            </button>
+            {effortOpen && (
+              <div
+                className={`ns__menu${menusDown ? "" : " ns__menu--up"} ns__menu--right ns__effort-menu`}
+                role="menu"
+              >
+                {REASONING_EFFORT_LEVELS.map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={reasoningEffort === level}
+                    className={`ns__menu-item ns__effort-item ns__effort-item--${level}`}
+                    onClick={() => {
+                      setReasoningEffort(level);
+                      setEffortOpen(false);
+                    }}
+                  >
+                    <span className="ns__menu-label">
+                      {level === "xhigh"
+                        ? "XHigh"
+                        : level.charAt(0).toUpperCase() + level.slice(1)}
+                    </span>
+                    {reasoningEffort === level && <Check size={13} />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="ns__attach-wrap" ref={plusRef}>
             <input
@@ -1727,7 +1851,7 @@ export function NewSession({
             )}
           </div>
 
-          {streaming ? (
+          {streaming && !(value.trim() || attachments.length > 0 || blocks.length > 0) ? (
             <button
               className="ns__send ns__send--stop"
               type="button"
@@ -1741,7 +1865,8 @@ export function NewSession({
             <button
               className="ns__send"
               type="button"
-              aria-label={t("chat.send")}
+              aria-label={streaming ? "Send and replace current task" : t("chat.send")}
+              data-tip={streaming ? "Send and replace current task" : undefined}
               disabled={!(value.trim() || attachments.length > 0 || blocks.length > 0)}
               onClick={() => void submit()}
             >

@@ -61,6 +61,27 @@ const api = {
         ipcRenderer.removeListener("app:open-path", listener);
       };
     },
+    onMenuAction: (cb: (action: string) => void) => {
+      const listener = (_e: unknown, action: string): void => cb(action);
+      ipcRenderer.on("menu:action", listener);
+      return () => {
+        ipcRenderer.removeListener("menu:action", listener);
+      };
+    },
+    showContextMenu: (
+      items: Array<{
+        id: string;
+        label?: string;
+        shortcut?: string;
+        danger?: boolean;
+        disabled?: boolean;
+        separator?: boolean;
+      }>,
+    ) =>
+      ipcRenderer.invoke("app:show-context-menu", items) as Promise<
+        string | null
+      >,
+    setLanguage: (lang: string) => ipcRenderer.invoke("app:set-language", lang),
   },
   project: {
     openDialog: () =>
@@ -409,6 +430,7 @@ const api = {
         access?: "normal" | "high";
         editMode?: "auto" | "ask" | "readonly";
         webEnabled?: boolean;
+        reasoningEffort?: "low" | "medium" | "high" | "xhigh" | "max";
       },
     ) =>
       ipcRenderer.send(
@@ -510,6 +532,8 @@ const api = {
           api: "openai" | "anthropic" | "gemini" | "custom";
           baseUrl: string;
           apiKeyEnc?: string;
+          refreshTokenEnc?: string;
+          expiresAt?: number;
           models: { id: string; label: string }[];
         }>;
         activeId: string | null;
@@ -523,6 +547,8 @@ const api = {
       baseUrl: string;
       models: { id: string; label: string }[];
       apiKey?: string;
+      refreshToken?: string;
+      expiresAt?: number;
     }) => ipcRenderer.invoke("providers:upsert", config) as Promise<unknown>,
     remove: (id: string) =>
       ipcRenderer.invoke("providers:remove", id) as Promise<unknown>,
@@ -532,6 +558,20 @@ const api = {
       ipcRenderer.invoke("providers:test", id) as Promise<{
         ok: boolean;
         status?: number;
+        error?: string;
+      }>,
+    googleOauth: (customClientId?: string) =>
+      ipcRenderer.invoke("providers:google-oauth", customClientId) as Promise<{
+        accessToken?: string;
+        refreshToken?: string;
+        expiresIn?: number;
+        authUrl?: string;
+      }>,
+    antigravityQuota: (tokenOrProviderId: string) =>
+      ipcRenderer.invoke("providers:antigravity-quota", tokenOrProviderId) as Promise<{
+        plan?: string;
+        models?: Array<{ id: string; label: string }>;
+        quotas?: Record<string, { used: number; total: number; remainingPercentage: number; resetAt?: string; displayName?: string }>;
         error?: string;
       }>,
   },

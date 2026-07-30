@@ -16,7 +16,7 @@ import {
   newRepository,
   type AppState,
 } from "./index";
-import { saveState } from "./persistence";
+import { parseState, saveState, STORAGE_KEY } from "./persistence";
 import type {
   AgentSessionSnapshot,
   Conversation,
@@ -26,6 +26,7 @@ import type {
 import { createId } from "../domain/ids";
 import { agentService } from "../services/agentService";
 import { projectService } from "../services/projectService";
+import { providersService } from "../services/providersService";
 import { emit, on as onAppEvent } from "../lib/appEvents";
 import { getAccessLevel } from "../lib/agentAccess";
 import { getEditMode } from "../lib/agentEditMode";
@@ -140,6 +141,28 @@ export function AppProvider({
   }, []);
 
   useEffect(() => {
+    const syncFromStorage = (event: StorageEvent): void => {
+      if (event.key !== STORAGE_KEY) return;
+      const incoming = parseState(event.newValue);
+      if (incoming) dispatch({ type: "SYNC_EXTERNAL_STATE", payload: incoming });
+    };
+    const syncOnFocus = (): void => {
+      try {
+        const incoming = parseState(localStorage.getItem(STORAGE_KEY));
+        if (incoming) dispatch({ type: "SYNC_EXTERNAL_STATE", payload: incoming });
+      } catch {
+        // Keep the current in-memory state.
+      }
+    };
+    window.addEventListener("storage", syncFromStorage);
+    window.addEventListener("focus", syncOnFocus);
+    return () => {
+      window.removeEventListener("storage", syncFromStorage);
+      window.removeEventListener("focus", syncOnFocus);
+    };
+  }, []);
+
+  useEffect(() => {
     const map = disposers.current;
     return () => {
       map.forEach((dispose) => dispose());
@@ -194,12 +217,31 @@ export function AppProvider({
       } else {
         const repositoryId =
           state.activeRepositoryId ?? state.repositories[0]?.id ?? null;
-        const conv = newConversation(repositoryId);
+        const repositoryPath = repositoryId
+          ? (state.repositories.find((r) => r.id === repositoryId)?.path ?? null)
+          : null;
+        const conv = newConversation(repositoryId, repositoryPath);
         conversationId = conv.id;
         dispatch({ type: "ADD_CONVERSATION", conversation: conv });
       }
 
       const targetId = conversationId;
+
+      const previousRequestId = activeRequests.current.get(targetId);
+      if (previousRequestId) {
+        window.api.agent.abort(previousRequestId);
+        disposers.current.get(previousRequestId)?.();
+        disposers.current.delete(previousRequestId);
+        activeRequests.current.delete(targetId);
+        const previousLast = baseMessages[baseMessages.length - 1];
+        if (previousLast?.streaming) {
+          dispatch({
+            type: "FINISH_MESSAGE",
+            conversationId: targetId,
+            messageId: previousLast.id,
+          });
+        }
+      }
 
       const userMessageId = createId("msg_");
       const assistantMessageId = createId("msg_");
@@ -276,7 +318,7 @@ export function AppProvider({
                   cwd && !/^([a-zA-Z]:[\\/]|\/|ssh:\/\/)/.test(rel)
                     ? `${cwd}${cwd.includes("\\") ? "\\" : "/"}${rel.replace(/[\\/]/g, cwd.includes("\\") ? "\\" : "/")}`
                     : rel;
-                emit("editor:agentEdit", { path: absPath });
+                emit("editor:agentEdit", { path: absPath, before: meta.before, after: meta.after });
               }
             }
           },
@@ -288,7 +330,10 @@ export function AppProvider({
             });
             disposers.current.get(requestId)?.();
             disposers.current.delete(requestId);
-            activeRequests.current.delete(targetId);
+            if (activeRequests.current.get(targetId) === requestId) {
+              activeRequests.current.delete(targetId);
+            }
+            void providersService.refresh();
             void playSound("success");
           },
           onError: (message) => {
@@ -300,7 +345,10 @@ export function AppProvider({
             });
             disposers.current.get(requestId)?.();
             disposers.current.delete(requestId);
-            activeRequests.current.delete(targetId);
+            if (activeRequests.current.get(targetId) === requestId) {
+              activeRequests.current.delete(targetId);
+            }
+            void providersService.refresh();
           },
         },
       );

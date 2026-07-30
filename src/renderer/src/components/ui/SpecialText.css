@@ -1,0 +1,9 @@
+.special-text {
+  display: inline-flex;
+  /* Monospace keeps every frame the same width, so the surrounding layout
+     never shifts while the glyphs are still scrambling. */
+  font-family: var(--font-mono);
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: pre;
+}

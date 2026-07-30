@@ -16,7 +16,7 @@ import type { TKey } from "../../i18n/translations";
 import { Markdown } from "./Markdown";
 import { highlightLine } from "../../lib/highlight";
 import { fileIcon } from "../files/iconMap";
-import { emit as emitAppEvent } from "../../lib/appEvents";
+import { runCommandWatched } from "../../lib/runCommand";
 import { copyText } from "../../lib/clipboard";
 import { useApp } from "../../state/AppContext";
 
@@ -106,6 +106,7 @@ const TOOL_VERB: Record<string, string> = {
   github_connect: "GitHub",
   github_status: "GitHub",
   github_commit: "Committed",
+  report_progress: "Thinking",
 };
 
 const FILE_TOOLS = new Set(["read_file", "write_file", "edit_file"]);
@@ -186,6 +187,7 @@ function toolTarget(tool: ToolCall): string {
   if (typeof i.command === "string") return i.command;
   if (typeof i.query === "string") return i.query;
   if (typeof i.url === "string") return i.url;
+  if (typeof i.summary === "string") return i.summary;
   return "";
 }
 
@@ -326,12 +328,31 @@ function TaskGroup({ tools }: { tools: ToolCall[] }): JSX.Element {
   );
 }
 
+function cleanAssistantText(text: string): string {
+  if (!text) return "";
+  const lines = text.split("\n");
+  const cleanedLines = lines.filter((line) => {
+    const trimmed = line.trim();
+    if (/^lbl:\s*/i.test(trimmed)) return false;
+    if (/^(?:call:)?report_progress\s*\(/i.test(trimmed)) return false;
+    return true;
+  });
+  return cleanedLines.join("\n").replace(/\n{3,}/g, "\n\n");
+}
+
 function MessageSegments({
   segments,
+  streaming,
 }: {
   segments: MessageSegment[];
+  streaming?: boolean;
 }): JSX.Element {
   const result: JSX.Element[] = [];
+  const lastTextIndex = segments.reduce(
+    (last, segment, index) =>
+      segment.kind === "text" && cleanAssistantText(segment.text).trim() ? index : last,
+    -1,
+  );
   let tools: ToolCall[] = [];
   const flush = (): void => {
     if (!tools.length) return;
@@ -354,10 +375,14 @@ function MessageSegments({
       return;
     }
     flush();
-    if (segment.text.trim())
+    const text = cleanAssistantText(segment.text);
+    if (text.trim())
       result.push(
-        <div className="message__text" key={`text-${index}`}>
-          <Markdown text={segment.text} />
+        <div
+          className={`message__text${streaming && index === lastTextIndex ? " message__text--streaming" : ""}`}
+          key={`text-${index}`}
+        >
+          <Markdown text={text} />
         </div>,
       );
   });
@@ -376,7 +401,7 @@ function CommandCard({ command }: { command: string }): JSX.Element {
   }
 
   function run(): void {
-    emitAppEvent("terminal:run", { command });
+    runCommandWatched(command);
   }
 
   return (
@@ -516,12 +541,15 @@ function MessageItemBase({ message }: { message: ChatMessage }): JSX.Element {
               <span>{message.error}</span>
             </div>
           ) : message.segments && message.segments.length > 0 ? (
-            <MessageSegments segments={message.segments} />
+            <MessageSegments
+              segments={message.segments}
+              streaming={message.streaming}
+            />
           ) : (
             <>
               {message.content && (
                 <div
-                  className={`message__text${message.streaming ? " message__text--reveal" : ""}`}
+                  className={`message__text${message.streaming ? " message__text--reveal message__text--streaming" : ""}`}
                   key={
                     message.streaming
                       ? `stream-${message.content.length}`

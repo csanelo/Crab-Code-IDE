@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Copy, Minus, Square, X } from "lucide-react";
-import { asset } from "../../lib/asset";
+import { SpecialText } from "../ui/SpecialText";
 import "./Welcome.css";
 
 const SEEN_KEY = "crabcode.welcomeSeen";
@@ -90,22 +90,17 @@ export function Welcome({ onStart }: { onStart: () => void }): JSX.Element {
       </div>
 
       <div className="welcome__inner">
-        <video
-          className="welcome__video"
-          src={asset("crab-intro.webm")}
-          autoPlay
-          loop
-          muted
-          playsInline
-          disablePictureInPicture
-        />
-        <h1 className="welcome__title">Welcome to CrabCode</h1>
+        <h1 className="welcome__title">
+          <SpecialText speed={22} delay={0.55}>
+            Welcome to CrabCode
+          </SpecialText>
+        </h1>
         <button
           type="button"
           className="welcome__start"
           onClick={start}
         >
-          Start
+          Continue Crab
         </button>
       </div>
     </div>

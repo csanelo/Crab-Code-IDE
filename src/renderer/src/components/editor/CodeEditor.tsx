@@ -15,7 +15,6 @@ import {
   pathToLspUri
 } from '../../lib/lspClient'
 import { on as onAppEvent, emit as emitAppEvent } from '../../lib/appEvents'
-import { getEditMode } from '../../lib/agentEditMode'
 import {
   addPendingEdit,
   getPendingEditFor,
@@ -228,6 +227,9 @@ export function CodeEditor(): JSX.Element {
   const decorRef = useRef<string[]>([])
   const zoneRef = useRef<string | null>(null)
   const [editorReady, setEditorReady] = useState(false)
+  // Each tab has its own keyed Monaco instance; use this to restore review UI
+  // only after the newly selected file's editor has mounted.
+  const [editorMountVersion, setEditorMountVersion] = useState(0)
   const [askClose, setAskClose] = useState<{ path: string; name: string } | null>(
     null
   )
@@ -647,6 +649,7 @@ export function CodeEditor(): JSX.Element {
     editorRef.current = editor
     monacoRef.current = monaco
     setEditorReady(true)
+    setEditorMountVersion((version) => version + 1)
     setupLsp(monaco)
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => void saveRef.current())
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyL, () => addChatRef.current())
@@ -693,6 +696,119 @@ export function CodeEditor(): JSX.Element {
       monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyY,
       () => acceptRef.current()
     )
+
+    const container = editor.getContainerDomNode?.()
+    if (container) {
+      container.addEventListener(
+        'contextmenu',
+        (e: MouseEvent) => {
+          const isMac = window.api?.window?.platform === 'darwin'
+          if (!isMac) return
+          setSel(null)
+        },
+        true
+      )
+    }
+
+    editor.onContextMenu((e: any) => {
+      const isMac = window.api?.window?.platform === 'darwin'
+      if (!isMac) return
+
+      try {
+        e.event?.preventDefault?.()
+        e.event?.stopPropagation?.()
+        e.event?.browserEvent?.preventDefault?.()
+        e.event?.browserEvent?.stopPropagation?.()
+      } catch {}
+
+      setSel(null)
+
+      const s = editor.getSelection()
+      const hasSelection = Boolean(s && !s.isEmpty())
+
+      const items = [
+        {
+          id: 'undo',
+          label: t('menu.undo') || 'Отменить',
+          shortcut: 'CmdOrCtrl+Z',
+          onClick: () => editor.trigger('keyboard', 'undo', null)
+        },
+        {
+          id: 'redo',
+          label: t('menu.redo') || 'Повторить',
+          shortcut: 'CmdOrCtrl+Shift+Z',
+          onClick: () => editor.trigger('keyboard', 'redo', null)
+        },
+        { id: 'sep1', separator: true },
+        {
+          id: 'cut',
+          label: t('menu.cut') || 'Вырезать',
+          shortcut: 'CmdOrCtrl+X',
+          disabled: !hasSelection,
+          onClick: () => {
+            editor.focus()
+            document.execCommand('cut')
+          }
+        },
+        {
+          id: 'copy',
+          label: t('menu.copy') || 'Копировать',
+          shortcut: 'CmdOrCtrl+C',
+          disabled: !hasSelection,
+          onClick: () => {
+            editor.focus()
+            document.execCommand('copy')
+          }
+        },
+        {
+          id: 'paste',
+          label: t('menu.paste') || 'Вставить',
+          shortcut: 'CmdOrCtrl+V',
+          onClick: () => {
+            editor.focus()
+            void window.api.app.paste().then((text) => {
+              if (text) editor.trigger('keyboard', 'type', { text })
+              else document.execCommand('paste')
+            })
+          }
+        },
+        { id: 'sep2', separator: true },
+        {
+          id: 'selectAll',
+          label: t('menu.selectAll') || 'Выделить всё',
+          shortcut: 'CmdOrCtrl+A',
+          onClick: () => editor.trigger('keyboard', 'selectAll', null)
+        },
+        { id: 'sep3', separator: true },
+        {
+          id: 'addToChat',
+          label: t('editor.addToChat') || 'Добавить в чат',
+          shortcut: 'CmdOrCtrl+L',
+          onClick: () => addChatRef.current()
+        },
+        {
+          id: 'quickEdit',
+          label: t('editor.quickEdit') || 'Быстрая правка',
+          shortcut: 'CmdOrCtrl+K',
+          onClick: () => openQuickRef.current()
+        }
+      ]
+
+      const payload = items.map(({ id, label, shortcut, disabled, separator }) => ({
+        id,
+        label,
+        shortcut,
+        disabled,
+        separator
+      }))
+
+      void window.api.app.showContextMenu(payload).then((selectedId) => {
+        if (selectedId) {
+          const item = items.find((x) => x.id === selectedId)
+          item?.onClick?.()
+        }
+      })
+    })
 
     // The Undo / Keep bar follows the edited block while scrolling.
     editor.onDidScrollChange(() => {
@@ -753,6 +869,11 @@ export function CodeEditor(): JSX.Element {
     })
     window.setTimeout(() => quickInputRef.current?.focus(), 30)
   }, [])
+
+  const addChatRef = useRef(addSelectionToChat)
+  addChatRef.current = addSelectionToChat
+  const openQuickRef = useRef(openQuickEdit)
+  openQuickRef.current = openQuickEdit
 
   const closeQuickEdit = useCallback((): void => {
     if (quickReqRef.current) {
@@ -817,8 +938,8 @@ export function CodeEditor(): JSX.Element {
         qe.startLine + out.split('\n').length - 1,
         model.getLineCount()
       )
-      // "Agent" keeps the edit straight away, "Ask" waits for Undo / Keep.
-      if (getEditMode() === 'ask') {
+      // Every mode keeps an explicit reviewable change until the user confirms it.
+      {
         const entry: PendingEdit = {
           id: `qe_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
           path: active.path,
@@ -830,9 +951,10 @@ export function CodeEditor(): JSX.Element {
           fileBefore: active.original
         }
         addPendingEdit(entry)
+        // Persist the proposed edit so it survives closing the file or restarting.
+        void window.api.fs.save({ path: active.path, content: value, encoding: active.encoding })
+        setFiles((prev) => prev.map((f) => f.path === active.path ? { ...f, content: value, original: value, dirty: false } : f))
         paintPending(editor, monaco, entry)
-      } else {
-        recordFileChange(active.path, active.original, value)
       }
       editor.revealLineInCenterIfOutsideViewport(qe.startLine)
       editor.focus()
@@ -888,11 +1010,6 @@ export function CodeEditor(): JSX.Element {
     paintPending
   ])
 
-  const addChatRef = useRef(addSelectionToChat)
-  addChatRef.current = addSelectionToChat
-  const openQuickRef = useRef(openQuickEdit)
-  openQuickRef.current = openQuickEdit
-
   const clearPendingDecorations = useCallback((): void => {
     const editor = editorRef.current
     if (editor && decorRef.current.length > 0) {
@@ -946,6 +1063,8 @@ export function CodeEditor(): JSX.Element {
         )
       )
     }
+    const nextValue = model?.getValue()
+    if (nextValue !== undefined) void window.api.fs.save({ path: p.path, content: nextValue, encoding: files.find((f) => f.path === p.path)?.encoding ?? 'utf8' })
     removePendingEdit(p.id)
     clearPendingDecorations()
     editor.focus()
@@ -977,24 +1096,26 @@ export function CodeEditor(): JSX.Element {
     if (!entry) return
     const model = editor.getModel()
     if (!model) return
-    if (entry.endLine > model.getLineCount()) {
-      removePendingEdit(entry.id)
-      return
-    }
-    const current = model.getValueInRange(
-      new monaco.Range(
-        entry.startLine,
-        1,
-        entry.endLine,
-        model.getLineMaxColumn(entry.endLine)
+    // Never discard an unconfirmed review merely because Monaco is briefly
+    // showing the previous model while switching tabs or restoring a session.
+    // The entry is durable until the user explicitly keeps or undoes it.
+    const restoreWhenModelReady = (): void => {
+      const currentModel = editor.getModel()
+      if (!currentModel || entry.endLine > currentModel.getLineCount()) return
+      const current = currentModel.getValueInRange(
+        new monaco.Range(
+          entry.startLine,
+          1,
+          entry.endLine,
+          currentModel.getLineMaxColumn(entry.endLine)
+        )
       )
-    )
-    if (current.trimEnd() !== entry.after.trimEnd()) {
-      removePendingEdit(entry.id)
-      return
+      if (current.trimEnd() === entry.after.trimEnd()) paintPending(editor, monaco, entry)
     }
-    paintPending(editor, monaco, entry)
-  }, [activePath, editorReady, paintPending])
+    restoreWhenModelReady()
+    const retry = window.setTimeout(restoreWhenModelReady, 90)
+    return () => window.clearTimeout(retry)
+  }, [activePath, editorReady, editorMountVersion, paintPending])
 
   // The bar above the composer drives the same two actions.
   useEffect(() => {
@@ -1007,7 +1128,27 @@ export function CodeEditor(): JSX.Element {
   }, [])
 
   useEffect(() => {
-    return onAppEvent('editor:agentEdit', ({ path }) => {
+    return onAppEvent('editor:agentEdit', ({ path, before, after }) => {
+      let agentPending: PendingEdit | undefined
+      if (before !== undefined && after !== undefined && before !== after) {
+        // Limit the inline review block to the real changed hunk, like Cursor.
+        const oldLines = before.split('\n')
+        const newLines = after.split('\n')
+        let start = 0
+        while (start < oldLines.length && start < newLines.length && oldLines[start] === newLines[start]) start++
+        let suffix = 0
+        while (suffix < oldLines.length - start && suffix < newLines.length - start && oldLines[oldLines.length - 1 - suffix] === newLines[newLines.length - 1 - suffix]) suffix++
+        const oldPart = oldLines.slice(start, oldLines.length - suffix).join('\n')
+        const newPart = newLines.slice(start, newLines.length - suffix).join('\n')
+        agentPending = {
+          id: `agent_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          path, name: baseName(path), startLine: start + 1,
+          // Monaco ranges are inclusive: the last changed line is start + count - 1.
+          endLine: start + Math.max(1, newPart.split('\n').length) - 1,
+          before: oldPart, after: newPart, fileBefore: before
+        }
+        addPendingEdit(agentPending)
+      }
       if (path !== activePath) {
         void window.api.fs.readFile(path).then((res) => {
           if (!res) return
@@ -1043,6 +1184,7 @@ export function CodeEditor(): JSX.Element {
               f.path === path ? { ...f, content: res.content, original: res.content, dirty: false } : f
             )
           )
+          if (agentPending) paintPending(editor, monaco, agentPending)
         })
       })
     })
@@ -1110,13 +1252,29 @@ export function CodeEditor(): JSX.Element {
   }
 
   function breadcrumb(path: string): string[] {
-    const norm = path.replace(/\\/g, '/')
-    let rel = norm
-    if (repoPath) {
-      const root = repoPath.replace(/\\/g, '/').replace(/\/$/, '')
-      if (norm.startsWith(root)) rel = norm.slice(root.length).replace(/^\//, '')
+    // Normalize separators, case and dot segments before comparing paths. This
+    // keeps the breadcrumb correct on Windows and avoids duplicated root names.
+    const normalize = (value: string): string[] => {
+      const parts: string[] = []
+      for (const part of value.replace(/\\/g, '/').split('/')) {
+        if (!part || part === '.') continue
+        if (part === '..') { parts.pop(); continue }
+        parts.push(part)
+      }
+      return parts
     }
-    return rel.split('/').filter(Boolean)
+    const fileParts = normalize(path)
+    const rootParts = repoPath ? normalize(repoPath) : []
+    const samePart = (a: string, b: string): boolean =>
+      a.localeCompare(b, undefined, { sensitivity: 'accent' }) === 0
+    const inProject = rootParts.length > 0 && rootParts.length <= fileParts.length &&
+      rootParts.every((part, index) => samePart(part, fileParts[index]))
+    if (inProject) {
+      const rootName = rootParts[rootParts.length - 1]
+      const relativeParts = fileParts.slice(rootParts.length)
+      return relativeParts[0] === rootName ? relativeParts : [rootName, ...relativeParts]
+    }
+    return fileParts
   }
 
   function doCloseTab(path: string): void {
@@ -1313,7 +1471,8 @@ export function CodeEditor(): JSX.Element {
                   renderWhitespace: 'selection',
                   tabSize: 2,
                   automaticLayout: true,
-                  padding: { top: 10 }
+                  padding: { top: 10 },
+                  contextmenu: false
                 }}
               />
               {sel && !quickEdit && (
@@ -1454,7 +1613,8 @@ export function CodeEditor(): JSX.Element {
                     renderWhitespace: 'selection',
                     tabSize: 2,
                     automaticLayout: true,
-                    padding: { top: 10 }
+                    padding: { top: 10 },
+                    contextmenu: false
                   }}
                 />
               </div>

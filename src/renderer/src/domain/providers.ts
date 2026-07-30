@@ -39,9 +39,26 @@ export const KNOWN_PROVIDERS: ProviderDef[] = [
     models: ['gpt-4o', 'gpt-4o-mini', 'o3-mini', 'o1', 'gpt-4-turbo']
   },
   {
+    id: 'google-antigravity',
+    name: 'Google Antigravity (OAuth)',
+    description: 'Провайдер Google DeepMind Antigravity с авторизацией через Google OAuth 2.0 (Gemini 2.0 Flash / 1.5 Pro).',
+    api: 'gemini',
+    baseUrl: 'https://generativelanguage.googleapis.com',
+    url: 'https://accounts.google.com/o/oauth2/v2/auth',
+    recommended: true,
+    models: [
+      'gemini-3-flash-agent',
+      'gemini-3.5-flash-low',
+      'gemini-pro-agent',
+      'gemini-3-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-pro',
+    ]
+  },
+  {
     id: 'google',
-    name: 'Google',
-    description: 'Семейство Gemini, включая 2.0 Flash и 1.5 Pro.',
+    name: 'Google Gemini',
+    description: 'Семейство Gemini по API-ключу (2.0 Flash, 1.5 Pro).',
     api: 'gemini',
     baseUrl: 'https://generativelanguage.googleapis.com',
     url: 'https://ai.google.dev/gemini-api/docs',
@@ -78,6 +95,21 @@ export const KNOWN_PROVIDERS: ProviderDef[] = [
     baseUrl: 'https://api.mistral.ai/v1',
     url: 'https://docs.mistral.ai/api/',
     models: ['mistral-large-latest', 'mistral-small-latest', 'codestral-latest', 'pixtral-large-latest']
+  },
+  {
+    id: 'opencode',
+    name: 'OpenCode Free',
+    description: 'Бесплатные нейросети OpenCode без авторизации.',
+    api: 'openai',
+    baseUrl: 'https://opencode.ai/zen/v1',
+    url: 'https://opencode.ai',
+    recommended: true,
+    models: [
+      'deepseek-v4-flash-free',
+      'mimo-v2.5-free',
+      'ling-3.0-flash-free',
+      'nemotron-3-ultra-free'
+    ]
   },
   {
     id: 'deepseek',

@@ -65,6 +65,8 @@ export interface Conversation {
   id: ID;
   title: string;
   repositoryId: ID | null;
+  /** Durable folder identity used to restore a session after removing and reopening a project. */
+  repositoryPath?: string | null;
   messages: ChatMessage[];
   createdAt: number;
   updatedAt: number;

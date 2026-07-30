@@ -63,9 +63,14 @@ export function I18nProvider({ children }: { children: ReactNode }): JSX.Element
   const [lang, setLangState] = useState<Lang>('en')
 
   useEffect(() => {
-    void window.api.settings.getGeneral().then((g) => {
-      if (g?.language) setLangState(g.language as Lang)
-    })
+    const reload = (): void => {
+      void window.api.settings.getGeneral().then((g) => {
+        if (g?.language) setLangState(g.language as Lang)
+      })
+    }
+    reload()
+    window.addEventListener('focus', reload)
+    return () => window.removeEventListener('focus', reload)
   }, [])
 
   useEffect(() => {

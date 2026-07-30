@@ -63,9 +63,7 @@ export function ProjectSwitcher(): JSX.Element {
         onClick={() => setProjOpen((v) => !v)}
         data-tip={t("status.switchProject")}
       >
-        <ChipIcon size={19} />
-        <span className="titlebar__proj-ws">workspace</span>
-        <span className="titlebar__proj-slash">/</span>
+        <ChipIcon size={16} />
         <span className="titlebar__proj-name">
           {activeRepo ? activeRepo.name : t("status.noProject")}
         </span>

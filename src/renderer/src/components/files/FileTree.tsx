@@ -18,6 +18,7 @@ interface CommonProps {
   onToggleDir: (path: string, open?: boolean) => void
   onMoved?: () => void
   onOpenFile?: (path: string) => void
+  onImport?: (dataTransfer: DataTransfer, destDir: string) => void
 }
 
 const MIME_FILE = 'application/x-sreda-file'
@@ -167,13 +168,36 @@ function TreeFolder({
   depth: number
 } & CommonProps): JSX.Element {
   const [dragOver, setDragOver] = useState(false)
+  const openTimerRef = useRef<number | null>(null)
   const isRenaming = rest.renamingPath === entry.path
   const open = rest.openDirs.has(entry.path)
+
+  function clearOpenTimer(): void {
+    if (openTimerRef.current !== null) {
+      window.clearTimeout(openTimerRef.current)
+      openTimerRef.current = null
+    }
+  }
+
+  function scheduleOpen(): void {
+    if (open || openTimerRef.current !== null) return
+    openTimerRef.current = window.setTimeout(() => {
+      rest.onToggleDir(entry.path, true)
+      openTimerRef.current = null
+    }, 300)
+  }
+
+  useEffect(() => clearOpenTimer, [])
 
   async function onDrop(e: React.DragEvent): Promise<void> {
     e.preventDefault()
     e.stopPropagation()
+    clearOpenTimer()
     setDragOver(false)
+    if (e.dataTransfer.files.length > 0) {
+      rest.onImport?.(e.dataTransfer, entry.path)
+      return
+    }
     const source = e.dataTransfer.getData(MIME_MOVE)
     if (!source || source === entry.path) return
     const res = await window.api.fs.move({ source, destDir: entry.path })
@@ -204,13 +228,20 @@ function TreeFolder({
         e.dataTransfer.effectAllowed = 'copyMove'
       }}
       onDragOver={(e) => {
-        if (e.dataTransfer.types.includes(MIME_MOVE)) {
-          e.preventDefault()
-          e.dataTransfer.dropEffect = 'move'
-          if (!dragOver) setDragOver(true)
+        const isInternalMove = e.dataTransfer.types.includes(MIME_MOVE)
+        const isExternalFile = e.dataTransfer.types.includes('Files')
+        if (!isInternalMove && !isExternalFile) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = isExternalFile ? 'copy' : 'move'
+        if (!dragOver) setDragOver(true)
+        scheduleOpen()
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+          clearOpenTimer()
+          setDragOver(false)
         }
       }}
-      onDragLeave={() => setDragOver(false)}
       onDrop={(e) => void onDrop(e)}
     >
       <Guides depth={depth} />

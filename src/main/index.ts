@@ -5,6 +5,7 @@ import {
   ipcMain,
   dialog,
   clipboard,
+  Menu,
 } from "electron";
 import { basename } from "node:path";
 import { join } from "node:path";
@@ -41,6 +42,260 @@ const appIcon = join(
 );
 
 const isMac = process.platform === "darwin";
+let currentLang = "ru";
+
+function getMenuTranslations(lang: string) {
+  const isRu = lang === "ru" || (lang !== "en" && app.getLocale().startsWith("ru"));
+  if (isRu) {
+    return {
+      aboutApp: "О программе CrabCode",
+      settings: "Настройки...",
+      hideApp: "Скрыть CrabCode",
+      hideOthers: "Скрыть остальные",
+      showAll: "Показать все",
+      quitApp: "Завершить CrabCode",
+      file: "Файл",
+      newSession: "Новая сессия агента",
+      openFolder: "Открыть папку...",
+      save: "Сохранить",
+      saveAll: "Сохранить всё",
+      closeWindow: "Закрыть окно",
+      edit: "Правка",
+      undo: "Отменить",
+      redo: "Повторить",
+      cut: "Вырезать",
+      copy: "Копировать",
+      paste: "Вставить",
+      selectAll: "Выделить всё",
+      searchWorkspace: "Поиск в проекте",
+      view: "Вид",
+      quickPalette: "Панель команд / Поиск",
+      toggleSidebar: "Боковая панель файлов",
+      toggleChat: "Панель чата агента",
+      toggleTerminal: "Встроенный терминал",
+      toggleBrowser: "Браузер агента",
+      zoomIn: "Увеличить",
+      zoomOut: "Уменьшить",
+      zoomReset: "Сбросить масштаб",
+      fullScreen: "Полноэкранный режим",
+      devTools: "Инструменты разработчика",
+      window: "Окно",
+      minimize: "Свернуть",
+      zoom: "Изменить размер",
+      front: "Все окна на передний план",
+      help: "Справка",
+    };
+  }
+  return {
+    aboutApp: "About CrabCode",
+    settings: "Settings...",
+    hideApp: "Hide CrabCode",
+    hideOthers: "Hide Others",
+    showAll: "Show All",
+    quitApp: "Quit CrabCode",
+    file: "File",
+    newSession: "New Agent Session",
+    openFolder: "Open Folder...",
+    save: "Save",
+    saveAll: "Save All",
+    closeWindow: "Close Window",
+    edit: "Edit",
+    undo: "Undo",
+    redo: "Redo",
+    cut: "Cut",
+    copy: "Copy",
+    paste: "Paste",
+    selectAll: "Select All",
+    searchWorkspace: "Search in Project",
+    view: "View",
+    quickPalette: "Command Palette / Quick Open",
+    toggleSidebar: "Toggle Files Sidebar",
+    toggleChat: "Toggle Agent Chat",
+    toggleTerminal: "Toggle Terminal",
+    toggleBrowser: "Toggle Agent Browser",
+    zoomIn: "Zoom In",
+    zoomOut: "Zoom Out",
+    zoomReset: "Reset Zoom",
+    fullScreen: "Toggle Full Screen",
+    devTools: "Toggle Developer Tools",
+    window: "Window",
+    minimize: "Minimize",
+    zoom: "Zoom",
+    front: "Bring All to Front",
+    help: "Help",
+  };
+}
+
+function sendMenuAction(action: string): void {
+  const win = BrowserWindow.getFocusedWindow() || mainWindow;
+  if (win && !win.isDestroyed()) {
+    win.webContents.send("menu:action", action);
+  }
+}
+
+function setupAppMenu(lang: string = currentLang): void {
+  currentLang = lang;
+  const t = getMenuTranslations(lang);
+  const template: Electron.MenuItemConstructorOptions[] = [
+    ...(isMac
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              {
+                label: t.aboutApp,
+                click: () => sendMenuAction("about"),
+              },
+              { type: "separator" as const },
+              {
+                label: t.settings,
+                accelerator: "CmdOrCtrl+,",
+                click: () => sendMenuAction("settings"),
+              },
+              { type: "separator" as const },
+              { role: "services" as const },
+              { type: "separator" as const },
+              { role: "hide" as const, label: t.hideApp },
+              { role: "hideOthers" as const, label: t.hideOthers },
+              { role: "unhide" as const, label: t.showAll },
+              { type: "separator" as const },
+              { role: "quit" as const, label: t.quitApp },
+            ],
+          },
+        ]
+      : []),
+    {
+      label: t.file,
+      submenu: [
+        {
+          label: t.newSession,
+          accelerator: "CmdOrCtrl+N",
+          click: () => sendMenuAction("new-session"),
+        },
+        {
+          label: t.openFolder,
+          accelerator: "CmdOrCtrl+O",
+          click: () => sendMenuAction("open-folder"),
+        },
+        { type: "separator" },
+        {
+          label: t.save,
+          accelerator: "CmdOrCtrl+S",
+          click: () => sendMenuAction("save"),
+        },
+        {
+          label: t.saveAll,
+          accelerator: "CmdOrCtrl+Shift+S",
+          click: () => sendMenuAction("save-all"),
+        },
+        { type: "separator" },
+        {
+          label: t.closeWindow,
+          accelerator: "CmdOrCtrl+W",
+          role: "close",
+        },
+      ],
+    },
+    {
+      label: t.edit,
+      submenu: [
+        { role: "undo", label: t.undo },
+        { role: "redo", label: t.redo },
+        { type: "separator" },
+        { role: "cut", label: t.cut },
+        { role: "copy", label: t.copy },
+        { role: "paste", label: t.paste },
+        { role: "selectAll", label: t.selectAll },
+        { type: "separator" },
+        {
+          label: t.searchWorkspace,
+          accelerator: "CmdOrCtrl+Shift+F",
+          click: () => sendMenuAction("search-workspace"),
+        },
+      ],
+    },
+    {
+      label: t.view,
+      submenu: [
+        {
+          label: t.quickPalette,
+          accelerator: "CmdOrCtrl+P",
+          click: () => sendMenuAction("quick-palette"),
+        },
+        { type: "separator" },
+        {
+          label: t.toggleSidebar,
+          accelerator: "CmdOrCtrl+B",
+          click: () => sendMenuAction("toggle-sidebar"),
+        },
+        {
+          label: t.toggleChat,
+          accelerator: "CmdOrCtrl+J",
+          click: () => sendMenuAction("toggle-chat"),
+        },
+        {
+          label: t.toggleTerminal,
+          accelerator: "CmdOrCtrl+`",
+          click: () => sendMenuAction("toggle-terminal"),
+        },
+        {
+          label: t.toggleBrowser,
+          accelerator: "CmdOrCtrl+Shift+B",
+          click: () => sendMenuAction("toggle-browser"),
+        },
+        { type: "separator" },
+        {
+          label: t.zoomIn,
+          accelerator: "CmdOrCtrl+=",
+          click: () => sendMenuAction("zoom-in"),
+        },
+        {
+          label: t.zoomOut,
+          accelerator: "CmdOrCtrl+-",
+          click: () => sendMenuAction("zoom-out"),
+        },
+        {
+          label: t.zoomReset,
+          accelerator: "CmdOrCtrl+0",
+          click: () => sendMenuAction("zoom-reset"),
+        },
+        { type: "separator" },
+        { role: "togglefullscreen", label: t.fullScreen },
+        { role: "toggleDevTools", label: t.devTools },
+      ],
+    },
+    {
+      label: t.window,
+      submenu: [
+        { role: "minimize", label: t.minimize },
+        { role: "zoom", label: t.zoom },
+        ...(isMac
+          ? [
+              { type: "separator" as const },
+              { role: "front" as const, label: t.front },
+            ]
+          : []),
+      ],
+    },
+    {
+      label: t.help,
+      submenu: [
+        {
+          label: t.aboutApp,
+          click: () => sendMenuAction("about"),
+        },
+      ],
+    },
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
+
+ipcMain.handle("app:set-language", (_e, lang: string) => {
+  if (typeof lang === "string") setupAppMenu(lang);
+  return true;
+});
 
 app.on("web-contents-created", (_event, contents) => {
   contents.on("before-input-event", (event, input) => {
@@ -52,6 +307,25 @@ app.on("web-contents-created", (_event, contents) => {
     if (blocked) event.preventDefault();
   });
   contents.on("devtools-opened", () => contents.closeDevTools());
+  contents.on("context-menu", (_e, params) => {
+    const tr = getMenuTranslations(currentLang);
+    const hasSelection = params.selectionText.trim().length > 0;
+    const canCopy = params.editFlags.canCopy || hasSelection;
+
+    if (!params.isEditable && !hasSelection) return;
+
+    const menu = Menu.buildFromTemplate([
+      { role: "undo" as const, label: tr.undo, enabled: params.editFlags.canUndo },
+      { role: "redo" as const, label: tr.redo, enabled: params.editFlags.canRedo },
+      { type: "separator" as const },
+      { role: "cut" as const, label: tr.cut, enabled: params.editFlags.canCut },
+      { role: "copy" as const, label: tr.copy, enabled: canCopy },
+      { role: "paste" as const, label: tr.paste, enabled: params.editFlags.canPaste },
+      { type: "separator" as const },
+      { role: "selectAll" as const, label: tr.selectAll, enabled: params.editFlags.canSelectAll },
+    ]);
+    menu.popup();
+  });
 });
 
 const frameOptions: Electron.BrowserWindowConstructorOptions = isMac
@@ -194,10 +468,12 @@ function openEditorWindowDiff(payload: DiffPayload): void {
 
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
-    width: 1533,
-    height: 842,
+    // Fixed launch size, centred on screen, regardless of the previous session.
+    width: 1254,
+    height: 767,
     minWidth: 720,
     minHeight: 480,
+    center: true,
     show: false,
     ...frameOptions,
     backgroundColor: "#181818",
@@ -212,7 +488,14 @@ function createWindow(): BrowserWindow {
     },
   });
 
-  win.on("ready-to-show", () => win.show());
+  win.on("ready-to-show", () => {
+    // Electron may restore a maximized state or clamp the size on some display
+    // setups, so re-apply the intended bounds right before the first paint.
+    if (win.isMaximized()) win.unmaximize();
+    win.setSize(1254, 767);
+    win.center();
+    win.show();
+  });
 
   mainWindow = win;
   win.on("closed", () => {
@@ -248,21 +531,12 @@ function createWindow(): BrowserWindow {
     agentWindow.on("ready-to-show", () => {
       const next = agentWindow;
       if (!next || next.isDestroyed()) return;
+      // Agent and IDE stay independent: opening one never hides the other.
       next.show();
       next.focus();
-      if (!win.isDestroyed()) win.hide();
     });
     agentWindow.on("closed", () => {
       if (agentWindow) agentWindow = null;
-      if (
-        !isQuitting &&
-        mainWindow &&
-        !mainWindow.isDestroyed() &&
-        !mainWindow.isVisible()
-      ) {
-        mainWindow.show();
-        mainWindow.focus();
-      }
     });
     agentWindow.on("maximize", () =>
       agentWindow?.webContents.send("window:maximized", true),
@@ -359,8 +633,7 @@ function createWindow(): BrowserWindow {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show();
     mainWindow.focus();
-    const currentWindow = BrowserWindow.fromWebContents(event.sender);
-    if (currentWindow && currentWindow !== mainWindow) currentWindow.close();
+    // Do not close Agent — the IDE and Agent are intentionally separate windows.
     return true;
   });
 
@@ -404,6 +677,62 @@ function createWindow(): BrowserWindow {
       os: `${platform} ${arch}`,
     };
   });
+
+function toElectronAccelerator(shortcut?: string): string | undefined {
+  if (!shortcut) return undefined;
+  const acc = shortcut
+    .replace(/⇧/g, "Shift+")
+    .replace(/⌥/g, "Alt+")
+    .replace(/⌃/g, "Control+")
+    .replace(/⌘/g, "CmdOrCtrl+");
+  return /^[\x00-\x7F]+$/.test(acc) ? acc : undefined;
+}
+
+  ipcMain.handle(
+    "app:show-context-menu",
+    async (
+      event,
+      items: Array<{
+        id: string;
+        label?: string;
+        shortcut?: string;
+        danger?: boolean;
+        disabled?: boolean;
+        separator?: boolean;
+      }>,
+    ) => {
+      const win = BrowserWindow.fromWebContents(event.sender);
+      if (!win || win.isDestroyed()) return null;
+
+      return new Promise<string | null>((resolve) => {
+        let resolved = false;
+        const menuItems: Electron.MenuItemConstructorOptions[] = items.map(
+          (item) => {
+            if (item.separator) return { type: "separator" };
+            return {
+              label: item.label,
+              accelerator: toElectronAccelerator(item.shortcut),
+              enabled: !item.disabled,
+              click: () => {
+                resolved = true;
+                resolve(item.id);
+              },
+            };
+          },
+        );
+
+        const menu = Menu.buildFromTemplate(menuItems);
+        menu.popup({
+          window: win,
+          callback: () => {
+            setTimeout(() => {
+              if (!resolved) resolve(null);
+            }, 100);
+          },
+        });
+      });
+    },
+  );
 
   ipcMain.handle("app:show-about", async () => {
     const { versions, platform, arch } = process;
@@ -474,6 +803,7 @@ if (!gotLock) {
   });
 
   app.whenReady().then(() => {
+    setupAppMenu();
     registerAgent(ipcMain);
 
     ipcMain.handle("editor-window:minimize", () => editorWindow?.minimize());

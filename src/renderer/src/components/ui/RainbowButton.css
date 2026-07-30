@@ -1,0 +1,120 @@
+:root {
+  --rainbow-color-1: 0 100% 63%;
+  --rainbow-color-2: 270 100% 63%;
+  --rainbow-color-3: 210 100% 63%;
+  --rainbow-color-4: 195 100% 63%;
+  --rainbow-color-5: 90 100% 63%;
+}
+
+.rainbow-button {
+  --rainbow-speed: 3.5s;
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 150px;
+  height: 40px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--color-text);
+  background:
+    linear-gradient(#171719, #171719) padding-box,
+    linear-gradient(#171719 55%, rgba(23, 23, 25, 0.72) 82%, rgba(23, 23, 25, 0)) border-box,
+    linear-gradient(90deg,
+      hsl(var(--rainbow-color-1)),
+      hsl(var(--rainbow-color-5)),
+      hsl(var(--rainbow-color-3)),
+      hsl(var(--rainbow-color-4)),
+      hsl(var(--rainbow-color-2)),
+      hsl(var(--rainbow-color-1))) border-box;
+  background-size: 100% 100%, 100% 100%, 220% 100%;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  animation: rainbow-button-shift var(--rainbow-speed) linear infinite;
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    filter var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
+}
+
+.rainbow-button::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: 20%;
+  right: 20%;
+  bottom: -4px;
+  height: 7px;
+  border-radius: 50%;
+  background: linear-gradient(90deg,
+    hsl(var(--rainbow-color-1)),
+    hsl(var(--rainbow-color-5)),
+    hsl(var(--rainbow-color-3)),
+    hsl(var(--rainbow-color-4)),
+    hsl(var(--rainbow-color-2)));
+  background-size: 220% 100%;
+  filter: blur(8px);
+  opacity: 0.22;
+  animation: rainbow-button-shift var(--rainbow-speed) linear infinite;
+  pointer-events: none;
+}
+
+.rainbow-button__content {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.rainbow-button:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.rainbow-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.rainbow-button:focus-visible {
+  outline: 2px solid #8dbcf0;
+  outline-offset: 3px;
+}
+
+.rainbow-button:disabled {
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+:root[data-theme='light'] .rainbow-button {
+  color: #202020;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(#fff 55%, rgba(255, 255, 255, 0.72) 82%, rgba(255, 255, 255, 0)) border-box,
+    linear-gradient(90deg,
+      hsl(var(--rainbow-color-1)),
+      hsl(var(--rainbow-color-5)),
+      hsl(var(--rainbow-color-3)),
+      hsl(var(--rainbow-color-4)),
+      hsl(var(--rainbow-color-2)),
+      hsl(var(--rainbow-color-1))) border-box;
+  background-size: 100% 100%, 100% 100%, 220% 100%;
+}
+
+@keyframes rainbow-button-shift {
+  from { background-position: 0 0, 0 0, 0% 50%; }
+  to { background-position: 0 0, 0 0, 220% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rainbow-button,
+  .rainbow-button::before {
+    animation: none;
+  }
+}

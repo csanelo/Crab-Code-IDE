@@ -1,4 +1,5 @@
 import type { ChatMessage, ToolCall } from "../domain/types";
+import { getReasoningEffort } from "../lib/reasoningEffort";
 
 interface WireMessage {
   role: "user" | "assistant";
@@ -53,7 +54,8 @@ class AgentService {
       flushTimer = setTimeout(() => {
         flushTimer = null;
         flush();
-      }, 40);
+      // Batch streaming updates so rendering stays responsive while another chat is busy.
+      }, 80);
     });
     const offTool = window.api.agent.onTool((id, ev) => {
       if (id === requestId) handlers.onTool(ev as ToolCall);
@@ -82,6 +84,7 @@ class AgentService {
       access,
       editMode,
       webEnabled,
+      reasoningEffort: getReasoningEffort(),
     });
 
     return () => {

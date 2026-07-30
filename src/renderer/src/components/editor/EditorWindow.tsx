@@ -208,7 +208,8 @@ export function EditorWindow(): JSX.Element {
               renderWhitespace: 'selection',
               tabSize: 2,
               automaticLayout: true,
-              padding: { top: 10 }
+              padding: { top: 10 },
+              contextmenu: false
             }}
           />
         </div>

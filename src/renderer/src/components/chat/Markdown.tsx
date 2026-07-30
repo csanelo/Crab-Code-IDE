@@ -2,7 +2,7 @@ import { memo, useState, type ReactNode } from 'react'
 import { Copy, Check, Terminal } from 'lucide-react'
 import { copyText } from '../../lib/clipboard'
 import { highlightCode } from '../../lib/highlight'
-import { emit as emitAppEvent } from '../../lib/appEvents'
+import { runCommandWatched } from '../../lib/runCommand'
 import { useT } from '../../i18n'
 import './Markdown.css'
 
@@ -203,7 +203,7 @@ function CommandBlock({ command }: { command: string }): JSX.Element {
   }
 
   function run(): void {
-    emitAppEvent('terminal:run', { command })
+    runCommandWatched(command)
   }
 
   return (

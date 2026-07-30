@@ -49,8 +49,8 @@ export const THEME_VAR_KEYS = [
 
 function expand(s: ThemeSpec): ThemeDef {
   const dark = s.base === "dark";
-  const accent = dark ? "#e5e5e5" : "#1a1a1a";
-  const accentHover = dark ? "#ffffff" : "#000000";
+  const accent = s.accent;
+  const accentHover = s.accentHover;
   return {
     id: s.id,
     name: s.name,
@@ -68,9 +68,7 @@ function expand(s: ThemeSpec): ThemeDef {
       "--color-text-muted": s.textMuted,
       "--color-accent": accent,
       "--color-accent-hover": accentHover,
-      "--color-accent-soft": dark
-        ? "rgba(255, 255, 255, 0.1)"
-        : "rgba(0, 0, 0, 0.08)",
+      "--color-accent-soft": `color-mix(in srgb, ${s.accent} 16%, transparent)`,
       "--color-success": s.success ?? (dark ? "#3fb950" : "#1a7f37"),
       "--color-danger": s.danger ?? (dark ? "#f0524a" : "#d1242f"),
       "--color-warning": s.warning ?? (dark ? "#d8a13a" : "#9a6700"),

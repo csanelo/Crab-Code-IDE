@@ -20,6 +20,7 @@ export interface AppState {
 
 export type Action =
   | { type: "INIT"; payload: AppState }
+  | { type: "SYNC_EXTERNAL_STATE"; payload: AppState }
   | { type: "CREATE_CONVERSATION"; repositoryId: ID | null }
   | { type: "ADD_CONVERSATION"; conversation: Conversation }
   | { type: "SELECT_CONVERSATION"; id: ID }
@@ -74,12 +75,16 @@ function deriveTitle(content: string): string {
   return first || translate("chat.newChat");
 }
 
-export function newConversation(repositoryId: ID | null): Conversation {
+export function newConversation(
+  repositoryId: ID | null,
+  repositoryPath: string | null = null,
+): Conversation {
   const now = Date.now();
   return {
     id: createId("conv_"),
     title: translate("chat.newChat"),
     repositoryId,
+    repositoryPath,
     messages: [],
     createdAt: now,
     updatedAt: now,
@@ -105,8 +110,18 @@ export function appReducer(state: AppState, action: Action): AppState {
     case "INIT":
       return action.payload;
 
+    case "SYNC_EXTERNAL_STATE":
+      return {
+        ...action.payload,
+        // IDE and Agent have independent navigation surfaces.
+        view: state.view,
+      };
+
     case "CREATE_CONVERSATION": {
-      const conv = newConversation(action.repositoryId);
+      const repositoryPath = action.repositoryId
+        ? (state.repositories.find((r) => r.id === action.repositoryId)?.path ?? null)
+        : null;
+      const conv = newConversation(action.repositoryId, repositoryPath);
       const repositories = action.repositoryId
         ? state.repositories.map((r) =>
             r.id === action.repositoryId
@@ -151,11 +166,37 @@ export function appReducer(state: AppState, action: Action): AppState {
       if (existing) {
         return { ...state, activeRepositoryId: existing.id, view: "chat" };
       }
+      const restoredIds = action.repository.path
+        ? Object.values(state.conversations)
+            .filter(
+              (conversation) =>
+                conversation.repositoryId === null &&
+                conversation.repositoryPath === action.repository.path,
+            )
+            .sort((a, b) => b.updatedAt - a.updatedAt)
+            .map((conversation) => conversation.id)
+        : [];
+      const repository = {
+        ...action.repository,
+        conversationIds: restoredIds,
+      };
+      const conversations = { ...state.conversations };
+      for (const id of restoredIds) {
+        const conversation = conversations[id];
+        if (conversation) {
+          conversations[id] = {
+            ...conversation,
+            repositoryId: repository.id,
+            repositoryPath: repository.path,
+          };
+        }
+      }
       return {
         ...state,
-        repositories: [...state.repositories, action.repository],
-        activeRepositoryId: action.repository.id,
-        activeConversationId: null,
+        repositories: [...state.repositories, repository],
+        conversations,
+        activeRepositoryId: repository.id,
+        activeConversationId: restoredIds[0] ?? null,
         view: "chat",
       };
     }
@@ -193,7 +234,16 @@ export function appReducer(state: AppState, action: Action): AppState {
       const repo = state.repositories.find((r) => r.id === action.id);
       if (!repo) return state;
       const conversations = { ...state.conversations };
-      for (const cid of repo.conversationIds) delete conversations[cid];
+      for (const cid of repo.conversationIds) {
+        const conversation = conversations[cid];
+        if (conversation) {
+          conversations[cid] = {
+            ...conversation,
+            repositoryId: null,
+            repositoryPath: repo.path,
+          };
+        }
+      }
       const repositories = state.repositories.filter((r) => r.id !== action.id);
       const activeRepositoryId =
         state.activeRepositoryId === action.id

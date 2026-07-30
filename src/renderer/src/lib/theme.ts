@@ -7,6 +7,7 @@ const ID_KEY = 'sreda.themeId'
 const LEGACY_KEY = 'sreda.theme'
 
 let currentId = 'crab-dark'
+let storageSyncInstalled = false
 
 try {
   const savedId = localStorage.getItem(ID_KEY)
@@ -50,4 +51,18 @@ export function applyTheme(base: Theme): void {
 
 export function initTheme(): void {
   applyThemeId(currentId)
+  if (storageSyncInstalled) return
+  storageSyncInstalled = true
+  window.addEventListener('storage', (event) => {
+    if (event.key !== ID_KEY || !event.newValue || event.newValue === currentId) return
+    applyThemeId(event.newValue)
+  })
+  window.addEventListener('focus', () => {
+    try {
+      const stored = localStorage.getItem(ID_KEY)
+      if (stored && stored !== currentId) applyThemeId(stored)
+    } catch {
+      // Keep the current theme.
+    }
+  })
 }

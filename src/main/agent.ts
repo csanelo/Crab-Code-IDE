@@ -9,6 +9,7 @@ import {
 } from "./agentTools";
 import { buildSkillsCatalog } from "./skills";
 import { scheduleProjectIndexRefresh, warmProjectIndex } from "./projectIndex";
+import { providerModelHasVision } from "./vision";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -16,14 +17,47 @@ export interface ChatMessage {
   images?: { mimeType: string; dataUrl: string }[];
 }
 
+type ReasoningEffort = "low" | "medium" | "high" | "xhigh" | "max";
+
 interface SendOptions {
   cwd: string | null;
   access?: "normal" | "high";
   editMode?: "auto" | "ask" | "readonly";
   webEnabled?: boolean;
+  reasoningEffort?: ReasoningEffort;
   commandExecutionRequested?: boolean;
+  computerAccessRequested?: boolean;
   send?: Emit;
   requestId?: string;
+}
+
+const REASONING_BUDGET: Record<ReasoningEffort, number> = {
+  low: 1024,
+  medium: 4096,
+  high: 8192,
+  xhigh: 16384,
+  max: 24576,
+};
+
+function reasoningBudget(effort?: ReasoningEffort): number {
+  return REASONING_BUDGET[effort ?? "medium"];
+}
+
+function openAIReasoningEffort(effort?: ReasoningEffort): "low" | "medium" | "high" | "xhigh" {
+  return effort === "max" ? "xhigh" : (effort ?? "medium");
+}
+
+function isMaxEffort(opts: SendOptions): boolean {
+  return opts.reasoningEffort === "max";
+}
+
+function maxAgentSteps(opts: SendOptions): number {
+  // A hard safety guard remains, but Max is intentionally long-running.
+  return isMaxEffort(opts) ? 200 : 80;
+}
+
+function expandedOutputTokens(opts: SendOptions): number {
+  return isMaxEffort(opts) ? 65536 : 0;
 }
 
 const WEB_TOOL_NAMES = new Set([
@@ -32,6 +66,17 @@ const WEB_TOOL_NAMES = new Set([
   "browser_open",
   "browser_read",
   "browser_screenshot",
+]);
+
+const COMPUTER_ACCESS_TOOL_NAMES = new Set([
+  "computer_screenshot",
+  "computer_list_windows",
+  "computer_focus_window",
+  "computer_click",
+  "computer_type",
+  "computer_keypress",
+  "computer_scroll",
+  "computer_list_processes",
 ]);
 
 const CONFIRM_MUTATING_TOOLS = new Set([
@@ -87,29 +132,17 @@ function availableToolDefs(opts: SendOptions) {
   if (!opts.commandExecutionRequested) {
     tools = tools.filter((tool) => tool.name !== "run_command");
   }
+  // High access is the user's persistent permission boundary. Inside that
+  // boundary the model may choose desktop tools only when the task needs them.
+  if ((opts.access ?? "normal") !== "high") {
+    tools = tools.filter((tool) => !COMPUTER_ACCESS_TOOL_NAMES.has(tool.name));
+  }
   // Plan mode: the model must not even see tools that could change anything.
   if (opts.editMode === "readonly") {
     tools = tools.filter((tool) => !MUTATING_TOOL_NAMES.has(tool.name));
   }
   return tools;
 }
-
-function currentUserExplicitlyRequestsWeb(messages: ChatMessage[]): boolean {
-  const current = [...messages]
-    .reverse()
-    .find((message) => message.role === "user")
-    ?.content.trim();
-  if (!current) return false;
-
-  const denied =
-    /(?:не\s+(?:ищи|искать|используй|открывай|проверяй).{0,24}(?:интернет|веб|сети)|(?:do not|don't|without)\s+(?:search|browse|use).{0,24}(?:web|internet|online))/i;
-  if (denied.test(current)) return false;
-
-  return /(?:https?:\/\/|\b(?:search|browse|google|look up|check)\s+(?:the\s+)?(?:web|online|internet)\b|\b(?:web|internet|online)\s+(?:search|research)\b|(?:в интернете|в сети|веб[- ]?поиск|интернет[- ]?поиск|погугл|загугл|найди в интернете|поищи в интернете|проверь в интернете|открой сайт|прочитай сайт))/i.test(
-    current,
-  );
-}
-
 
 function currentUserExplicitlyRequestsCommandExecution(
   messages: ChatMessage[],
@@ -129,6 +162,43 @@ function currentUserExplicitlyRequestsCommandExecution(
   );
 }
 
+function currentUserExplicitlyRequestsComputerAccess(messages: ChatMessage[]): boolean {
+  const userMessages = messages
+    .filter((message) => message.role === "user")
+    .map((message) => message.content.trim())
+    .filter(Boolean);
+  const current = userMessages.at(-1);
+  if (!current) return false;
+
+  const denied =
+    /(?:не\s+(?:используй|трогай|управляй|открывай|нажимай|кликай).{0,28}(?:компьютер|пк|рабоч(?:ий|ем)\s+стол|экран)|(?:do not|don't|without)\s+(?:use|control|access|touch|click).{0,28}(?:computer|desktop|screen))/i;
+  if (denied.test(current)) return false;
+
+  const computerRequestPatterns = [
+    /computer\s*access/i,
+    /(?:use|control|access|operate|take\s+over)\s+(?:the\s+)?(?:computer|desktop|screen|mouse|keyboard)/i,
+    /(?:click|type|press|scroll|open|show|look\s+at|screenshot|screen\s*shot).{0,42}(?:computer|desktop|screen|window|browser|chrome|youtube)/i,
+    /desktop\s*(?:access|control|mode)/i,
+    /(?:используй|использовать|задействуй|воспользуйся|подключи|дай|получи).{0,34}(?:компьютер|пк|доступ\s+к\s+компьютеру|рабоч(?:ий|им|ем)\s+стол|экран|мыш(?:ь|ку)|клавиатур(?:у|ой))/i,
+    /(?:управляй|управлять|поработай|работай).{0,24}(?:компьютер|пк|рабоч(?:им|ем)\s+стол)/i,
+    /(?:открой|запусти|нажми|кликни|щ[её]лкни|введи|напечатай|прокрути|переключись|посмотри|покажи|сделай).{0,48}(?:на\s+)?(?:компьютер|пк|рабоч(?:ем|ий)\s+стол|экран|окн(?:о|е)|браузер|chrome|youtube)/i,
+    /(?:сделай|выполни)\s+(?:это|сам).{0,24}(?:компьютер|рабоч(?:ем|ий)\s+стол)/i,
+    /(?:скриншот|скрин|снимок\s+экрана|клик|нажатие|ввод)(?:\s+(?:экрана|на\s+компьютере|на\s+рабочем\s+столе))?/i,
+  ];
+  const requestsComputer = (text: string): boolean =>
+    computerRequestPatterns.some((pattern) => pattern.test(text));
+
+  if (requestsComputer(current)) return true;
+
+  // Short follow-ups such as "продолжай" or "попробуй снова" keep the
+  // immediately preceding desktop instruction active. This lets the agent
+  // recover from a failed click/screenshot without asking for the same grant.
+  const continuation =
+    /^(?:продолжай|продолжи|попробуй\s+снова|повтори|давай|сделай\s+это|continue|try\s+again|retry|do\s+it)[.!\s]*$/i;
+  if (!continuation.test(current)) return false;
+  return userMessages.slice(-4, -1).some(requestsComputer);
+}
+
 async function runToolForRequest(
   opts: SendOptions,
   name: string,
@@ -142,9 +212,23 @@ async function runToolForRequest(
       text: "Error: Web access is disabled. Enable Web in the + menu to use the internet.",
     };
   }
-  if (name === "run_command" && !opts.commandExecutionRequested) {
+  if (
+    COMPUTER_ACCESS_TOOL_NAMES.has(name) &&
+    (opts.access ?? "normal") !== "high"
+  ) {
     return {
-      text: "Error: command execution was not explicitly requested. Use propose_command so the user gets a command card with a Run button.",
+      text: "Error: desktop tools require the High access level.",
+    };
+  }
+  if (name === "run_command" && !opts.commandExecutionRequested) {
+    // Keep the explicit-execution safeguard, but recover gracefully if a model
+    // calls run_command directly: render a runnable proposal instead of an error.
+    const command = String(input.command ?? "").trim();
+    return {
+      text: command
+        ? "Command prepared for review. It was not executed automatically."
+        : "No command was provided.",
+      ...(command ? { command } : {}),
     };
   }
   if (opts.editMode === "ask" && CONFIRM_MUTATING_TOOLS.has(name)) {
@@ -298,7 +382,7 @@ function compactOldOpenAIToolResults(
 }
 
 function openAICacheKey(
-  active: NonNullable<ReturnType<typeof getActiveProvider>>,
+  active: NonNullable<Awaited<ReturnType<typeof getActiveProvider>>>,
   system: string,
   opts: SendOptions,
 ): string {
@@ -308,12 +392,17 @@ function openAICacheKey(
 }
 
 const BASE_PROMPT = [
-  "You are CrabCode Agent — the built-in AI software engineer of the CrabCode IDE.",
+  "You are CrabCode Agent �� the built-in AI software engineer of the CrabCode IDE.",
   'Whatever underlying model powers you, your identity is "CrabCode Agent" and you operate INSIDE',
   "the CrabCode development environment. If asked who you are, say you are the CrabCode Agent.",
   "You are not just a chatbot: you act using the IDE tools (files, terminal, git, the in-editor",
   "browser that is your EYES), verify results, and iterate until the task is genuinely complete,",
   "like Codex / Claude Code.",
+  "",
+  "## Public progress labels",
+  "- Before each meaningful investigation or implementation phase, call report_progress with a short user-visible action name.",
+  "- Call report_progress ONLY via native tool/function calling. Never write 'lbl:' or 'report_progress(...)' as plain text in your response.",
+  "- These labels must be practical summaries of what you are about to do (for example: 'Inspecting the login flow'), not private chain-of-thought, hidden reasoning, secrets, or long explanations.",
   "",
   "## Passive-by-default behavior (non-negotiable)",
   "- You act ONLY in response to a concrete task in the CURRENT user message. Never begin work from",
@@ -321,6 +410,7 @@ const BASE_PROMPT = [
   "  or the mere fact that you have access to tools.",
   "- When the user has not given a task — for example they greet you, make small talk, send an empty",
   "  message, or ask a purely conversational question — reply normally and call NO tools.",
+  "- For a terminal command that has not been explicitly requested, always use propose_command rather than run_command; the UI will show a Run button.",
   "- Do not proactively inspect files, list directories, run commands, open web pages, capture screenshots,",
   "  read the clipboard, list windows/processes, or take any desktop action unless the current request",
   "  explicitly requires it. Access is permission, not an instruction to explore or monitor.",
@@ -344,6 +434,33 @@ const BASE_PROMPT = [
   "   Use run_command only when the CURRENT user message explicitly asks you to execute it in the terminal.",
   "6. ITERATE until the success criteria are met, then give a short, factual summary of what changed.",
   "",
+  "## Command blocks (propose_command) — must be runnable as-is",
+  "Every command you show gets a Run button. The user clicks it and the command is typed into the",
+  "integrated terminal VERBATIM, then its exit code and output are sent back to you automatically.",
+  "So a command block is not illustration — it is executable code. Before proposing one:",
+  "- VERIFY THE DIRECTORY. Commands run in the terminal's cwd, which is the project root. Never assume",
+  "  a nested folder. If package.json / the target file lives deeper, either prefix the command with a",
+  "  cd to that exact verified path, or use a path relative to the project root — never both.",
+  "- CONFIRM IT EXISTS before proposing it: that package.json really has the npm script you call,",
+  "  that the file/binary/path is really there (list_dir / read_file first). Never guess a script name.",
+  "- MATCH THE USER'S SHELL. On Windows cmd do not use bash-only syntax (&&-chains are fine, but no",
+  "  $VAR, no export, no rm -rf, no single-quoted strings, no ./script.sh). Use Windows paths with",
+  "  backslashes there, and quote any path containing spaces or non-ASCII characters.",
+  "- ONE self-contained command per block. No placeholders like <name>, no ..., no comments, no leading",
+  "  $ or > prompt characters, no line numbers. If several steps are needed, give several blocks in order.",
+  "- NEVER put a command that waits forever (dev servers, watch mode) in the same block as a following",
+  "  step — the second step would never run.",
+  "",
+  "## Reacting to a Run result (automatic follow-up)",
+  "After the user runs a command, you receive its working directory, exit code and terminal output as a",
+  "new message. Do not re-run it yourself.",
+  "- Exit code 0: confirm success in ONE short sentence and stop. No tools, no extra commands.",
+  "- Non-zero: diagnose the ACTUAL root cause from the output — do not guess. If the command itself was",
+  "  wrong (wrong directory, missing dependency, typo), correct the command and propose it again. If the",
+  "  project is broken, read the exact files named in the error, fix them, then propose the same command",
+  "  again for verification. Then state briefly what broke, why, and what you changed.",
+  "- Never claim something works because the command was accepted — only a zero exit code proves it.",
+  "",
   "## Filesystem mastery",
   "- Treat the project as a graph: a change rarely lives in one file. After editing a symbol, search",
   "  for its other references (imports, call sites, types, tests, docs) and update them too.",
@@ -353,6 +470,8 @@ const BASE_PROMPT = [
   "- For large files, read the relevant sections rather than guessing; confirm context around edits.",
   "- edit_file requires an old_str that appears EXACTLY ONCE. If it is not unique, include more",
   "  surrounding lines until it is. Never use write_file on an existing path, even for large changes.",
+  "- If any edit returns Retry, do NOT stop or tell the user it failed. Immediately read the latest file",
+  "  again, choose an exact unique target, and retry until the edit succeeds or the user must decide.",
   "- When creating files, also wire them in (exports, index files, route tables, build config) so they",
   "  are actually used — a created-but-unreferenced file is an incomplete task.",
   "- Clean up after yourself: remove imports/vars/functions your change orphaned. Do NOT delete",
@@ -392,6 +511,20 @@ const BASE_PROMPT = [
   "  a user preference, a convention, an architecture decision, a recurring pitfall — call write_memory",
   "  so future sessions stay consistent. Keep notes short and factual.",
   "",
+  "## Connecting integrations yourself (MCP, SSH, GitHub)",
+  "- When the user asks to connect something and gives you what is needed, CONNECT IT YOURSELF with the",
+  "  tools below. Never answer with manual instructions like 'open Settings and paste it there', and",
+  "  never ask for confirmation you already have. Only ask when a required secret is genuinely missing.",
+  "- MCP: a pasted endpoint URL or launch command is enough. Call add_mcp_server(spec: <the pasted line>)",
+  "  and let it derive transport/command/args/name, or pass the fields explicitly when you know them",
+  '  (stdio for "npx -y @scope/pkg", http/sse for an https:// endpoint). Then confirm it is enabled.',
+  "- SSH: call ssh_connect(target: <the pasted line>) plus password or keyPath. It saves the host and",
+  "  opens the connection in one step; afterwards remote paths and remote terminals work. Use",
+  "  list_ssh_hosts first if the user refers to a host they already added.",
+  "- GitHub: the moment a token (ghp_... / github_pat_...) appears in the message, call",
+  "  github_connect(token). Do not echo the token back in your reply.",
+  "- Report the result in one short sentence: what got connected and that it is ready to use.",
+  "",
   "## GitHub",
   "- You can connect GitHub and commit/push from chat. If the user pastes a Personal Access Token and",
   '  asks to connect, call github_connect(token). To commit ("commit all", "commit this file with',
@@ -399,10 +532,10 @@ const BASE_PROMPT = [
   "  is NOT connected, ask the user to paste a token and connect first, then commit.",
   "",
   "## Web & research",
-  "- Never search, fetch, browse, or open internet pages unless the CURRENT user message explicitly",
-  "  asks for online/web/internet research, asks to Google something, or provides a URL to open/read.",
-  "- Do not use web tools proactively, for fact-checking, for current/version-specific information, or",
-  "  because internet access might improve the answer. If web was not explicitly requested, stay local.",
+  "- Web tools are controlled by the Web toggle. When they are available, use them whenever the task",
+  "  genuinely requires an online page, repository, current information, documentation, or research.",
+  "- Do not browse randomly or for ordinary local work. Prefer direct URLs and focused searches, and",
+  "  stop once you have enough information to complete the user's task.",
   "- You also have EYES: an in-editor browser. Use browser_open(url) to view a running dev server",
   "  (e.g. http://localhost:3000), a web page, docs or a design; then browser_read to get the page",
   "  text/DOM, or browser_screenshot to inspect it visually. Use this to verify how a UI actually",
@@ -496,7 +629,7 @@ const BASE_PROMPT = [
   "build/tests whenever you change code (especially /code-review --fix and /verify).",
 ].join("\n");
 
-const MAX_STEPS = 50;
+const MAX_STEPS = 80;
 
 const aborters = new Map<string, AbortController>();
 
@@ -540,8 +673,8 @@ async function buildSystem(
       "write_file, edit_file, delete_path). Copy a project from one folder into another, organize folders, etc.\n" +
       "- Open things: use open_path to open URLs in the browser (e.g. Gmail, Google Calendar), launch apps, reveal folders.\n" +
       "- Terminal: show commands with propose_command by default. Use run_command only when the current user message explicitly asks you to execute a command.\n" +
-      "- Email / calendar / web: use online services only when the current user message explicitly asks for them. " +
-      "Never open, search, or fetch the web proactively.\n" +
+      "- Email / calendar / web: use online services when the Web toggle makes them available and the task needs them. " +
+      "Do not browse for unrelated information.\n" +
       "- Desktop control: use computer_list_windows, computer_focus_window, computer_screenshot, computer_click, " +
       "computer_type, computer_keypress and computer_scroll for explicit desktop tasks. Take a fresh screenshot before " +
       "coordinate-based actions and verify important results afterward.\n" +
@@ -615,19 +748,25 @@ async function runAgent(
   opts: SendOptions,
 ): Promise<void> {
   if (opts.cwd) void warmProjectIndex(opts.cwd);
-  const active = getActiveProvider();
+  const active = await getActiveProvider();
   const compactedMessages = compactHistory(messages);
   const effectiveOpts: SendOptions = {
     ...opts,
     send,
     requestId,
-    webEnabled: Boolean(
-      opts.webEnabled && currentUserExplicitlyRequestsWeb(messages),
-    ),
+    // The Web toggle is the permission boundary. Once enabled, web tools stay
+    // available for the task; the agent decides whether they are actually
+    // useful instead of requiring a special phrase in the latest message.
+    webEnabled: Boolean(opts.webEnabled),
     commandExecutionRequested:
       currentUserExplicitlyRequestsCommandExecution(messages),
+    // High access already represents a deliberate user grant. Keep desktop
+    // tools available and let the agent decide whether the current task needs
+    // them instead of requiring a magic phrase in every message.
+    computerAccessRequested: (opts.access ?? "normal") === "high",
   };
-  if (!active || !active.apiKey || !active.config.baseUrl) {
+  const isFreeProvider = active?.config.catalogId === "opencode" || active?.config.baseUrl.includes("opencode.ai");
+  if (!active || (!active.apiKey && !isFreeProvider) || !active.config.baseUrl) {
     await mockStream(send, requestId, compactedMessages);
     return;
   }
@@ -637,9 +776,16 @@ async function runAgent(
     opts.access ?? "normal",
     opts.editMode ?? "auto",
   );
+  system += `
+
+# Reasoning effort
+The user selected ${effectiveOpts.reasoningEffort ?? "medium"} reasoning effort. Match the depth of analysis and verification to this level.`;
   system += effectiveOpts.webEnabled
-    ? "\n\n# Web access: EXPLICIT REQUEST ONLY\nThe current user message explicitly requested internet use. Use web tools only for that stated online task."
-    : "\n\n# Web access: DISABLED FOR THIS TURN\nThe current user message did not explicitly request internet use. Do not search, fetch, browse, or open online pages.";
+    ? "\n\n# Web tools: ENABLED WHEN NEEDED\nThe Web toggle is on. You may search, fetch, browse, and open online pages whenever the current task requires internet access. Use focused requests and do not browse for unrelated information."
+    : "\n\n# Web tools: DISABLED\nThe Web toggle is off. Do not search, fetch, browse, or open online pages.";
+  system += effectiveOpts.computerAccessRequested
+    ? "\n\n# Desktop tools: AVAILABLE WHEN NEEDED\nYou have High access and may use desktop tools when the task actually requires interacting with an external application, reading visible UI state, clicking, typing, or verifying a visual result. Do not take screenshots or control the desktop for ordinary chat, code reading, or file edits that can be completed with more direct tools. Before coordinate-based actions take a fresh screenshot; verify important results afterward."
+    : "\n\n# Desktop tools: UNAVAILABLE\nDesktop control requires the High access level.";
   const controller = new AbortController();
   aborters.set(requestId, controller);
   const signal = controller.signal;
@@ -656,12 +802,13 @@ async function runAgent(
         signal,
       );
     } else if (active.config.api === "gemini") {
-      await streamGeminiText(
+      await loopGemini(
         send,
         requestId,
         active,
         system,
         compactedMessages,
+        effectiveOpts,
         signal,
       );
     } else {
@@ -699,12 +846,16 @@ interface OpenAIToolCall {
 async function loopOpenAI(
   send: Emit,
   requestId: string,
-  active: NonNullable<ReturnType<typeof getActiveProvider>>,
+  active: NonNullable<Awaited<ReturnType<typeof getActiveProvider>>>,
   system: string,
   history: ChatMessage[],
   opts: SendOptions,
   signal: AbortSignal,
 ): Promise<void> {
+  const supportsImages = providerModelHasVision(
+    active.config.api,
+    active.model,
+  );
   const tools = availableToolDefs(opts).map((t) => ({
     type: "function",
     function: {
@@ -716,7 +867,7 @@ async function loopOpenAI(
 
   const msgs: Record<string, unknown>[] = [
     { role: "system", content: system },
-    ...history.map((m) => toOpenAIMessage(m)),
+    ...history.map((m) => toOpenAIMessage(m, supportsImages)),
   ];
 
   type CacheMode = "extended" | "key" | "none";
@@ -724,23 +875,40 @@ async function loopOpenAI(
     new URL(active.config.baseUrl).hostname,
   );
   const cacheKey = openAICacheKey(active, system, opts);
+  const supportsReasoningEffort = /(?:^|[\/_.-])(o[1-9]|gpt-5|reason(?:er|ing)?|r1)(?:$|[\/_.-])/i.test(active.model);
+  let useNativeReasoning = supportsReasoningEffort;
   let cacheMode: CacheMode = officialOpenAI ? "extended" : "key";
 
-  for (let step = 0; step < MAX_STEPS; step++) {
+  let useExpandedOutput = isMaxEffort(opts);
+  for (let step = 0; step < maxAgentSteps(opts); step++) {
     if (signal.aborted) return;
     compactOldOpenAIToolResults(msgs);
+    const isOpencode = active.config.baseUrl.includes('opencode.ai')
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json"
+    }
+    if (active.apiKey) {
+      headers["Authorization"] = `Bearer ${active.apiKey}`
+    }
+    if (isOpencode) {
+      headers["x-opencode-client"] = "desktop"
+    }
+
     const doFetch = (mode: CacheMode): Promise<Response> =>
       fetch(`${active.config.baseUrl.replace(/\/$/, "")}/chat/completions`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${active.apiKey}`,
-        },
+        headers,
         body: JSON.stringify({
           model: active.model,
           messages: msgs,
           tools,
           stream: true,
+          ...(useNativeReasoning
+            ? { reasoning_effort: openAIReasoningEffort(opts.reasoningEffort) }
+            : {}),
+          ...(useExpandedOutput
+            ? { max_completion_tokens: expandedOutputTokens(opts) }
+            : {}),
           ...(mode !== "none" ? { prompt_cache_key: cacheKey } : {}),
           ...(mode === "extended" ? { prompt_cache_retention: "24h" } : {}),
         }),
@@ -761,6 +929,14 @@ async function loopOpenAI(
       [400, 404, 422].includes(res.status)
     ) {
       cacheMode = "none";
+      res = await doFetch(cacheMode);
+    }
+    if (!res.ok && useNativeReasoning && [400, 422].includes(res.status)) {
+      useNativeReasoning = false;
+      res = await doFetch(cacheMode);
+    }
+    if (!res.ok && useExpandedOutput && [400, 422].includes(res.status)) {
+      useExpandedOutput = false;
       res = await doFetch(cacheMode);
     }
 
@@ -845,7 +1021,7 @@ async function loopOpenAI(
         tool_call_id: c.id,
         content: compactToolResult(result.text),
       });
-      if (result.image) {
+      if (result.image && supportsImages) {
         msgs.push({
           role: "user",
           content: [
@@ -857,14 +1033,14 @@ async function loopOpenAI(
     }
   }
 
-  send("agent:chunk", requestId, "\n\n_(Достигнут лимит шагов агента.)_");
+  send("agent:chunk", requestId, "\n\n_(Достигнут защитный лимит шагов агента.)_");
   send("agent:done", requestId);
 }
 
 async function loopAnthropic(
   send: Emit,
   requestId: string,
-  active: NonNullable<ReturnType<typeof getActiveProvider>>,
+  active: NonNullable<Awaited<ReturnType<typeof getActiveProvider>>>,
   system: string,
   history: ChatMessage[],
   opts: SendOptions,
@@ -887,8 +1063,11 @@ async function loopAnthropic(
     toAnthropicMessage(m),
   );
   let usePromptCache = true;
+  const supportsAnthropicThinking = /claude-(?:3-7|[^\s]*4)/i.test(active.model);
+  let useAnthropicThinking = supportsAnthropicThinking;
+  let useExpandedOutput = isMaxEffort(opts);
 
-  for (let step = 0; step < MAX_STEPS; step++) {
+  for (let step = 0; step < maxAgentSteps(opts); step++) {
     if (signal.aborted) return;
     const doFetch = (withCache: boolean): Promise<Response> =>
       fetch(`${active.config.baseUrl.replace(/\/$/, "")}/v1/messages`, {
@@ -897,8 +1076,13 @@ async function loopAnthropic(
           "Content-Type": "application/json",
           "x-api-key": active.apiKey,
           "anthropic-version": "2023-06-01",
-          ...(withCache
-            ? { "anthropic-beta": "prompt-caching-2024-07-31" }
+          ...((withCache || useAnthropicThinking)
+            ? {
+                "anthropic-beta": [
+                  ...(withCache ? ["prompt-caching-2024-07-31"] : []),
+                  ...(useAnthropicThinking ? ["interleaved-thinking-2025-05-14"] : []),
+                ].join(","),
+              }
             : {}),
         },
         body: JSON.stringify({
@@ -914,7 +1098,19 @@ async function loopAnthropic(
             : [{ type: "text", text: system }],
           messages: withCache ? withAnthropicCacheMarkers(msgs) : msgs,
           tools: withCache ? cachedTools : plainTools,
-          max_tokens: 8192,
+          ...(useAnthropicThinking
+            ? {
+                thinking: {
+                  type: "enabled",
+                  budget_tokens: reasoningBudget(opts.reasoningEffort),
+                },
+              }
+            : {}),
+          max_tokens: useExpandedOutput
+            ? expandedOutputTokens(opts)
+            : useAnthropicThinking
+              ? Math.max(8192, reasoningBudget(opts.reasoningEffort) + 4096)
+              : 8192,
           stream: true,
         }),
         signal,
@@ -922,6 +1118,14 @@ async function loopAnthropic(
     let res = await doFetch(usePromptCache);
     if (!res.ok && usePromptCache && [400, 404, 422].includes(res.status)) {
       usePromptCache = false;
+      res = await doFetch(false);
+    }
+    if (!res.ok && useAnthropicThinking && [400, 422].includes(res.status)) {
+      useAnthropicThinking = false;
+      res = await doFetch(false);
+    }
+    if (!res.ok && useExpandedOutput && [400, 422].includes(res.status)) {
+      useExpandedOutput = false;
       res = await doFetch(false);
     }
 
@@ -933,6 +1137,7 @@ async function loopAnthropic(
 
     const blocks: Array<
       | { type: "text"; text: string }
+      | { type: "thinking"; thinking: string; signature?: string }
       | { type: "tool_use"; id: string; name: string; input: string }
     > = [];
     let stopReason = "";
@@ -944,6 +1149,12 @@ async function loopAnthropic(
           const cb = json.content_block;
           if (cb.type === "text")
             blocks[json.index] = { type: "text", text: "" };
+          else if (cb.type === "thinking")
+            blocks[json.index] = {
+              type: "thinking",
+              thinking: cb.thinking ?? "",
+              signature: cb.signature,
+            };
           else if (cb.type === "tool_use")
             blocks[json.index] = {
               type: "tool_use",
@@ -956,6 +1167,10 @@ async function loopAnthropic(
           if (json.delta?.type === "text_delta" && b?.type === "text") {
             b.text += json.delta.text;
             send("agent:chunk", requestId, json.delta.text as string);
+          } else if (json.delta?.type === "thinking_delta" && b?.type === "thinking") {
+            b.thinking += json.delta.thinking ?? "";
+          } else if (json.delta?.type === "signature_delta" && b?.type === "thinking") {
+            b.signature = `${b.signature ?? ""}${json.delta.signature ?? ""}`;
           } else if (
             json.delta?.type === "input_json_delta" &&
             b?.type === "tool_use"
@@ -983,16 +1198,22 @@ async function loopAnthropic(
 
     msgs.push({
       role: "assistant",
-      content: blocks.map((b) =>
-        b.type === "text"
-          ? { type: "text", text: b.text }
-          : {
-              type: "tool_use",
-              id: b.id,
-              name: b.name,
-              input: safeJson(b.input),
-            },
-      ),
+      content: blocks.map((b) => {
+        if (b.type === "text") return { type: "text", text: b.text };
+        if (b.type === "thinking") {
+          return {
+            type: "thinking",
+            thinking: b.thinking,
+            ...(b.signature ? { signature: b.signature } : {}),
+          };
+        }
+        return {
+          type: "tool_use",
+          id: b.id,
+          name: b.name,
+          input: safeJson(b.input),
+        };
+      }),
     });
 
     const toolResults: Record<string, unknown>[] = [];
@@ -1042,7 +1263,7 @@ async function loopAnthropic(
     msgs.push({ role: "user", content: toolResults });
   }
 
-  send("agent:chunk", requestId, "\n\n_(Достигнут лимит шагов агента.)_");
+  send("agent:chunk", requestId, "\n\n_(Достигнут защитный лимит шагов агента.)_");
   send("agent:done", requestId);
 }
 
@@ -1088,8 +1309,16 @@ function safeJson(s: string): Record<string, unknown> {
   }
 }
 
-function toOpenAIMessage(m: ChatMessage): Record<string, unknown> {
-  if (m.role === "user" && m.images && m.images.length > 0) {
+function toOpenAIMessage(
+  m: ChatMessage,
+  supportsImages: boolean,
+): Record<string, unknown> {
+  if (
+    supportsImages &&
+    m.role === "user" &&
+    m.images &&
+    m.images.length > 0
+  ) {
     return {
       role: "user",
       content: [
@@ -1099,6 +1328,13 @@ function toOpenAIMessage(m: ChatMessage): Record<string, unknown> {
           image_url: { url: img.dataUrl },
         })),
       ],
+    };
+  }
+  if (m.role === "user" && m.images && m.images.length > 0) {
+    const note = `[${m.images.length} image attachment(s) omitted because the active model accepts text-only messages.]`;
+    return {
+      role: "user",
+      content: m.content ? `${m.content}\n\n${note}` : note,
     };
   }
   return { role: m.role, content: m.content };
@@ -1141,63 +1377,345 @@ function toGeminiParts(m: ChatMessage): Record<string, unknown>[] {
   return parts;
 }
 
-async function streamGeminiText(
+// ponytail: cloudcode-pa private endpoint used by Gemini Code Assist IDE plugins.
+// Requires loadCodeAssist to get project ID first, then streamGenerateContent wraps
+// request in { project, model, request: { contents, systemInstruction } }.
+const _antigravityProjectCache = new Map<string, string>();
+
+function sanitizeGeminiSchema(schema: unknown): unknown {
+  if (Array.isArray(schema)) {
+    return schema.map(sanitizeGeminiSchema);
+  }
+  if (schema && typeof schema === "object") {
+    const res: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(schema as Record<string, unknown>)) {
+      if (key === "enum" && Array.isArray(val)) {
+        res[key] = val.map((v) => String(v));
+      } else {
+        res[key] = sanitizeGeminiSchema(val);
+      }
+    }
+    return res;
+  }
+  return schema;
+}
+
+async function loopGemini(
   send: Emit,
   requestId: string,
-  active: NonNullable<ReturnType<typeof getActiveProvider>>,
+  active: NonNullable<Awaited<ReturnType<typeof getActiveProvider>>>,
   system: string,
-  messages: ChatMessage[],
+  history: ChatMessage[],
+  opts: SendOptions,
   signal: AbortSignal,
 ): Promise<void> {
-  const base = active.config.baseUrl.replace(/\/$/, "");
-  const url =
-    `${base}/v1beta/models/${active.model}:streamGenerateContent` +
-    `?alt=sse&key=${encodeURIComponent(active.apiKey)}`;
+  const isAntigravity =
+    active.config.catalogId === "google-antigravity" ||
+    active.apiKey.startsWith("ya29.") ||
+    active.apiKey.startsWith("Bearer ");
 
-  const cachedName = await getGeminiSystemCache(
-    base,
-    active.apiKey,
-    active.model,
-    system,
-    signal,
-  );
+  const toolDefs = availableToolDefs(opts);
+  const geminiTools =
+    toolDefs.length > 0
+      ? [
+          {
+            functionDeclarations: toolDefs.map((t) => ({
+              name: t.name,
+              description: t.description,
+              parameters: sanitizeGeminiSchema(t.parameters) as Record<string, unknown>,
+            })),
+          },
+        ]
+      : undefined;
 
-  const doFetch = (cacheName: string | null): Promise<Response> =>
-    fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...(cacheName
-          ? { cachedContent: cacheName }
-          : { systemInstruction: { parts: [{ text: system }] } }),
-        contents: messages.map((m) => ({
-          role: m.role === "assistant" ? "model" : "user",
-          parts: toGeminiParts(m),
-        })),
-      }),
-      signal,
+  const thinkingConfig = {
+    thinkingBudget: reasoningBudget(opts.reasoningEffort),
+    includeThoughts: false,
+  };
+  const supportsGeminiThinking = isAntigravity || /gemini-(?:2\.0.*thinking|2\.5|3)/i.test(active.model);
+  let useGeminiThinking = supportsGeminiThinking;
+  let useGeminiTools = Boolean(geminiTools);
+  let useGeminiSystemInstruction = true;
+
+  const geminiContents: Record<string, unknown>[] = history.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: toGeminiParts(m),
+  }));
+  let useExpandedOutput = isMaxEffort(opts);
+
+  for (let step = 0; step < maxAgentSteps(opts); step++) {
+    if (signal.aborted) return;
+
+    console.log(`[AG Debug] Step ${step} starting. Antigravity: ${isAntigravity}, Model: ${active.model}`);
+    const requestContents = useGeminiSystemInstruction
+      ? geminiContents
+      : [
+          {
+            role: "user",
+            parts: [{ text: `Follow these system instructions:\n${system}` }],
+          },
+          ...geminiContents,
+        ];
+    let res: Response;
+    if (isAntigravity) {
+      const CC_BASE = "https://cloudcode-pa.googleapis.com";
+      const token = active.apiKey.replace(/^Bearer\s+/i, "").trim();
+      const clientMetadata = JSON.stringify({ ideType: 9, platform: 2, pluginType: 2 });
+
+      const tokenKey = token.slice(-12);
+      let project = _antigravityProjectCache.get(tokenKey);
+      if (!project) {
+        try {
+          const lcaBody = JSON.stringify({
+            cloudaicompanionProject: "",
+            metadata: { ideType: 9, platform: 2, pluginType: 2 },
+          });
+          const lca = await fetch(`${CC_BASE}/v1internal:loadCodeAssist`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${token}`,
+              "Content-Type": "application/json",
+              "User-Agent": "google-api-nodejs-client/9.15.1",
+              "X-Goog-Api-Client": "google-cloud-sdk vscode_cloudshelleditor/0.1",
+              "Client-Metadata": clientMetadata,
+            },
+            body: lcaBody,
+            signal,
+          });
+          const lcaText = await lca.text();
+          if (lca.ok) {
+            const lcaJson = JSON.parse(lcaText) as { cloudaicompanionProject?: string };
+            project = lcaJson.cloudaicompanionProject ?? "";
+            if (project) _antigravityProjectCache.set(tokenKey, project);
+          }
+        } catch { }
+      }
+
+      const streamHeaders = {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "User-Agent": "antigravity/ide/2.1.1 darwin/arm64",
+        "Accept": "text/event-stream",
+      };
+
+      const streamBody = JSON.stringify({
+        ...(project ? { project } : {}),
+        model: active.model,
+        request: {
+          ...(useGeminiSystemInstruction
+            ? { systemInstruction: { parts: [{ text: system }] } }
+            : {}),
+          contents: requestContents,
+          ...((useGeminiThinking || useExpandedOutput)
+            ? {
+                generationConfig: {
+                  ...(useGeminiThinking ? { thinkingConfig } : {}),
+                  ...(useExpandedOutput
+                    ? { maxOutputTokens: expandedOutputTokens(opts) }
+                    : {}),
+                },
+              }
+            : {}),
+          ...(useGeminiTools && geminiTools ? { tools: geminiTools } : {}),
+        },
+      });
+
+      console.log("[AG Debug] Antigravity Request Body:", streamBody.slice(0, 500));
+
+      res = await fetch(`${CC_BASE}/v1internal:streamGenerateContent?alt=sse`, {
+        method: "POST",
+        headers: streamHeaders,
+        body: streamBody,
+        signal,
+      });
+    } else {
+      const base = active.config.baseUrl.replace(/\/$/, "");
+      const url =
+        `${base}/v1beta/models/${active.model}:streamGenerateContent` +
+        `?alt=sse&key=${encodeURIComponent(active.apiKey)}`;
+
+      const streamBody = JSON.stringify({
+        ...(useGeminiSystemInstruction
+          ? { systemInstruction: { parts: [{ text: system }] } }
+          : {}),
+        contents: requestContents,
+        ...((useGeminiThinking || useExpandedOutput)
+          ? {
+              generationConfig: {
+                ...(useGeminiThinking ? { thinkingConfig } : {}),
+                ...(useExpandedOutput
+                  ? { maxOutputTokens: expandedOutputTokens(opts) }
+                  : {}),
+              },
+            }
+          : {}),
+        ...(useGeminiTools && geminiTools ? { tools: geminiTools } : {}),
+      });
+
+      console.log("[AG Debug] Gemini Request Body:", streamBody.slice(0, 500));
+
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: streamBody,
+        signal,
+      });
+    }
+
+    console.log(`[AG Debug] Response status: ${res.status} ${res.statusText}`);
+
+    if (!res.ok || !res.body) {
+      const compatibilityError = [400, 422].includes(res.status);
+      if (useExpandedOutput && compatibilityError) {
+        useExpandedOutput = false;
+        step -= 1;
+        continue;
+      }
+      if (useGeminiThinking && compatibilityError) {
+        useGeminiThinking = false;
+        step -= 1;
+        continue;
+      }
+      if (isAntigravity && useGeminiTools && compatibilityError) {
+        useGeminiTools = false;
+        step -= 1;
+        continue;
+      }
+      if (isAntigravity && useGeminiSystemInstruction && compatibilityError) {
+        useGeminiSystemInstruction = false;
+        step -= 1;
+        continue;
+      }
+      const text = await res.text().catch(() => res.statusText);
+      console.error(`[AG Debug] Request failed (${res.status}): ${text}`);
+      send("agent:error", requestId, `Request failed (${res.status}): ${text}`);
+      return;
+    }
+
+    let stepText = "";
+    interface GeminiToolCall {
+      id: string;
+      rawName: string;
+      name: string;
+      args: Record<string, unknown>;
+      thoughtSignature?: string;
+    }
+    const stepToolCalls: GeminiToolCall[] = [];
+
+    let lastThoughtSignature = "";
+    await pumpSSE(res.body, (data) => {
+      console.log("[AG Debug] SSE raw chunk:", data.slice(0, 300));
+      try {
+        const json = JSON.parse(data);
+        const cand = json.response?.candidates?.[0] ?? json.candidates?.[0];
+        if (cand?.content?.parts) {
+          for (const p of cand.content.parts as Record<string, unknown>[]) {
+            if (typeof p.thoughtSignature === "string" && p.thoughtSignature) {
+              lastThoughtSignature = p.thoughtSignature;
+            }
+            if (typeof p.text === "string" && p.text.length > 0) {
+              stepText += p.text;
+              send("agent:chunk", requestId, p.text);
+            }
+            if (p.functionCall && typeof p.functionCall === "object") {
+              const fc = p.functionCall as { name?: string; args?: unknown; id?: string; thoughtSignature?: string };
+              const rawName = fc.name || "";
+              const cleanName = rawName.replace(/^(?:crabcode|mcp):/, "");
+              let args: Record<string, unknown> = {};
+              if (typeof fc.args === "object" && fc.args !== null) {
+                args = fc.args as Record<string, unknown>;
+              } else if (typeof fc.args === "string") {
+                try {
+                  args = JSON.parse(fc.args);
+                } catch { }
+              }
+              const thoughtSig = (p.thoughtSignature as string) || fc.thoughtSignature || lastThoughtSignature;
+              const callId = fc.id || (p.id as string) || `tc_${randomUUID().slice(0, 8)}`;
+              const exists = stepToolCalls.some(
+                (tc) => tc.id === callId || (tc.rawName === rawName && JSON.stringify(tc.args) === JSON.stringify(args)),
+              );
+              if (!exists) {
+                stepToolCalls.push({
+                  id: callId,
+                  rawName,
+                  name: cleanName,
+                  args,
+                  thoughtSignature: thoughtSig,
+                });
+              }
+            }
+          }
+        }
+      } catch { }
+      return "cont";
     });
 
-  let res = await doFetch(cachedName);
-  if (!res.ok && cachedName && [400, 404, 422].includes(res.status)) {
-    invalidateGeminiSystemCache(cachedName);
-    res = await doFetch(null);
+    console.log(`[AG Debug] Step ${step} done. Text len: ${stepText.length}, Tool calls: ${stepToolCalls.length}`);
+
+    if (stepToolCalls.length === 0) {
+      send("agent:done", requestId);
+      return;
+    }
+
+    const modelParts: Record<string, unknown>[] = [];
+    if (stepText) {
+      modelParts.push({ text: stepText });
+    }
+    for (const tc of stepToolCalls) {
+      const part: Record<string, unknown> = {
+        functionCall: {
+          name: tc.rawName,
+          args: tc.args,
+        },
+      };
+      if (tc.thoughtSignature) {
+        part.thoughtSignature = tc.thoughtSignature;
+      }
+      modelParts.push(part);
+    }
+    geminiContents.push({
+      role: "model",
+      parts: modelParts,
+    });
+
+    const funcParts: Record<string, unknown>[] = [];
+    for (const tc of stepToolCalls) {
+      send("agent:tool", requestId, {
+        id: tc.id,
+        name: tc.name,
+        input: tc.args,
+        status: "running",
+      });
+
+      const result = await runToolForRequest(opts, tc.name, tc.args);
+
+      send("agent:tool", requestId, {
+        id: tc.id,
+        name: tc.name,
+        input: tc.args,
+        status: "done",
+        result: result.text.slice(0, 4000),
+        meta: result.meta,
+        command: result.command,
+        mutated: result.mutated,
+      });
+
+      funcParts.push({
+        functionResponse: {
+          name: tc.rawName,
+          response: {
+            output: compactToolResult(result.text),
+          },
+        },
+      });
+    }
+
+    geminiContents.push({
+      role: "user",
+      parts: funcParts,
+    });
   }
 
-  if (!res.ok || !res.body) {
-    const text = await res.text().catch(() => res.statusText);
-    send("agent:error", requestId, `Request failed (${res.status}): ${text}`);
-    return;
-  }
-
-  await pumpSSE(res.body, (data) => {
-    try {
-      const json = JSON.parse(data);
-      const part = json.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (part) send("agent:chunk", requestId, part as string);
-    } catch {}
-    return "cont";
-  });
   send("agent:done", requestId);
 }
 

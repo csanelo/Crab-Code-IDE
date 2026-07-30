@@ -221,8 +221,65 @@ export const remoteSftp = {
   rename: sftpRename
 }
 
+/** Saves (or updates) a host. Exported so the agent can add hosts from chat. */
+export function upsertRemoteHost(
+  partial: Partial<RemoteHostConfig> & { password?: string; passphrase?: string }
+): { id: string } {
+  {
+    const existing = cached.hosts.find((h) => h.id === partial.id)
+    const next: RemoteHostConfig = {
+      id: partial.id || `host_${Date.now().toString(36)}`,
+      label: partial.label || partial.host || 'host',
+      host: partial.host ?? '',
+      port: partial.port || 22,
+      username: partial.username ?? '',
+      authType: partial.authType ?? 'password',
+      keyPath: partial.keyPath,
+      remoteRoot: partial.remoteRoot || '.',
+      passwordEnc:
+        partial.password !== undefined && partial.password !== ''
+          ? encrypt(partial.password)
+          : existing?.passwordEnc,
+      passphraseEnc:
+        partial.passphrase !== undefined && partial.passphrase !== ''
+          ? encrypt(partial.passphrase)
+          : existing?.passphraseEnc
+    }
+    cached.hosts = existing
+      ? cached.hosts.map((h) => (h.id === next.id ? next : h))
+      : [...cached.hosts, next]
+    persist()
+    return { id: next.id }
+  }
+}
+
+/** Opens the SSH/SFTP connection for a saved host and resolves its root path. */
+export async function connectRemoteHost(
+  id: string
+): Promise<{ id?: string; label?: string; rootPath?: string; error?: string }> {
+  const cfg = cached.hosts.find((h) => h.id === id)
+  if (!cfg) return { error: 'Host not found' }
+  try {
+    const conn = await connect(cfg)
+    let root = cfg.remoteRoot || '.'
+    if (!root.startsWith('/')) {
+      const pwd = await remoteExec(id, `cd ${JSON.stringify(root)} && pwd`)
+      root = pwd.code === 0 ? pwd.stdout.trim() || '/' : '/'
+    }
+    void conn
+    return { id, label: cfg.label, rootPath: makeRemotePath(id, root) }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+/** Saved hosts without their secrets. */
+export function listRemoteHosts(): ReturnType<typeof sanitize>[] {
+  return cached.hosts.map(sanitize)
+}
+
 export function registerRemote(ipcMain_: IpcMain = ipcMain): void {
-  ipcMain_.handle('remote:list', () => cached.hosts.map(sanitize))
+  ipcMain_.handle('remote:list', () => listRemoteHosts())
 
   ipcMain_.handle('remote:upsert', (_e, partial: RemoteHostConfig & { password?: string; passphrase?: string }) => {
     const existing = cached.hosts.find((h) => h.id === partial.id)
@@ -259,26 +316,7 @@ export function registerRemote(ipcMain_: IpcMain = ipcMain): void {
     return true
   })
 
-  ipcMain_.handle('remote:connect', async (_e, id: string) => {
-    const cfg = cached.hosts.find((h) => h.id === id)
-    if (!cfg) return { error: 'Host not found' }
-    try {
-      const conn = await connect(cfg)
-      let root = cfg.remoteRoot || '.'
-      if (!root.startsWith('/')) {
-        const pwd = await remoteExec(id, `cd ${JSON.stringify(root)} && pwd`)
-        root = pwd.code === 0 ? pwd.stdout.trim() || '/' : '/'
-      }
-      void conn
-      return {
-        id,
-        label: cfg.label,
-        rootPath: makeRemotePath(id, root)
-      }
-    } catch (err) {
-      return { error: err instanceof Error ? err.message : String(err) }
-    }
-  })
+  ipcMain_.handle('remote:connect', async (_e, id: string) => connectRemoteHost(id))
 
   ipcMain_.handle('remote:disconnect', (_e, id: string) => {
     live.get(id)?.client.end()

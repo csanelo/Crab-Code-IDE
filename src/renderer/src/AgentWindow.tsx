@@ -7,6 +7,8 @@ import { ChatPanel } from "./components/chat/ChatPanel";
 import { SettingsView } from "./components/settings/SettingsView";
 import { TerminalPanel } from "./components/terminal/TerminalPanel";
 import { GlobalPalette } from "./components/palette/GlobalPalette";
+import { TooltipLayer } from "./components/ui/Tooltip";
+import { Toaster } from "./components/toast/Toaster";
 import { on as onAppEvent, queueTerminalCommand } from "./lib/appEvents";
 import "./App.css";
 
@@ -223,6 +225,8 @@ export function AgentWindow(): JSX.Element {
           toggleTerminal={toggleTerminal}
         />
       )}
+      <Toaster />
+      <TooltipLayer />
     </div>
   );
 }

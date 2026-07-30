@@ -1,7 +1,4 @@
 # CrabCode
-
-Telegram - @Crab_Code
-Update soon - 0.3.2
 <p align="center">
   <video src="https://github.com/csanelo/Crab-Code-IDE/raw/main/media/crab.mp4" controls width="720"></video>
 </p>

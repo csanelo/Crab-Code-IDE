@@ -2,7 +2,15 @@
 type Handler<T> = (payload: T) => void
 
 interface Events {
-  'terminal:run': { command: string }
+  'terminal:run': { command: string; watch?: boolean; runId?: string }
+  'terminal:result': {
+    runId: string
+    command: string
+    ok: boolean
+    exitCode: number | null
+    output: string
+    cwd: string | null
+  }
   'fs:changed': void
   'settings:section': { section: string }
   'composer:insert': { text: string }
@@ -25,7 +33,7 @@ interface Events {
   }
   'editor:open': { path: string; line?: number; column?: number }
   'editor:reload': { path: string }
-  'editor:agentEdit': { path: string }
+  'editor:agentEdit': { path: string; before?: string; after?: string }
   'github:auth': void
   'toast': { id?: string; kind?: 'info' | 'success' | 'error'; message: string }
   'palette:open': void

@@ -7,7 +7,21 @@
   border-bottom: none;
   -webkit-app-region: drag;
   user-select: none;
+  isolation: isolate;
   z-index: calc(var(--z-modal) + 10);
+}
+
+/* Masks sub-pixel fragments that can bleed through the frameless window edge. */
+.titlebar::before {
+  content: "";
+  position: absolute;
+  z-index: calc(var(--z-modal) + 30);
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 5px;
+  background: var(--color-chrome);
+  pointer-events: none;
 }
 
 .titlebar__brand {
@@ -167,7 +181,11 @@
 }
 
 .titlebar__icon-btn--on {
-  color: var(--color-text);
+  color: color-mix(
+    in srgb,
+    var(--color-text) 62%,
+    var(--color-text-muted)
+  );
 }
 
 .titlebar__browser-btn {
@@ -451,23 +469,24 @@
   position: relative;
   display: flex;
   align-items: center;
-  margin-left: 6px;
+  margin-left: -6px;
   -webkit-app-region: no-drag;
 }
 
 .titlebar__proj-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 10px;
+  gap: 5px;
+  height: 24px;
+  padding: 0 6px;
   border: none;
   border-radius: 5px;
   background: transparent;
   color: var(--color-text-secondary);
-  font-size: var(--text-sm);
+  font-size: 12px;
   cursor: pointer;
   white-space: nowrap;
+  transform: translateY(1px);
   transition:
     background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
@@ -478,12 +497,18 @@
   color: var(--color-text);
 }
 
+.titlebar__proj-btn > svg {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
 .titlebar__proj-ws,
 .titlebar__proj-slash,
 .titlebar__proj-name {
+  display: inline-flex;
+  align-items: center;
   line-height: 1;
-  position: relative;
-  top: -1px;
 }
 
 .titlebar__proj-ws,
@@ -491,10 +516,14 @@
   color: var(--color-text-muted);
 }
 
+.titlebar__proj-ws {
+  transform: translateY(0.5px);
+}
+
 .titlebar__proj-name {
   color: var(--color-text);
   font-weight: 500;
-  max-width: 220px;
+  max-width: 184px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -634,3 +663,18 @@
   height: 26px;
   border-radius: 5px;
 }
+
+/* macOS: a restrained translucent toolbar with native-feeling spacing. */
+.titlebar--mac {
+  background: color-mix(in srgb, var(--color-chrome) 88%, transparent);
+  -webkit-backdrop-filter: saturate(150%) blur(20px);
+  backdrop-filter: saturate(150%) blur(20px);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+.titlebar--mac::before { background: color-mix(in srgb, var(--color-chrome) 92%, transparent); }
+.titlebar--mac .titlebar__menubar { padding-left: 74px; gap: 1px; }
+.titlebar--mac .titlebar__menu-btn { height: 22px; padding: 0 9px; border-radius: 5px; font-size: 12px; }
+.titlebar--mac .titlebar__drag { min-width: 24px; }
+.titlebar--mac .titlebar__controls { gap: 3px; padding-right: 8px; }
+.titlebar--mac .titlebar__icon-btn { border-radius: 6px; }
+.titlebar--mac .titlebar__proj-btn { height: 23px; border-radius: 6px; }

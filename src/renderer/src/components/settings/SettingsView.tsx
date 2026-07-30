@@ -15,7 +15,8 @@ import {
   X,
   Trash2,
   Plus,
-  Loader2
+  Loader2,
+  Server
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useApp } from '../../state/AppContext'
@@ -26,6 +27,7 @@ import { applyThemeId, getThemeId } from '../../lib/theme'
 import { THEMES, getThemeDef } from '../../theme/themes'
 import { getSoundsEnabled, setSoundsEnabled } from '../../lib/sounds'
 import { asset } from '../../lib/asset'
+import { GoogleIcon, RainbowButton } from '../ui/RainbowButton'
 import {
   KNOWN_PROVIDERS,
   type ProviderDef
@@ -42,11 +44,13 @@ type Section =
   | 'general'
   | 'appearance'
   | 'skills'
+  | 'mcp'
   | 'providers'
 
 interface NavItem {
   id: Section
-  labelKey: TKey
+  labelKey?: TKey
+  label?: string
   icon: LucideIcon
   external?: string
 }
@@ -65,6 +69,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     items: [
       { id: 'skills', labelKey: 'settings.nav.skills', icon: Sparkles },
+      { id: 'mcp', label: 'MCP', icon: Server },
       { id: 'providers', labelKey: 'settings.nav.providers', icon: Bot }
     ]
   }
@@ -94,7 +99,7 @@ export function SettingsView(): JSX.Element {
             data-tip={t('settings.close')}
             onClick={() => setView('chat')}
           >
-            <ArrowLeft size={22} />
+            <ArrowLeft size={15} strokeWidth={1.7} />
           </button>
           <span className="settings__sidebar-title">{t('settings.title')}</span>
         </div>
@@ -106,7 +111,7 @@ export function SettingsView(): JSX.Element {
                 const active = !item.external && section === item.id
                 return (
                   <button
-                    key={item.labelKey}
+                    key={item.id}
                     type="button"
                     className={`settings__nav-item${active ? ' settings__nav-item--active' : ''}`}
                     onClick={() => {
@@ -118,7 +123,7 @@ export function SettingsView(): JSX.Element {
                     }}
                   >
                     <Icon size={15} />
-                    <span>{t(item.labelKey)}</span>
+                    <span>{item.label ?? (item.labelKey ? t(item.labelKey) : item.id)}</span>
                     {item.external && (
                       <ArrowUpRight
                         size={14}
@@ -139,6 +144,7 @@ export function SettingsView(): JSX.Element {
           {section === 'general' && <GeneralSection />}
           {section === 'providers' && <ProvidersSection />}
           {section === 'skills' && <SkillsSection />}
+          {section === 'mcp' && <McpSection />}
           {section === 'appearance' && <AppearanceSection />}
         </div>
       </main>
@@ -166,8 +172,16 @@ function GeneralSection(): JSX.Element {
   const [s, setS] = useState<General | null>(null)
 
   useEffect(() => {
-    void window.api.settings.getGeneral().then((g) => setS(g as General))
-  }, [])
+    const reload = (): void => {
+      void window.api.settings.getGeneral().then((g) => {
+        setS(g as General)
+        if (g?.language) setLang(g.language as UiLang)
+      })
+    }
+    reload()
+    window.addEventListener('focus', reload)
+    return () => window.removeEventListener('focus', reload)
+  }, [setLang])
 
   function update(patch: Partial<General>): void {
     if (!s) return
@@ -269,9 +283,12 @@ function ProvidersSection(): JSX.Element {
   const [state, setState] = useState<ProvidersState | null>(null)
   const [connect, setConnect] = useState<ConnectInitial | null>(null)
   const [q, setQ] = useState('')
+  const [catalogError, setCatalogError] = useState<string | null>(null)
+  const [oauthCatalogBusy, setOauthCatalogBusy] = useState(false)
 
   useEffect(() => {
     void providersService.get().then(setState)
+    return providersService.subscribe(setState)
   }, [])
 
   async function remove(id: string): Promise<void> {
@@ -279,14 +296,52 @@ function ProvidersSection(): JSX.Element {
     setState(next)
   }
 
-  function startConnectFromCatalog(p: ProviderDef): void {
-    setConnect({
-      catalogId: p.id,
-      name: p.name,
-      api: p.api,
-      baseUrl: p.baseUrl,
-      defaultModel: p.models?.[0]
-    })
+  async function startConnectFromCatalog(p: ProviderDef): Promise<void> {
+    if (p.id !== 'google-antigravity') {
+      setConnect({
+        catalogId: p.id,
+        name: p.name,
+        api: p.api,
+        baseUrl: p.baseUrl,
+        defaultModel: p.models?.[0]
+      })
+      return
+    }
+
+    setCatalogError(null)
+    setOauthCatalogBusy(true)
+    try {
+      const auth = await providersService.googleOauth()
+      if (!auth.accessToken) throw new Error('Google OAuth did not return an access token.')
+      const availability = await window.api.providers.antigravityQuota(auth.accessToken)
+      const fallbackModels = (p.models ?? ['gemini-3-flash-agent']).map((modelId) => ({
+        id: modelId,
+        label: modelId
+      }))
+      const availableModels = availability.models?.length ? availability.models : fallbackModels
+      const preferredModel = p.models?.find((modelId) =>
+        availableModels.some((candidate) => candidate.id === modelId)
+      )
+      const model = preferredModel ?? availableModels[0]?.id ?? 'gemini-3-flash-agent'
+      const id = `google-antigravity-${Date.now().toString(36)}`
+      await providersService.upsert({
+        id,
+        catalogId: p.id,
+        name: p.name,
+        api: p.api,
+        baseUrl: p.baseUrl,
+        models: availableModels,
+        apiKey: auth.accessToken,
+        refreshToken: auth.refreshToken,
+        expiresAt: auth.expiresIn ? Date.now() + auth.expiresIn * 1000 : undefined
+      })
+      const activated = await providersService.setActive({ id, model })
+      setState(activated)
+    } catch (e) {
+      setCatalogError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setOauthCatalogBusy(false)
+    }
   }
   function startConnectCustom(): void {
     setConnect({
@@ -312,7 +367,12 @@ function ProvidersSection(): JSX.Element {
 
   if (!state) return <></>
 
-  const FEATURED_IDS = ['anthropic', 'google', 'openrouter', 'groq', 'deepseek']
+  // OpenCode Free is built in and must not look like a user connection.
+  const connectedProviders = state.providers.filter(
+    (p) => p.catalogId !== 'opencode' && p.id !== 'opencode-free-default'
+  )
+
+  const FEATURED_IDS = ['google-antigravity', 'anthropic', 'google', 'openrouter', 'groq', 'deepseek']
   const featured = FEATURED_IDS
     .map((id) => KNOWN_PROVIDERS.find((p) => p.id === id))
     .filter((p): p is ProviderDef => Boolean(p))
@@ -325,7 +385,10 @@ function ProvidersSection(): JSX.Element {
     baseUrl: ''
   }
   const rest = KNOWN_PROVIDERS.filter(
-    (p) => p.id !== 'custom' && p.id !== 'openai' && !FEATURED_IDS.includes(p.id)
+    (p) =>
+      p.id !== 'custom' &&
+      p.id !== 'openai' &&
+      !FEATURED_IDS.includes(p.id)
   )
   const popular: ProviderDef[] = [
     ...featured,
@@ -365,10 +428,10 @@ function ProvidersSection(): JSX.Element {
       <SectionLabel>{t('settings.providers.connected')}</SectionLabel>
       <div className="settings__group">
         <Card>
-          {state.providers.length === 0 ? (
+          {connectedProviders.length === 0 ? (
             <Row title={t('settings.providers.none')} />
           ) : (
-            state.providers.map((p, i) => (
+            connectedProviders.map((p, i) => (
               <div key={p.id}>
                 {i > 0 && <Divider />}
                 <Row
@@ -404,15 +467,18 @@ function ProvidersSection(): JSX.Element {
       </div>
 
       <SectionLabel>{t('settings.providers.popular')}</SectionLabel>
+      {catalogError && <div className="settings__field-error settings__catalog-error" role="alert">{catalogError}</div>}
       <div className="settings__group">
         <Card>
           {filtered.length === 0 ? (
             <Row title={t('settings.providers.nothingFound')} subtitle={t('settings.providers.tryAnother')} />
           ) : (
-            filtered.map((p) => (
+            filtered.map((p, i) => (
               <div key={p.id}>
+                {i > 0 && <Divider />}
                 <ProviderCardRow
                   provider={p}
+                  busy={p.id === 'google-antigravity' && oauthCatalogBusy}
                   onConnect={() =>
                     p.id === 'custom' ? startConnectCustom() : startConnectFromCatalog(p)
                   }
@@ -433,16 +499,19 @@ function ProvidersSection(): JSX.Element {
           }}
         />
       )}
+
     </>
   )
 }
 
 function ProviderCardRow({
   provider,
-  onConnect
+  onConnect,
+  busy = false
 }: {
   provider: ProviderDef
-  onConnect: () => void
+  onConnect: () => void | Promise<void>
+  busy?: boolean
 }): JSX.Element {
   const t = useT()
   return (
@@ -451,13 +520,16 @@ function ProviderCardRow({
         <div className="settings__row-title">
           {provider.name}
         </div>
-        {provider.description && (
-          <div className="settings__row-subtitle">{provider.description}</div>
-        )}
       </div>
       <div className="settings__row-trailing">
-        <button className="settings__connect-btn" type="button" onClick={onConnect}>
-          <span aria-hidden="true">+</span> {t('settings.providers.connect')}
+        <button
+          className="settings__connect-btn"
+          type="button"
+          onClick={() => void onConnect()}
+          disabled={busy}
+        >
+          {busy && <Loader2 size={13} className="settings__spin" />}
+          {busy ? 'Authorizing…' : t('settings.providers.connect')}
         </button>
       </div>
     </div>
@@ -478,8 +550,9 @@ function ConnectDialog({
   const t = useT()
   const [apiKey, setApiKey] = useState('')
   const [showKey, setShowKey] = useState(false)
-  const [modelId, setModelId] = useState(isEdit ? (initial.defaultModel ?? '') : '')
-  const [label, setLabel] = useState(isEdit ? (initial.modelLabel ?? '') : '')
+  const initialModel = isEdit ? (initial.defaultModel ?? '') : ''
+  const [modelId, setModelId] = useState(initialModel)
+  const [label, setLabel] = useState(isEdit ? (initial.modelLabel ?? initialModel) : '')
   const [baseUrl, setBaseUrl] = useState(initial.baseUrl ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -508,7 +581,9 @@ function ConnectDialog({
         api: initial.api,
         baseUrl: baseUrl.trim() || initial.baseUrl,
         models: [{ id: modelId.trim(), label: label.trim() || modelId.trim() }],
-        apiKey: apiKey.trim() ? apiKey.trim() : undefined
+        apiKey: apiKey.trim() ? apiKey.trim() : undefined,
+        refreshToken: refreshTokenState ? refreshTokenState : undefined,
+        expiresAt: expiresAtState
       })
       const activated = await providersService.setActive({
         id,
@@ -521,6 +596,39 @@ function ConnectDialog({
       setBusy(false)
     }
   }
+
+  const isGoogleOAuth = initial.catalogId === 'google-antigravity'
+  const [oauthBusy, setOauthBusy] = useState(false)
+
+  const [refreshTokenState, setRefreshTokenState] = useState('')
+  const [expiresAtState, setExpiresAtState] = useState<number | undefined>(undefined)
+
+  async function handleGoogleOAuth(): Promise<void> {
+    setOauthBusy(true)
+    setError(null)
+    try {
+      const res = (await providersService.googleOauth()) as {
+        accessToken?: string
+        refreshToken?: string
+        expiresIn?: number
+      }
+      if (res?.accessToken) {
+        setApiKey(res.accessToken)
+        if (res.refreshToken) {
+          setRefreshTokenState(res.refreshToken)
+        }
+        if (res.expiresIn) {
+          setExpiresAtState(Date.now() + res.expiresIn * 1000)
+        }
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setOauthBusy(false)
+    }
+  }
+
+
 
   return (
     <div className="settings__modal-backdrop" onMouseDown={onCancel}>
@@ -543,6 +651,27 @@ function ConnectDialog({
         </div>
 
         <div className="settings__modal-body">
+          {isGoogleOAuth && !isEdit && (
+            <div className="settings__google-auth-row">
+              <RainbowButton
+                className="settings__google-auth-button"
+                onClick={handleGoogleOAuth}
+                disabled={oauthBusy}
+                aria-label="Google Auth"
+              >
+                {oauthBusy ? (
+                  <Loader2 size={16} className="settings__spin" />
+                ) : (
+                  <GoogleIcon size={17} />
+                )}
+                <span>Google Auth</span>
+                {apiKey.trim() && !oauthBusy && (
+                  <Check size={14} className="settings__google-auth-check" aria-label="Подключено" />
+                )}
+              </RainbowButton>
+            </div>
+          )}
+
           {isCustom && (
             <label className="settings__field-block">
               <span className="settings__field-label">{t('settings.connect.baseUrl')}</span>
@@ -618,7 +747,7 @@ function ConnectDialog({
         </div>
 
         <div className="settings__modal-footer">
-          <Button variant="ghost" onClick={() => void connect()} disabled={busy}>
+          <Button variant="primary" onClick={() => void connect()} disabled={busy}>
             {busy
               ? isEdit
                 ? t('settings.connect.saving')
@@ -640,6 +769,18 @@ interface SkillRow {
   path: string
 }
 
+type McpTransport = 'stdio' | 'http' | 'sse'
+
+interface McpServer {
+  id: string
+  name: string
+  transport: McpTransport
+  enabled: boolean
+  command?: string
+  args?: string[]
+  url?: string
+}
+
 function SkillsSection(): JSX.Element {
   const t = useT()
   const { state } = useApp()
@@ -647,9 +788,6 @@ function SkillsSection(): JSX.Element {
     state.repositories.find((r) => r.id === state.activeRepositoryId)?.path ?? null
 
   const [skills, setSkills] = useState<SkillRow[]>([])
-  const [url, setUrl] = useState('')
-  const [adding, setAdding] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const reload = useCallback((): void => {
     void window.api.skills.list(root ?? '').then(setSkills)
@@ -658,22 +796,6 @@ function SkillsSection(): JSX.Element {
   useEffect(() => {
     reload()
   }, [reload])
-
-  async function add(): Promise<void> {
-    const link = url.trim()
-    if (!link) return
-    setAdding(true)
-    setError(null)
-    const res = await window.api.skills.add(root ?? '', link)
-    setAdding(false)
-    if (res.ok) {
-      setUrl('')
-      reload()
-      emitAppEvent('fs:changed', undefined)
-    } else {
-      setError(res.error ?? 'Failed to add skill.')
-    }
-  }
 
   async function remove(name: string): Promise<void> {
     const ok = await window.api.skills.remove(root ?? '', name)
@@ -690,82 +812,133 @@ function SkillsSection(): JSX.Element {
         <p className="settings__page-sub">{t('settings.skills.sub')}</p>
       </header>
 
-      <SectionLabel>{t('settings.skills.add')}</SectionLabel>
-          <div className="settings__group">
-            <Card>
-              <div className="settings__row settings__row--input">
-                <div className="settings__row-text">
-                  <div className="settings__row-title">{t('settings.skills.urlLabel')}</div>
-                  <div className="settings__row-subtitle">{t('settings.skills.urlHint')}</div>
-                </div>
-                <input
-                  className="settings__input"
-                  type="url"
-                  value={url}
-                  placeholder="https://github.com/owner/repo"
-                  onChange={(e) => setUrl(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') void add()
-                  }}
-                  autoComplete="off"
-                />
-              </div>
-              <Divider />
-              <div className="settings__skill-addrow">
-                <button
-                  type="button"
-                  className="settings__btn settings__skill-add"
-                  onClick={() => void add()}
-                  disabled={!url.trim() || adding}
-                >
-                  {adding ? <Loader2 size={14} className="settings__spin" /> : <Plus size={14} />}
-                  <span>{t('settings.skills.addBtn')}</span>
-                </button>
-              </div>
-              {error && <div className="settings__skill-error" role="alert">{error}</div>}
-            </Card>
-          </div>
-
-          <SectionLabel>{t('settings.skills.installed', { n: String(skills.length) })}</SectionLabel>
-          <div className="settings__group">
-            <Card>
-              {skills.length === 0 ? (
-                <Row
-                  title={t('settings.skills.emptyTitle')}
-                  subtitle={t('settings.skills.emptySub')}
-                />
-              ) : (
-                skills.map((s, i) => (
-                  <div key={s.name}>
-                    {i > 0 && <Divider />}
-                    <div className="settings__row">
-                      <div className="settings__skill-icon" aria-hidden="true">
-                        <img src={asset('skills.png')} alt="" className="settings__skill-img" />
-                      </div>
-                      <div className="settings__row-text">
-                        <div className="settings__row-title">
-                          <span className="settings__skill-cmd">/{s.name}</span>
-                        </div>
-                      </div>
-                      <div className="settings__row-trailing">
-                        <button
-                          type="button"
-                          className="settings__icon-btn"
-                          data-tip={t('settings.skills.remove')}
-                          aria-label={t('settings.skills.remove')}
-                          onClick={() => void remove(s.name)}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
+      <SectionLabel>{t('settings.skills.installed', { n: String(skills.length) })}</SectionLabel>
+      <div className="settings__group">
+        <Card>
+          {skills.length === 0 ? (
+            <Row
+              title={t('settings.skills.emptyTitle')}
+              subtitle={t('settings.skills.emptySub')}
+            />
+          ) : (
+            skills.map((s, i) => (
+              <div key={s.name}>
+                {i > 0 && <Divider />}
+                <div className="settings__row">
+                  <div className="settings__skill-icon" aria-hidden="true">
+                    <img src={asset('skills.png')} alt="" className="settings__skill-img" />
+                  </div>
+                  <div className="settings__row-text">
+                    <div className="settings__row-title">
+                      <span className="settings__skill-cmd">{s.name}</span>
                     </div>
                   </div>
-                ))
-              )}
-            </Card>
-          </div>
+                  <div className="settings__row-trailing">
+                    <button
+                      type="button"
+                      className="settings__icon-btn"
+                      data-tip={t('settings.skills.remove')}
+                      aria-label={t('settings.skills.remove')}
+                      onClick={() => void remove(s.name)}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </Card>
+      </div>
     </>
   )
+}
+
+function McpSection(): JSX.Element {
+  const t = useT()
+  const [servers, setServers] = useState<McpServer[] | null>(null)
+  const [switchingId, setSwitchingId] = useState<string | null>(null)
+
+  const reload = useCallback((): void => {
+    void window.api.mcp.list().then((items) => setServers(items as McpServer[]))
+  }, [])
+
+  useEffect(() => {
+    reload()
+    window.addEventListener('focus', reload)
+    return () => window.removeEventListener('focus', reload)
+  }, [reload])
+
+  async function toggleServer(server: McpServer): Promise<void> {
+    if (switchingId) return
+    setSwitchingId(server.id)
+    try {
+      const items = await window.api.mcp.setEnabled(server.id, !server.enabled)
+      setServers(items as McpServer[])
+    } finally {
+      setSwitchingId(null)
+    }
+  }
+
+  return (
+    <>
+      <header className="settings__page-header">
+        <h1 className="settings__page-title">{t('mcp.title')}</h1>
+        <p className="settings__page-sub">{t('settings.mcp.sub')}</p>
+      </header>
+
+      <SectionLabel>
+        {t('settings.mcp.connected', { n: String(servers?.length ?? 0) })}
+      </SectionLabel>
+      <div className="settings__group">
+        <Card>
+          {servers === null ? (
+            <Row title={t('mcp.loading')} />
+          ) : servers.length === 0 ? (
+            <Row title={t('mcp.emptyTitle')} subtitle={t('settings.mcp.emptySub')} />
+          ) : (
+            servers.map((server, index) => (
+              <div key={server.id}>
+                {index > 0 && <Divider />}
+                <div className="settings__row settings__mcp-row">
+                  <img
+                    className="settings__mcp-favicon"
+                    src={asset('mcp.png')}
+                    alt=""
+                    aria-hidden="true"
+                  />
+                  <div className="settings__row-text">
+                    <div className="settings__mcp-title-line">
+                      <span className="settings__row-title">{server.name}</span>
+                    </div>
+                    <div className="settings__row-subtitle settings__mcp-address">
+                      {describeMcp(server)}
+                    </div>
+                  </div>
+                  <div className="settings__row-trailing">
+                    <div className="settings__mcp-switch">
+                      <Toggle
+                        checked={server.enabled}
+                        onChange={() => void toggleServer(server)}
+                        disabled={switchingId === server.id}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </Card>
+      </div>
+    </>
+  )
+}
+
+function describeMcp(server: McpServer): string {
+  if (server.transport === 'stdio') {
+    return [server.command, ...(server.args ?? [])].filter(Boolean).join(' ') || 'stdio'
+  }
+  return server.url ?? server.transport.toUpperCase()
 }
 
 
@@ -773,6 +946,15 @@ function AppearanceSection(): JSX.Element {
   const t = useT()
   const [themeId, setThemeId] = useState<string>(getThemeId())
   const [sounds, setSounds] = useState<boolean>(getSoundsEnabled())
+
+  useEffect(() => {
+    const refresh = (): void => {
+      setThemeId(getThemeId())
+      setSounds(getSoundsEnabled())
+    }
+    window.addEventListener('focus', refresh)
+    return () => window.removeEventListener('focus', refresh)
+  }, [])
 
   function update(next: string): void {
     setThemeId(next)
@@ -899,10 +1081,12 @@ function SectionLabel({ children }: { children: React.ReactNode }): JSX.Element 
 
 function Toggle({
   checked,
-  onChange
+  onChange,
+  disabled = false
 }: {
   checked: boolean
   onChange: (v: boolean) => void
+  disabled?: boolean
 }): JSX.Element {
   return (
     <button
@@ -911,6 +1095,7 @@ function Toggle({
       aria-checked={checked}
       className={`settings__toggle${checked ? ' settings__toggle--on' : ''}`}
       onClick={() => onChange(!checked)}
+      disabled={disabled}
     >
       <span className="settings__toggle-thumb" />
     </button>

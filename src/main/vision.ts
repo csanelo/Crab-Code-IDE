@@ -8,7 +8,7 @@ const VISION_PROMPT =
   'or cut-off elements, broken layout, low contrast, misalignment, error messages. Be concrete. ' +
   'If everything looks correct, say so.'
 
-function isVisionModel(api: string, model: string): boolean {
+export function providerModelHasVision(api: string, model: string): boolean {
   const m = model.toLowerCase()
   if (api === 'gemini') return /gemini/.test(m)
   if (api === 'anthropic') return /claude-3|claude-3\.5|claude-3-5|claude-4|sonnet|opus|haiku/.test(m)
@@ -24,9 +24,13 @@ interface VisionTarget {
   model: string
 }
 
-function pickVisionTarget(): VisionTarget | null {
-  const active = getActiveProvider()
-  if (active && active.apiKey && isVisionModel(active.config.api, active.model)) {
+async function pickVisionTarget(): Promise<VisionTarget | null> {
+  const active = await getActiveProvider()
+  if (
+    active &&
+    active.apiKey &&
+    providerModelHasVision(active.config.api, active.model)
+  ) {
     return {
       api: active.config.api,
       baseUrl: active.config.baseUrl,
@@ -42,7 +46,7 @@ function pickVisionTarget(): VisionTarget | null {
         : c.api === 'anthropic'
           ? 'claude-3-5-sonnet-latest'
           : 'gpt-4o-mini'
-    if (isVisionModel(c.api, guess)) {
+    if (providerModelHasVision(c.api, guess)) {
       return { api: c.api, baseUrl: c.baseUrl, apiKey: c.apiKey, model: guess }
     }
   }
@@ -50,7 +54,7 @@ function pickVisionTarget(): VisionTarget | null {
 }
 
 export async function describeImage(dataUrl: string): Promise<string | null> {
-  const target = pickVisionTarget()
+  const target = await pickVisionTarget()
   if (!target) return null
   try {
     if (target.api === 'anthropic') {
@@ -141,7 +145,9 @@ export async function describeImage(dataUrl: string): Promise<string | null> {
   }
 }
 
-export function activeModelHasVision(): boolean {
-  const active = getActiveProvider()
-  return Boolean(active && isVisionModel(active.config.api, active.model))
+export async function activeModelHasVision(): Promise<boolean> {
+  const active = await getActiveProvider()
+  return Boolean(
+    active && providerModelHasVision(active.config.api, active.model),
+  )
 }

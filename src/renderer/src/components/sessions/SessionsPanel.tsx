@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { Pin, Plus } from "lucide-react";
 import { useApp } from "../../state/AppContext";
 import { useT } from "../../i18n";
@@ -183,7 +183,7 @@ export function SessionsPanel(): JSX.Element {
   );
 }
 
-function SessionRow({
+const SessionRow = memo(function SessionRow({
   conv,
   active,
   renaming,
@@ -241,4 +241,8 @@ function SessionRow({
       )}
     </button>
   );
-}
+}, (previous, next) =>
+  previous.conv === next.conv &&
+  previous.active === next.active &&
+  previous.renaming === next.renaming &&
+  previous.t === next.t);

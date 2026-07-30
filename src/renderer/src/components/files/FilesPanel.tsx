@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search, ChevronRight, Undo2, RefreshCw } from "lucide-react";
+import {
+  Search,
+  ChevronRight,
+  Undo2,
+  RefreshCw,
+  Files as FilesIcon,
+  GitCompareArrows,
+} from "lucide-react";
 import { useApp } from "../../state/AppContext";
 import { fileService } from "../../services/fileService";
 import { newRepository } from "../../state";
@@ -23,7 +30,7 @@ import "./FilesPanel.css";
 
 setupMonaco();
 
-function NewFileIcon({ size = 15 }: { size?: number }): JSX.Element {
+function NewFileIcon({ size = 18 }: { size?: number }): JSX.Element {
   return (
     <svg
       width={size}
@@ -31,20 +38,19 @@ function NewFileIcon({ size = 15 }: { size?: number }): JSX.Element {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.4"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4" />
-      <path d="M14 3v5h5" />
-      <circle cx="18" cy="18" r="4" />
-      <path d="M18 16.5v3M16.5 18h3" />
+      <path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6" />
+      <path d="M13 3v6h6" />
+      <path d="M14 17h7M17.5 13.5v7" />
     </svg>
   );
 }
 
-function NewFolderIcon({ size = 15 }: { size?: number }): JSX.Element {
+function NewFolderIcon({ size = 18 }: { size?: number }): JSX.Element {
   return (
     <svg
       width={size}
@@ -52,19 +58,19 @@ function NewFolderIcon({ size = 15 }: { size?: number }): JSX.Element {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.4"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M11 19H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v2" />
-      <circle cx="18" cy="18" r="4" />
-      <path d="M18 16.5v3M16.5 18h3" />
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v7" />
+      <path d="M3 7v10a2 2 0 0 0 2 2h6" />
+      <path d="M14 17h7M17.5 13.5v7" />
     </svg>
   );
 }
 
-function CollapseAllIcon({ size = 15 }: { size?: number }): JSX.Element {
+function CollapseAllIcon({ size = 18 }: { size?: number }): JSX.Element {
   return (
     <svg
       width={size}
@@ -72,15 +78,13 @@ function CollapseAllIcon({ size = 15 }: { size?: number }): JSX.Element {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.4"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <polyline points="4 14 10 14 10 20" />
-      <polyline points="20 10 14 10 14 4" />
-      <line x1="14" y1="10" x2="21" y2="3" />
-      <line x1="3" y1="21" x2="10" y2="14" />
+      <rect x="7" y="7" width="12" height="12" rx="1.5" />
+      <path d="M5 16H4a1 1 0 0 1-1-1V5a2 2 0 0 1 2-2h10a1 1 0 0 1 1 1v1" />
     </svg>
   );
 }
@@ -385,29 +389,19 @@ export function FilesPanel(): JSX.Element {
   return (
     <aside className="files">
       <header className="files__header">
-        <div className="files__tabs" role="tablist">
+        <div className="files__header-tools" role="toolbar" aria-label="Files panel">
           <button
-            role="tab"
             type="button"
-            aria-selected={tab === "changes"}
-            className={`files__tab${tab === "changes" ? " files__tab--active" : ""}`}
-            onClick={() => setTab("changes")}
-          >
-            {t("files.changes")}
-          </button>
-          <button
-            role="tab"
-            type="button"
-            aria-selected={tab === "files"}
+            aria-label={t("files.files")}
+            data-tip={t("files.files")}
+            aria-pressed={tab === "files"}
             className={`files__tab${tab === "files" ? " files__tab--active" : ""}`}
             onClick={() => setTab("files")}
           >
-            {t("files.files")}
+            <FilesIcon size={18} strokeWidth={1.4} />
           </button>
-        </div>
-        <div className="files__actions">
           <button
-            className="files__icon"
+            className="files__header-icon"
             type="button"
             aria-label={t("files.search")}
             data-tip={t("files.search")}
@@ -418,7 +412,22 @@ export function FilesPanel(): JSX.Element {
               setHits([]);
             }}
           >
-            <Search size={14} />
+            <Search size={18} strokeWidth={1.4} />
+          </button>
+          <button
+            type="button"
+            aria-label={t("files.changes")}
+            data-tip={t("files.changes")}
+            aria-pressed={tab === "changes"}
+            className={`files__tab${tab === "changes" ? " files__tab--active" : ""}`}
+            onClick={() => setTab("changes")}
+          >
+            <GitCompareArrows size={18} strokeWidth={1.4} />
+            {changes.length > 0 && (
+              <span className="files__tab-count">
+                {changes.length > 99 ? "99+" : changes.length}
+              </span>
+            )}
           </button>
         </div>
       </header>
@@ -560,7 +569,7 @@ export function FilesPanel(): JSX.Element {
                     data-tip={t("files.menu.newFile")}
                     onClick={() => createAtRoot("file")}
                   >
-                    <NewFileIcon size={15} />
+                    <NewFileIcon size={18} />
                   </button>
                   <button
                     className="files__icon"
@@ -569,7 +578,7 @@ export function FilesPanel(): JSX.Element {
                     data-tip={t("files.menu.newFolder")}
                     onClick={() => createAtRoot("dir")}
                   >
-                    <NewFolderIcon size={15} />
+                    <NewFolderIcon size={18} />
                   </button>
                   <button
                     className="files__icon"
@@ -578,7 +587,7 @@ export function FilesPanel(): JSX.Element {
                     data-tip={t("files.refresh")}
                     onClick={refresh}
                   >
-                    <RefreshCw size={14} />
+                    <RefreshCw size={18} strokeWidth={1.4} />
                   </button>
                   <button
                     className="files__icon"
@@ -587,7 +596,7 @@ export function FilesPanel(): JSX.Element {
                     data-tip={t("files.collapseAll")}
                     onClick={collapseAll}
                   >
-                    <CollapseAllIcon size={15} />
+                    <CollapseAllIcon size={18} />
                   </button>
                 </div>
               </div>
@@ -601,6 +610,9 @@ export function FilesPanel(): JSX.Element {
                 onCommitRename={commitRename}
                 onCancelRename={() => setRenamingPath(null)}
                 onMoved={refresh}
+                onImport={(dataTransfer, destDir) => {
+                  void importDropped(dataTransfer, destDir);
+                }}
                 onOpenFile={openFile}
                 onContextMenu={(e, entry) => {
                   e.preventDefault();

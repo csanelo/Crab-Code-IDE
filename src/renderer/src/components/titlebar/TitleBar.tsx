@@ -8,6 +8,7 @@ import { newRepository } from "../../state";
 import { GithubAvatar } from "./GithubAvatar";
 import { ProjectSwitcher } from "./ProjectSwitcher";
 import { asset } from "../../lib/asset";
+import { emit as emitAppEvent } from "../../lib/appEvents";
 import "./TitleBar.css";
 
 interface MenuItem {
@@ -61,7 +62,7 @@ function PanelLeftIcon({ filled }: { filled: boolean }): JSX.Element {
         height="16"
         rx="2.5"
         stroke="currentColor"
-        strokeWidth="1.7"
+        strokeWidth="1.1"
       />
       <line
         x1="9"
@@ -69,7 +70,7 @@ function PanelLeftIcon({ filled }: { filled: boolean }): JSX.Element {
         x2="9"
         y2="20"
         stroke="currentColor"
-        strokeWidth="1.7"
+        strokeWidth="1.1"
       />
       {filled && (
         <rect
@@ -79,6 +80,7 @@ function PanelLeftIcon({ filled }: { filled: boolean }): JSX.Element {
           height="14.2"
           rx="1"
           fill="currentColor"
+          opacity="0.54"
         />
       )}
     </svg>
@@ -101,7 +103,7 @@ function PanelRightIcon({ filled }: { filled: boolean }): JSX.Element {
         height="16"
         rx="2.5"
         stroke="currentColor"
-        strokeWidth="1.7"
+        strokeWidth="1.1"
       />
       <line
         x1="15"
@@ -109,7 +111,7 @@ function PanelRightIcon({ filled }: { filled: boolean }): JSX.Element {
         x2="15"
         y2="20"
         stroke="currentColor"
-        strokeWidth="1.7"
+        strokeWidth="1.1"
       />
       {filled && (
         <rect
@@ -119,6 +121,7 @@ function PanelRightIcon({ filled }: { filled: boolean }): JSX.Element {
           height="14.2"
           rx="1"
           fill="currentColor"
+          opacity="0.54"
         />
       )}
     </svg>
@@ -141,7 +144,7 @@ function PanelBottomIcon({ filled }: { filled: boolean }): JSX.Element {
         height="16"
         rx="2.5"
         stroke="currentColor"
-        strokeWidth="1.7"
+        strokeWidth="1.1"
       />
       <line
         x1="3"
@@ -149,7 +152,7 @@ function PanelBottomIcon({ filled }: { filled: boolean }): JSX.Element {
         x2="21"
         y2="15"
         stroke="currentColor"
-        strokeWidth="1.7"
+        strokeWidth="1.1"
       />
       {filled && (
         <rect
@@ -159,6 +162,7 @@ function PanelBottomIcon({ filled }: { filled: boolean }): JSX.Element {
           height="3.2"
           rx="1"
           fill="currentColor"
+          opacity="0.54"
         />
       )}
     </svg>
@@ -200,6 +204,64 @@ export function TitleBar({
     const off = window.api.window.onMaximizedChange(setMaximized);
     return () => off();
   }, []);
+
+  useEffect(() => {
+    return window.api.app.onMenuAction((action) => {
+      switch (action) {
+        case "new-session":
+          createConversation(state.activeRepositoryId);
+          break;
+        case "open-folder":
+          void openFolder();
+          break;
+        case "save":
+        case "save-all":
+          emitAppEvent("editor:saveAll", undefined);
+          break;
+        case "settings":
+          setView("settings");
+          break;
+        case "toggle-sidebar":
+          onToggleSidebar?.();
+          break;
+        case "toggle-chat":
+          onToggleRight?.();
+          break;
+        case "toggle-terminal":
+          onToggleTerminal?.();
+          break;
+        case "toggle-browser":
+          onToggleBrowser?.();
+          break;
+        case "quick-palette":
+          emitAppEvent("palette:open", undefined);
+          break;
+        case "search-workspace":
+          emitAppEvent("search:open", {});
+          break;
+        case "zoom-in":
+          void window.api.window.zoom(1);
+          break;
+        case "zoom-out":
+          void window.api.window.zoom(-1);
+          break;
+        case "zoom-reset":
+          void window.api.window.zoom(0);
+          break;
+        case "about":
+          void window.api.app.showAbout();
+          break;
+      }
+    });
+  }, [
+    createConversation,
+    state.activeRepositoryId,
+    setView,
+    onToggleSidebar,
+    onToggleRight,
+    onToggleTerminal,
+    onToggleBrowser,
+  ]);
 
   useEffect(() => {
     if (!openMenu) return;
@@ -355,52 +417,49 @@ export function TitleBar({
             className="titlebar__logo"
           />
         )}
-        {menus.map((m) => (
-          <div key={m.id} className="titlebar__menu">
-            <button
-              type="button"
-              className={`titlebar__menu-btn${openMenu === m.id ? " titlebar__menu-btn--on" : ""}`}
-              onClick={() => setOpenMenu((cur) => (cur === m.id ? null : m.id))}
-              onMouseEnter={() => setOpenMenu((cur) => (cur ? m.id : cur))}
-            >
-              {t(m.label)}
-            </button>
-            {openMenu === m.id && (
-              <div className="titlebar__dropdown" role="menu">
-                {m.items.map((item) => (
-                  <div key={item.key}>
-                    {item.separatorBefore && (
-                      <div className="titlebar__dropdown-sep" />
-                    )}
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="titlebar__dropdown-item"
-                      onClick={() => runItem(item)}
-                    >
-                      <span className="titlebar__dropdown-label">
-                        {t(item.key)}
-                      </span>
-                      {item.shortcut && (
-                        <span className="titlebar__dropdown-shortcut">
-                          {item.shortcut}
-                        </span>
+        {!isMac &&
+          menus.map((m) => (
+            <div key={m.id} className="titlebar__menu">
+              <button
+                type="button"
+                className={`titlebar__menu-btn${openMenu === m.id ? " titlebar__menu-btn--on" : ""}`}
+                onClick={() => setOpenMenu((cur) => (cur === m.id ? null : m.id))}
+                onMouseEnter={() => setOpenMenu((cur) => (cur ? m.id : cur))}
+              >
+                {t(m.label)}
+              </button>
+              {openMenu === m.id && (
+                <div className="titlebar__dropdown" role="menu">
+                  {m.items.map((item) => (
+                    <div key={item.key}>
+                      {item.separatorBefore && (
+                        <div className="titlebar__dropdown-sep" />
                       )}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="titlebar__dropdown-item"
+                        onClick={() => runItem(item)}
+                      >
+                        <span className="titlebar__dropdown-label">
+                          {t(item.key)}
+                        </span>
+                        {item.shortcut && (
+                          <span className="titlebar__dropdown-shortcut">
+                            {item.shortcut}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
         <ProjectSwitcher />
       </div>
 
       <div className="titlebar__drag" />
-
-      <span className="titlebar__title" aria-hidden="true">
-        CrabCode
-      </span>
 
       <div className="titlebar__controls">
         {!agentWindow && (

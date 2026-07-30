@@ -222,8 +222,8 @@
 .ns__send {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   margin-right: 1px;
   flex-shrink: 0;
   border: none;
@@ -233,22 +233,40 @@
   cursor: pointer;
   transition:
     background var(--dur-fast) var(--ease-out),
-    transform var(--dur-fast) var(--ease-out);
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .ns__send:hover:not(:disabled) {
   background: var(--color-surface-raised);
 }
 
+.ns__send:not(:disabled):not(.ns__send--stop):not(.ns__send--rec) {
+  background: #f5f5f3;
+  color: #151515;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+}
+
+.ns__send:not(:disabled):not(.ns__send--stop):not(.ns__send--rec):hover {
+  background: #ffffff;
+  color: #0d0d0d;
+}
+
+.ns__send:not(:disabled):not(.ns__send--stop):not(.ns__send--rec):focus-visible {
+  outline: 2px solid color-mix(in srgb, #ffffff 72%, transparent);
+  outline-offset: 2px;
+}
+
 .ns__send-icon {
-  width: 15px;
-  height: 15px;
+  display: block;
+  width: 17px;
+  height: 17px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.8;
+  stroke-width: 1.85;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transform: translateX(-0.6px);
+  transform: none;
 }
 
 .ns__send:active:not(:disabled) {
@@ -406,13 +424,17 @@
 
 .ns__mode-icon {
   flex: 0 0 auto;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.5;
+  stroke-width: 1.45;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.ns__mode-icon--agent {
+  stroke-width: 2.25;
 }
 
 .ns__mode-menu {
@@ -423,10 +445,91 @@
   margin-right: 2px;
 }
 
+.ns__effort-wrap {
+  margin-right: 3px;
+}
+
+.ns__effort {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  text-transform: capitalize;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.ns__effort:hover,
+.ns__effort--open {
+  background: color-mix(in srgb, var(--color-surface-raised) 72%, transparent);
+  color: var(--color-text);
+}
+
+.ns__effort > svg:first-child {
+  color: var(--color-text-muted);
+}
+
+.ns__effort-menu {
+  min-width: 132px;
+  max-height: 210px;
+  overflow-y: auto;
+}
+
+.ns__effort-item {
+  min-height: 28px;
+}
+
+.ns__effort-item .ns__menu-label {
+  text-transform: none;
+}
+
 .ns__attach-wrap {
   position: relative;
   display: inline-flex;
   flex-shrink: 0;
+}
+
+/* Context-usage gauge, shown left of the paperclip in the Agent window. */
+.ns__ctx {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  margin-right: 2px;
+  color: var(--color-text-secondary);
+}
+
+.ns__ctx svg {
+  width: 16px;
+  height: 16px;
+  overflow: visible;
+  transform: rotate(-90deg);
+}
+
+.ns__ctx circle {
+  fill: none;
+  stroke-width: 1.5;
+}
+
+.ns__ctx-track {
+  stroke: var(--color-border-strong);
+}
+
+.ns__ctx-fill {
+  stroke: var(--color-accent);
+  stroke-linecap: round;
+  transition: stroke-dasharray var(--dur-base) var(--ease-out);
 }
 
 .ns__attach--open {
@@ -509,6 +612,25 @@
 .ns__model-menu {
   width: 164px;
   min-width: 164px;
+  /* Five complete 26px rows plus half of the sixth, including menu padding. */
+  max-height: 147px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) transparent;
+}
+
+.ns__model-menu::-webkit-scrollbar {
+  width: 4px;
+}
+
+.ns__model-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ns__model-menu::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: var(--color-border-strong);
 }
 
 @keyframes ns-menu {
@@ -879,39 +1001,62 @@
 .ns__block {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  height: 20px;
-  padding: 0 4px 0 7px;
-  border: 1px solid color-mix(in srgb, #1f6feb 55%, transparent);
-  border-radius: 4px;
-  background: color-mix(in srgb, #1f6feb 26%, transparent);
-  color: #a8ccff;
+  gap: 6px;
+  height: 22px;
+  padding: 0 4px 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
   font-size: 11.5px;
   font-weight: 500;
   line-height: 1;
   white-space: nowrap;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.ns__block::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  flex-shrink: 0;
+  border-radius: 2px;
+  background: var(--color-text-muted);
+  opacity: 0.75;
+}
+
+.ns__block:hover {
+  background: var(--color-surface-overlay);
+  color: var(--color-text);
 }
 
 .ns__block-label {
-  letter-spacing: -0.01em;
+  letter-spacing: -0.005em;
 }
 
 .ns__block-remove {
   display: grid;
   place-items: center;
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
   padding: 0;
   border: 0;
-  border-radius: 3px;
+  border-radius: 4px;
   background: transparent;
-  color: inherit;
-  opacity: 0.75;
+  color: var(--color-text-muted);
+  opacity: 0.8;
   cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
 }
 
 .ns__block-remove:hover {
-  background: color-mix(in srgb, #1f6feb 40%, transparent);
+  background: var(--color-bg);
+  color: var(--color-text);
   opacity: 1;
 }
 
@@ -1374,3 +1519,218 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Distinct, glass-like agent modes. */
+.ns__mode--ask {
+  background: color-mix(in srgb, #ff5f92 13%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #ff7aa5 38%, transparent);
+  color: color-mix(in srgb, #ffadc4 82%, var(--color-text));
+}
+.ns__mode--ask:hover {
+  background: color-mix(in srgb, #ff5f92 20%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #ff8bb1 62%, transparent);
+  color: #ffd4e1;
+}
+.ns__mode--readonly {
+  background: color-mix(in srgb, #41c57a 13%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #60d993 36%, transparent);
+  color: color-mix(in srgb, #a8f0bf 82%, var(--color-text));
+}
+.ns__mode--readonly:hover {
+  background: color-mix(in srgb, #41c57a 20%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #7be9a4 58%, transparent);
+  color: #d0f9dc;
+}
+.ns__mode--auto {
+  background: color-mix(in srgb, #7d8cff 13%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #9ba7ff 30%, transparent);
+}
+.ns__mode-item--ask:hover { background: color-mix(in srgb, #ff5f92 15%, var(--color-surface-raised)); color: #ffd4e1; }
+.ns__mode-item--readonly:hover { background: color-mix(in srgb, #41c57a 15%, var(--color-surface-raised)); color: #d0f9dc; }
+.ns__mode-item--auto:hover { background: color-mix(in srgb, #7d8cff 15%, var(--color-surface-raised)); color: #dbe0ff; }
+
+/* Effort is text-only, with a quiet color scale for each depth. */
+.ns__effort { min-width: 52px; padding: 0 7px; box-shadow: inset 0 0 0 1px transparent; }
+.ns__effort--low { background: color-mix(in srgb, #8ea0b7 12%, transparent); color: #b9c5d3; }
+.ns__effort--medium { background: color-mix(in srgb, #6fa8ff 13%, transparent); color: #b9d5ff; box-shadow: inset 0 0 0 1px color-mix(in srgb, #79b0ff 24%, transparent); }
+.ns__effort--high { background: color-mix(in srgb, #9d7cff 14%, transparent); color: #d2c5ff; box-shadow: inset 0 0 0 1px color-mix(in srgb, #ae91ff 27%, transparent); }
+.ns__effort--xhigh { background: color-mix(in srgb, #d878ff 14%, transparent); color: #efc3ff; box-shadow: inset 0 0 0 1px color-mix(in srgb, #e68cff 29%, transparent); }
+.ns__effort--max { background: color-mix(in srgb, #ffad56 15%, transparent); color: #ffd3a0; box-shadow: inset 0 0 0 1px color-mix(in srgb, #ffc073 34%, transparent); }
+.ns__effort--open { filter: brightness(1.12); }
+.ns__effort-item--low:hover { color: #c8d2df; }
+.ns__effort-item--medium:hover { color: #b9d5ff; }
+.ns__effort-item--high:hover { color: #d2c5ff; }
+.ns__effort-item--xhigh:hover { color: #efc3ff; }
+.ns__effort-item--max:hover { color: #ffd3a0; }
+
+/* Refined mode chips: soft color only, no outlines. */
+.ns__mode--auto {
+  background: color-mix(in srgb, var(--color-surface-raised) 78%, transparent);
+  box-shadow: none;
+  color: var(--color-text-secondary);
+}
+.ns__mode--ask,
+.ns__mode--readonly,
+.ns__mode--ask:hover,
+.ns__mode--readonly:hover {
+  box-shadow: none;
+}
+
+/* Effort matches Plan's fully rounded chip silhouette without an outline. */
+.ns__effort,
+.ns__effort--low,
+.ns__effort--medium,
+.ns__effort--high,
+.ns__effort--xhigh,
+.ns__effort--max {
+  border-radius: var(--radius-pill);
+  box-shadow: none;
+}
+
+/* Optical alignment for the compact mode and effort chevrons. */
+.ns__mode > .ns__chevron,
+.ns__effort > .ns__chevron {
+  position: relative;
+  top: 0.5px;
+}
+
+/* Model selector keeps the same quiet surface as the default Agent chip. */
+.ns__chip--ghost:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-surface-raised) 78%, transparent);
+  box-shadow: none;
+  color: var(--color-text-secondary);
+}
+
+/* Compact review shelf for all pending AI edits. */
+.ns__changes{position:relative;display:flex;align-items:center;gap:10px;min-height:26px;padding:0 4px 5px;border-bottom:1px solid color-mix(in srgb,var(--color-border) 45%,transparent);font-size:11px;color:var(--color-text-secondary)}
+.ns__changes-title,.ns__changes-actions button,.ns__change-row button{border:0;background:transparent;color:inherit;cursor:pointer;font:inherit;padding:3px 5px;border-radius:5px}.ns__changes-title span{opacity:.65}.ns__changes-actions{margin-left:auto;display:flex;gap:4px}.ns__changes-actions button:hover,.ns__change-row button:hover{background:var(--color-surface-raised);color:var(--color-text)}.ns__changes-list{position:absolute;z-index:30;left:0;right:0;bottom:100%;margin-bottom:6px;padding:5px;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:8px;box-shadow:0 10px 28px #0005}.ns__change-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 3px}.ns__change-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Changes files: dark icon tile, quiet filled actions, and hairline separators. */
+.ns__changes-list { padding: 0 8px; overflow: hidden; }
+.ns__change-row { min-height: 38px; padding: 6px 0; border-bottom: 1px solid color-mix(in srgb, var(--color-border) 52%, transparent); }
+.ns__change-row:last-child { border-bottom: 0; }
+.ns__change-file { display: flex; align-items: center; min-width: 0; gap: 8px; }
+.ns__change-file img { width: 18px; height: 18px; padding: 3px; box-sizing: content-box; border-radius: 5px; background: color-mix(in srgb, #050505 72%, var(--color-surface)); }
+.ns__change-actions { display: flex; align-items: center; gap: 5px; }
+.ns__change-row .ns__change-actions button { padding: 4px 8px; border: 0; border-radius: 5px; background: color-mix(in srgb, var(--color-surface) 55%, #000); color: var(--color-text-secondary); }
+.ns__change-row .ns__change-actions button:hover { background: color-mix(in srgb, var(--color-surface-raised) 86%, #000); color: var(--color-text); }
+
+/* Cursor-like compact Changes popover: narrow, flat, and unobtrusive. */
+.ns__changes-list { left: auto; right: 4px; width: min(310px, calc(100vw - 28px)); padding: 2px 8px; border-radius: 6px; border-color: color-mix(in srgb, var(--color-border) 72%, transparent); box-shadow: 0 8px 20px rgb(0 0 0 / 28%); background: color-mix(in srgb, var(--color-surface-raised) 94%, #090909); }
+.ns__change-row { min-height: 30px; padding: 3px 0; font-size: 11px; }
+.ns__change-file { gap: 6px; }
+.ns__change-file img { width: 14px; height: 14px; padding: 0; border-radius: 0; background: transparent; }
+.ns__change-row .ns__change-actions { gap: 2px; }
+.ns__change-row .ns__change-actions button { padding: 3px 6px; border-radius: 4px; background: transparent; font-size: 10px; }
+.ns__change-row .ns__change-actions button:hover { background: color-mix(in srgb, var(--color-surface) 82%, #000); }
+
+/* Changes uses the same small popover language as the Agent / Plan / Ask menu. */
+.ns__changes-list {
+  width: min(180px, calc(100vw - 28px));
+  margin-bottom: 4px;
+  padding: 2px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: var(--color-surface);
+  box-shadow: none;
+  animation: ns-menu var(--dur-fast) var(--ease-out);
+  transform-origin: bottom right;
+}
+.ns__change-row { min-height: 26px; padding: 2px 6px; border-bottom: 0; border-radius: 5px; }
+.ns__change-row:hover { background: var(--color-surface-raised); }
+.ns__change-file { gap: var(--space-2); }
+.ns__change-file img { width: 13px; height: 13px; }
+.ns__change-row .ns__change-actions button { padding: 3px 4px; color: var(--color-text-secondary); }
+.ns__change-row .ns__change-actions button:hover { background: transparent; color: var(--color-text); }
+
+/* Keep the Changes bar in its original place, but give it the compact Agent/Plan/Ask surface. */
+.ns__changes {
+  min-height: 28px;
+  margin: 0 4px 5px;
+  padding: 2px 5px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+.ns__changes-title {
+  min-height: 24px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  color: var(--color-text);
+}
+.ns__changes-title:hover { background: var(--color-surface-raised); }
+.ns__changes-actions { gap: 2px; }
+.ns__changes-actions button {
+  min-height: 24px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  color: var(--color-text-secondary);
+}
+.ns__changes-actions button:hover { background: var(--color-surface-raised); color: var(--color-text); }
+
+/* Tuck Changes closer to the composer and give the compact bar a precise outline. */
+.ns__changes {
+  margin: 0 4px 2px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
+}
+
+/* Final optical nudge: align Changes closer to the composer field. */
+.ns__changes { position: relative; top: 5px; margin-bottom: -3px; z-index: 1; }
+
+/* Slightly lower placement and readable, consistent file rows with line stats. */
+.ns__changes { top: 8px; margin-bottom: -6px; }
+.ns__change-row { font-size: var(--text-xs); }
+.ns__change-file img { width: 16px; height: 16px; }
+.ns__change-stats { display: inline-flex; gap: 5px; margin-left: 2px; font-size: 10px; font-weight: 500; }
+.ns__change-stats b { font-weight: 500; }
+.ns__change-minus { color: #ed6a6a; }
+.ns__change-plus { color: #71c98c; }
+
+/* The file list now spans exactly the same width as the Changes bar. */
+.ns__changes-list { left: 0; right: 0; width: auto; transform-origin: bottom left; }
+
+/* Changes actions match the inline review controls; file list opens the selected file. */
+.ns__changes-list { max-height: 132px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--color-border-strong) transparent; }
+.ns__changes-list::-webkit-scrollbar { width: 4px; }
+.ns__changes-list::-webkit-scrollbar-track { background: transparent; }
+.ns__changes-list::-webkit-scrollbar-thumb { border-radius: 999px; background: var(--color-border-strong); }
+.ns__change-file { cursor: pointer; flex: 1; min-width: 0; border-radius: 4px; }
+.ns__change-file:hover { color: var(--color-text); }
+.ns__change-file:focus-visible { outline: 1px solid var(--color-border-strong); outline-offset: 2px; }
+.ns__change-row .ns__change-actions { gap: 3px; }
+.ns__change-row .ns__change-actions button { min-height: 24px; padding: 3px 6px; border-radius: 4px; background: color-mix(in srgb, var(--color-surface-raised) 84%, #000); color: #d8d8d8; }
+.ns__change-row .ns__change-actions button:last-child { background: color-mix(in srgb, #3fa66d 34%, var(--color-surface-raised)); color: #a9edbf; }
+.ns__change-row .ns__change-actions button:first-child:hover { background: color-mix(in srgb, #777 35%, var(--color-surface-raised)); color: #fff; }
+.ns__change-row .ns__change-actions button:last-child:hover { background: color-mix(in srgb, #4cbc7c 48%, var(--color-surface-raised)); color: #e3ffeb; }
+
+/* Minimal review controls: text-first, color only on hover. */
+.ns__change-row .ns__change-actions button,
+.ns__change-row .ns__change-actions button:last-child {
+  min-height: 20px;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+.ns__change-row .ns__change-actions button:first-child:hover { background: color-mix(in srgb, var(--color-surface-raised) 85%, transparent); color: var(--color-text); }
+.ns__change-row .ns__change-actions button:last-child:hover { background: color-mix(in srgb, #3fa66d 17%, transparent); color: #9fe6b5; }
+
+/* Minimal Changes header actions: red Undo hover, green Keep hover, no outline. */
+.ns__changes-actions button,
+.ns__changes-actions button:hover {
+  border: 0;
+  box-shadow: none;
+}
+.ns__changes-actions button:first-child:hover {
+  background: color-mix(in srgb, #d9534f 30%, transparent);
+  color: #ffb3ae;
+}
+.ns__changes-actions button:last-child:hover {
+  background: color-mix(in srgb, #3fa66d 30%, transparent);
+  color: #b5f3c7;
+}
+
+/* Fine optical alignment for the Effort selector chevron. */
+.ns__effort > .ns__chevron { top: 0.7px; }

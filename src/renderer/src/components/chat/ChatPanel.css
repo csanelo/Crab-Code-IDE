@@ -179,14 +179,20 @@
 
 .chat--agent .chat__composer-wrap,
 .chat--agent .chat__composer-wrap--empty {
-  padding-left: 44px;
-  padding-right: 44px;
+  padding-left: 72px;
+  padding-right: 72px;
+}
+
+/* Messages share the composer's gutters so both edges line up in the Agent window. */
+.chat--agent .chat__messages {
+  padding-left: 72px;
+  padding-right: 72px;
 }
 
 .chat__greeting {
   flex-shrink: 0;
   margin-top: -28px;
-  padding: 0 44px 26px;
+  padding: 0 72px 26px;
   color: var(--color-text);
   font-family: var(--font-sans);
   font-size: 30px;
@@ -265,6 +271,34 @@
   animation: msg-reveal 240ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.message__text--streaming .md > .md__p:last-child::after,
+.message__text--streaming .md > .md__h:last-child::after,
+.message__text--streaming .md > .md__ul:last-child > li:last-child::after,
+.message__text--streaming .md > .md__ol:last-child > li:last-child::after,
+.message__text--streaming .md > .md__quote:last-child > p:last-child::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--color-text-secondary);
+  vertical-align: 0.08em;
+  animation: message-stream-dot 1s ease-in-out infinite;
+}
+
+@keyframes message-stream-dot {
+  0%,
+  100% {
+    opacity: 0.28;
+    transform: scale(0.72);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 @keyframes msg-reveal {
   from {
     opacity: 0;
@@ -279,7 +313,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .message__text--reveal {
+  .message__text--reveal,
+  .message__text--streaming .md > .md__p:last-child::after,
+  .message__text--streaming .md > .md__h:last-child::after,
+  .message__text--streaming .md > .md__ul:last-child > li:last-child::after,
+  .message__text--streaming .md > .md__ol:last-child > li:last-child::after,
+  .message__text--streaming .md > .md__quote:last-child > p:last-child::after {
     animation: none;
     filter: none;
     transform: none;

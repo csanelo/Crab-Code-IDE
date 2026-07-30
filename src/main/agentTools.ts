@@ -20,6 +20,9 @@ import {
   ensureRemote,
   remoteSftp,
   remoteExec,
+  upsertRemoteHost,
+  connectRemoteHost,
+  listRemoteHosts,
 } from "./remote";
 import { searchProjectIndex } from "./projectIndex";
 import {
@@ -45,6 +48,7 @@ export interface ToolMeta {
   removed: number;
   diff: string;
   before: string;
+  after: string;
   existed: boolean;
 }
 
@@ -148,7 +152,7 @@ export const TOOL_DEFS: ToolDef[] = [
   {
     name: "search",
     description:
-      "Search the project index for files, symbols, imports and text content. Returns ranked matches with line numbers.",
+      "Search file names and text with exact line numbers plus nearby Read context. Use this to locate a symbol/string before read_file or edit_file.",
     parameters: {
       type: "object",
       properties: {
@@ -156,6 +160,9 @@ export const TOOL_DEFS: ToolDef[] = [
           type: "string",
           description: "Case-insensitive substring to search for.",
         },
+        path: { type: "string", description: "Optional project-relative file or folder to narrow the search." },
+        context_lines: { type: "number", description: "Context lines before/after each hit (default 2, max 8)." },
+        max_results: { type: "number", description: "Maximum matching locations (default 30, max 80)." },
       },
       required: ["query"],
     },
@@ -173,6 +180,18 @@ export const TOOL_DEFS: ToolDef[] = [
         },
       },
       required: ["command"],
+    },
+  },
+  {
+    name: "report_progress",
+    description:
+      "Publish one short, user-visible progress label before a meaningful investigation or implementation step. This is NOT private reasoning: write only a concise action summary such as 'Inspecting the authentication flow' or 'Comparing the changed files'. Do not include hidden chain-of-thought, secrets, or long explanations.",
+    parameters: {
+      type: "object",
+      properties: {
+        summary: { type: "string", description: "Short public label (3-10 words) for the next step." },
+      },
+      required: ["summary"],
     },
   },
   {
@@ -199,7 +218,7 @@ export const TOOL_DEFS: ToolDef[] = [
   {
     name: "web_search",
     description:
-      "Search the public web and return top results. Use ONLY when the current user message explicitly asks to search, browse, Google, or check something online. Never use proactively, for verification, or merely because current information could help.",
+      "Search the public web and return top results. Use when Web is enabled and the task needs online research, current information, documentation, or a resource that is not available locally. Keep searches focused.",
     parameters: {
       type: "object",
       properties: {
@@ -211,7 +230,7 @@ export const TOOL_DEFS: ToolDef[] = [
   {
     name: "fetch_url",
     description:
-      "Fetch a web page and return readable text. Use ONLY when the current user message explicitly asks to open/read an online page or explicitly requests web research.",
+      "Fetch a web page and return readable text. Use when Web is enabled and reading a specific online page, repository file, documentation page, or search result helps complete the task.",
     parameters: {
       type: "object",
       properties: {
@@ -528,7 +547,10 @@ export const TOOL_DEFS: ToolDef[] = [
       "Connect (register) an MCP server for the user from chat. Use when the user asks to add/connect " +
       'an MCP server. Two transports: "stdio" (a local command, e.g. npx a package) or "http"/"sse" ' +
       "(a remote endpoint URL). Provide a short name. For stdio set command (+ optional args/env); for " +
-      "http/sse set url (+ optional headers). The server is saved and enabled.",
+      "http/sse set url (+ optional headers). The server is saved and enabled. " +
+      'You may instead pass the raw line the user pasted as "spec" (a URL or a full command like ' +
+      '"npx -y @scope/pkg") and the transport, command, args and name are derived from it. ' +
+      "Never ask the user to add the server manually in Settings — just call this tool.",
     parameters: {
       type: "object",
       properties: {
@@ -560,8 +582,61 @@ export const TOOL_DEFS: ToolDef[] = [
           type: "object",
           description: "http/sse: request headers (e.g. Authorization).",
         },
+        spec: {
+          type: "string",
+          description:
+            "Raw pasted line to parse: an endpoint URL or a launch command. " +
+            "Use this when the user just pasted a link or command.",
+        },
       },
-      required: ["name", "transport"],
+      required: [],
+    },
+  },
+  {
+    name: "list_ssh_hosts",
+    description:
+      "List the saved SSH hosts (label, user@host:port, remote root). Use before connecting to check " +
+      "whether the host already exists.",
+    parameters: { type: "object", properties: {} },
+  },
+  {
+    name: "ssh_connect",
+    description:
+      "Save an SSH host and connect to it immediately, so remote files and terminals work. Use when " +
+      'the user asks to connect over SSH and gives the details (e.g. "ssh root@1.2.3.4 password X"). ' +
+      'Pass the pasted line as "target" (supports user@host, user@host:port and ssh://user@host:port/path) ' +
+      "or fill host/username/port separately. Authentication needs either password or keyPath. " +
+      "Never tell the user to add the host manually in Settings — just call this tool.",
+    parameters: {
+      type: "object",
+      properties: {
+        target: {
+          type: "string",
+          description:
+            'Connection string, e.g. "root@203.0.113.7:2222" or "ssh://user@host/srv/app".',
+        },
+        host: { type: "string", description: "Hostname or IP address." },
+        username: { type: "string", description: "SSH user name." },
+        port: { type: "number", description: "SSH port (default 22)." },
+        password: {
+          type: "string",
+          description: "Password auth: the user's SSH password.",
+        },
+        keyPath: {
+          type: "string",
+          description: "Key auth: absolute path to the private key file.",
+        },
+        passphrase: {
+          type: "string",
+          description: "Key auth: passphrase for the private key, if any.",
+        },
+        remoteRoot: {
+          type: "string",
+          description: "Directory to open on the host (default the login directory).",
+        },
+        label: { type: "string", description: "Optional display name." },
+      },
+      required: [],
     },
   },
   {
@@ -569,7 +644,8 @@ export const TOOL_DEFS: ToolDef[] = [
     description:
       "Connect the user's GitHub account using a Personal Access Token (PAT) they paste in chat. " +
       'Use when the user asks to "connect GitHub" and provides a token (ghp_... or github_pat_...). ' +
-      "Validates and securely stores the token. After this, commits/pushes work.",
+      "Validates and securely stores the token. After this, commits/pushes work. Call it as soon as a " +
+      "token appears in the chat — never tell the user to paste it into Settings themselves.",
     parameters: {
       type: "object",
       properties: {
@@ -610,6 +686,63 @@ export const TOOL_DEFS: ToolDef[] = [
   },
 ];
 
+/**
+ * Turns a raw line the user pasted into MCP server fields. Accepts an endpoint
+ * URL or a launch command, so the agent can connect a server without the user
+ * spelling out transport/command/args by hand.
+ */
+function deriveMcpSpec(spec: string): {
+  transport: "stdio" | "http" | "sse" | "";
+  command: string;
+  args: string[];
+  url: string;
+  name: string;
+} {
+  const empty = {
+    transport: "" as const,
+    command: "",
+    args: [] as string[],
+    url: "",
+    name: "",
+  };
+  const line = spec.trim();
+  if (!line) return empty;
+
+  if (/^https?:\/\//i.test(line)) {
+    let name = "";
+    try {
+      const parsed = new URL(line);
+      // Prefer a meaningful path segment (".../github/mcp") over the bare host.
+      const segment = parsed.pathname
+        .split("/")
+        .filter((part) => part && !/^(mcp|sse|v\d+|api)$/i.test(part))
+        .pop();
+      name = segment ?? parsed.hostname.split(".")[0] ?? "";
+    } catch {
+      name = "";
+    }
+    return {
+      transport: /\bsse\b/i.test(line) ? "sse" : "http",
+      command: "",
+      args: [],
+      url: line,
+      name,
+    };
+  }
+
+  // Split on whitespace while keeping quoted arguments in one piece.
+  const parts = (line.match(/"[^"]*"|'[^']*'|\S+/g) ?? []).map((part) =>
+    part.replace(/^["']|["']$/g, ""),
+  );
+  if (parts.length === 0) return empty;
+  const command = parts[0];
+  const args = parts.slice(1);
+  // Name after the package: "npx -y @modelcontextprotocol/server-git" -> "server-git".
+  const pkg = args.find((arg) => !arg.startsWith("-")) ?? command;
+  const name = pkg.split("/").pop()?.replace(/^@/, "") ?? command;
+  return { transport: "stdio", command, args, url: "", name };
+}
+
 const IGNORED = new Set([
   "node_modules",
   ".git",
@@ -640,6 +773,28 @@ function withLineNumbers(content: string): string {
   return lines
     .map((l, i) => `${String(i + 1).padStart(width, " ")}  ${l}`)
     .join("\n");
+}
+
+// Agents receive numbered file reads for orientation. If they copy those lines
+// into old_str, accept the intended source text instead of failing the edit.
+function friendlyFileToolError(name: string, input: Record<string, unknown>, err: unknown): string {
+  const code = err && typeof err === "object" && "code" in err ? String((err as { code?: unknown }).code ?? "") : "";
+  const path = String(input.path ?? input.from ?? "the requested path");
+  if (code === "ENOENT") {
+    if (name === "read_file") return `Retry: ${path} does not exist. Do NOT invent a path or report a raw filesystem error. First use list_dir or search to find the real filename, then read that file.`;
+    if (name === "edit_file") return `Retry: ${path} does not exist. Do NOT use edit_file on a missing file. Use list_dir/search to verify its name; use write_file only if the user actually requested a new file.`;
+    if (name === "write_file" || name === "create_dir") return `Retry: could not create ${path}. Re-check the parent path with list_dir, then retry with a valid project-relative path.`;
+    return `Retry: ${path} was not found. Verify the path with list_dir or search before retrying.`;
+  }
+  if (code === "EACCES" || code === "EPERM") return `Retry: permission was denied for ${path}. Stay inside the open project and choose a writable path.`;
+  return `Retry: ${name} could not complete for ${path}. Re-check the path and current file state, then retry.`;
+}
+
+function stripCopiedLineNumbers(text: string): string {
+  const lines = text.split("\n");
+  const numbered = lines.filter((line) => /^\s*\d+\s{2}/.test(line));
+  if (numbered.length === 0) return text;
+  return lines.map((line) => line.replace(/^\s*\d+\s{2}/, "")).join("\n");
 }
 
 export async function runTool(
@@ -715,15 +870,15 @@ export async function runTool(
       case "edit_file": {
         const abs = safe(base, String(input.path), fullAccess);
         const rel = String(input.path);
-        const oldStr = String(input.old_str ?? "");
+        const oldStr = stripCopiedLineNumbers(String(input.old_str ?? ""));
         const newStr = String(input.new_str ?? "");
         const content = await fs.readFile(abs, "utf8");
         const count = content.split(oldStr).length - 1;
-        if (oldStr === "") return { text: "Error: old_str must not be empty." };
-        if (count === 0) return { text: `Error: old_str not found in ${rel}.` };
+        if (oldStr === "") return { text: "Retry: old_str was empty. Read the file and retry with the exact target text." };
+        if (count === 0) return { text: `Retry: target text was not found in ${rel}. Read the latest file contents, then retry the edit.` };
         if (count > 1) {
           return {
-            text: `Error: old_str appears ${count} times in ${rel}; make it unique.`,
+            text: `Retry: target text appears ${count} times in ${rel}. Read the file and include more surrounding lines so the edit is unique.`,
           };
         }
         const next = content.replace(oldStr, newStr);
@@ -762,19 +917,27 @@ export async function runTool(
       }
 
       case "search": {
-        const q = String(input.query ?? "").toLowerCase();
+        const q = String(input.query ?? "").trim();
         if (!q) return { text: "Error: empty query." };
-        const indexedHits = await searchProjectIndex(base, q);
-        const hits = indexedHits.length
-          ? indexedHits
-          : await searchProject(base, q);
-        return { text: hits.length ? hits.join("\n") : "No matches." };
+        const requestedPath = String(input.path ?? ".").trim() || ".";
+        const scope = safe(base, requestedPath, fullAccess);
+        const contextLines = Math.max(0, Math.min(8, Number(input.context_lines ?? 2) | 0));
+        const maxResults = Math.max(1, Math.min(80, Number(input.max_results ?? 30) | 0));
+        const hits = await searchProjectContext(base, scope, q, contextLines, maxResults);
+        if (hits.length) return { text: hits.join("\n\n") };
+        const indexedHits = await searchProjectIndex(base, q.toLowerCase());
+        return { text: indexedHits.length ? indexedHits.join("\n") : "No matches. Try a shorter term or list_dir to verify the path." };
       }
 
       case "run_command": {
         const command = String(input.command ?? "");
         if (!command.trim()) return { text: "Error: empty command." };
         return { text: await runCommand(base, command) };
+      }
+
+      case "report_progress": {
+        const summary = String(input.summary ?? "").trim().slice(0, 160);
+        return { text: summary || "Working on the next step." };
       }
 
       case "propose_command": {
@@ -937,7 +1100,7 @@ export async function runTool(
         if (!res.ok)
           return { text: `Error: ${res.error ?? "could not capture page"}` };
         const where = `${res.url ?? "the page"}${res.title ? ` — ${res.title}` : ""}`;
-        if (activeModelHasVision()) {
+        if (await activeModelHasVision()) {
           return {
             text: `Screenshot of ${where}. Look at the image to judge the layout and visual style.`,
             image: res.data
@@ -952,10 +1115,7 @@ export async function runTool(
           };
         }
         return {
-          text: `Screenshot of ${where}. (No vision model is connected to describe it; rely on browser_read for the page structure.)`,
-          image: res.data
-            ? { mimeType: "image/png", dataUrl: res.data }
-            : undefined,
+          text: `Screenshot of ${where} was captured, but the active model accepts text only and no vision model is connected. Use browser_read for page structure instead.`,
         };
       }
 
@@ -963,9 +1123,24 @@ export async function runTool(
         if (!fullAccess)
           return { text: "Error: computer_screenshot requires High access level." };
         const dataUrl = await computerScreenshot();
+        if (await activeModelHasVision()) {
+          return {
+            text: "Desktop screenshot captured. Inspect it before choosing a computer_click action.",
+            image: { mimeType: "image/png", dataUrl },
+          };
+        }
+        const description = await describeImage(dataUrl);
+        if (description) {
+          return {
+            text:
+              "Desktop screenshot captured. Visual description from the connected vision model:\n\n" +
+              description,
+          };
+        }
         return {
-          text: "Desktop screenshot captured. Inspect it before choosing a computer_click action.",
-          image: { mimeType: "image/png", dataUrl },
+          text:
+            "Desktop screenshot captured, but the active model accepts text only and no vision model is connected. " +
+            "Use computer_list_windows, focus a known window, and prefer keyboard shortcuts until a vision-capable model is available.",
         };
       }
 
@@ -1057,15 +1232,21 @@ export async function runTool(
       }
 
       case "add_mcp_server": {
-        const name = String(input.name ?? "").trim();
-        const transport = String(input.transport ?? "stdio") as
-          "stdio" | "http" | "sse";
-        if (!name) return { text: "Error: provide a server name." };
+        const derived = deriveMcpSpec(String(input.spec ?? ""));
+        const explicitUrl = String(input.url ?? "").trim();
+        const transport = (String(input.transport ?? "").trim() ||
+          derived.transport ||
+          (explicitUrl ? "http" : "stdio")) as "stdio" | "http" | "sse";
+        const name =
+          String(input.name ?? "").trim() || derived.name || "mcp-server";
         if (transport === "stdio") {
-          const command = String(input.command ?? "").trim();
+          const command = String(input.command ?? "").trim() || derived.command;
           if (!command)
             return { text: 'Error: stdio transport requires a "command".' };
-          const args = Array.isArray(input.args) ? input.args.map(String) : [];
+          const args =
+            Array.isArray(input.args) && input.args.length > 0
+              ? input.args.map(String)
+              : derived.args;
           const env =
             input.env && typeof input.env === "object"
               ? (input.env as Record<string, string>)
@@ -1083,7 +1264,7 @@ export async function runTool(
             mutated: true,
           };
         } else {
-          const url = String(input.url ?? "").trim();
+          const url = explicitUrl || derived.url;
           if (!url)
             return { text: `Error: ${transport} transport requires a "url".` };
           const headers =
@@ -1102,6 +1283,82 @@ export async function runTool(
             mutated: true,
           };
         }
+      }
+
+      case "list_ssh_hosts": {
+        const hosts = listRemoteHosts();
+        if (hosts.length === 0)
+          return { text: "No SSH hosts are saved yet." };
+        const lines = hosts.map(
+          (h) =>
+            `- ${h.label} — ${h.username}@${h.host}:${h.port} (root ${h.remoteRoot}, ${h.authType})`,
+        );
+        return { text: `SSH hosts (${hosts.length}):\n${lines.join("\n")}` };
+      }
+
+      case "ssh_connect": {
+        let host = String(input.host ?? "").trim();
+        let username = String(input.username ?? "").trim();
+        let port = Number(input.port ?? 0) || 0;
+        let remoteRoot = String(input.remoteRoot ?? "").trim();
+
+        // Accept a pasted connection string: ssh://user@host:port/path,
+        // user@host:port, or a bare host.
+        const target = String(input.target ?? "")
+          .trim()
+          .replace(/^ssh\s+/i, "")
+          .replace(/^ssh:\/\//i, "");
+        if (target) {
+          const slash = target.indexOf("/");
+          const authority = slash < 0 ? target : target.slice(0, slash);
+          if (slash >= 0 && !remoteRoot) remoteRoot = target.slice(slash);
+          const at = authority.lastIndexOf("@");
+          const hostPart = at < 0 ? authority : authority.slice(at + 1);
+          if (at > 0 && !username) username = authority.slice(0, at);
+          const colon = hostPart.lastIndexOf(":");
+          if (colon > 0 && /^\d+$/.test(hostPart.slice(colon + 1))) {
+            if (!port) port = Number(hostPart.slice(colon + 1));
+            if (!host) host = hostPart.slice(0, colon);
+          } else if (!host) {
+            host = hostPart;
+          }
+        }
+
+        if (!host)
+          return {
+            text: "Error: no host given. Ask the user for host and user (e.g. root@203.0.113.7).",
+          };
+
+        const password = String(input.password ?? "");
+        const keyPath = String(input.keyPath ?? "").trim();
+        if (!password && !keyPath)
+          return {
+            text:
+              `Error: no credentials for ${host}. Ask the user for the SSH password ` +
+              "or the path to their private key, then call ssh_connect again.",
+          };
+
+        const { id } = upsertRemoteHost({
+          label: String(input.label ?? "").trim() || host,
+          host,
+          port: port || 22,
+          username: username || "root",
+          authType: keyPath ? "key" : "password",
+          keyPath: keyPath || undefined,
+          password: password || undefined,
+          passphrase: String(input.passphrase ?? "") || undefined,
+          remoteRoot: remoteRoot || ".",
+        });
+
+        const res = await connectRemoteHost(id);
+        if (res.error)
+          return { text: `SSH connection to ${host} failed: ${res.error}` };
+        return {
+          text:
+            `Connected over SSH to ${username || "root"}@${host}:${port || 22}. ` +
+            `Remote root: ${res.rootPath ?? "(unknown)"}. Remote files and terminals are ready.`,
+          mutated: true,
+        };
       }
 
       case "github_connect": {
@@ -1201,9 +1458,9 @@ export async function runTool(
         return { text: `Error: unknown tool "${name}".` };
     }
   } catch (err) {
-    return {
-      text: `Error: ${err instanceof Error ? err.message : String(err)}`,
-    };
+    // Never expose raw ENOENT/EPERM stack text to the agent: a structured Retry
+    // makes it verify paths and prevents read/create/edit loops on wrong names.
+    return { text: friendlyFileToolError(name, input, err) };
   }
 }
 
@@ -1256,11 +1513,18 @@ async function runRemoteTool(
       case "edit_file": {
         const abs = resolveRemote(String(input.path));
         const rel = String(input.path);
-        const oldStr = String(input.old_str ?? "");
+        const oldStr = stripCopiedLineNumbers(String(input.old_str ?? ""));
         const newStr = String(input.new_str ?? "");
         const content = await remoteSftp.readFile(conn.sftp, abs);
-        if (!content.includes(oldStr)) {
-          return { text: `Error: old_str not found in ${rel}.` };
+        if (oldStr === "") {
+          return { text: "Retry: old_str was empty. Read the file and retry with the exact target text." };
+        }
+        const count = content.split(oldStr).length - 1;
+        if (count === 0) {
+          return { text: `Retry: target text was not found in ${rel}. Read the latest file contents, then retry the edit.` };
+        }
+        if (count > 1) {
+          return { text: `Retry: target text appears ${count} times in ${rel}. Read the file and include more surrounding lines so the edit is unique.` };
         }
         const next = content.replace(oldStr, newStr);
         await remoteSftp.writeFile(conn.sftp, abs, next);
@@ -1349,6 +1613,7 @@ function buildDiff(
       removed: a.length,
       diff: [...a.map((l) => `-${l}`), ...b.map((l) => `+${l}`)].join("\n"),
       before,
+      after,
       existed,
     };
   }
@@ -1398,53 +1663,58 @@ function buildDiff(
 
   let diff = lines.join("\n");
   if (diff.length > 8000) diff = diff.slice(0, 8000) + "\n…";
-  return { path, added, removed, diff, before, existed };
+  return { path, added, removed, diff, before, after, existed };
 }
 
-async function searchProject(root: string, q: string): Promise<string[]> {
+async function searchProjectContext(
+  root: string,
+  scope: string,
+  query: string,
+  contextLines: number,
+  maxResults: number,
+): Promise<string[]> {
   const out: string[] = [];
   let scanned = 0;
-  const MAX = 4000;
+  const needle = query.toLowerCase();
+  const MAX_FILES = 4000;
+
+  async function inspectFile(full: string): Promise<void> {
+    if (out.length >= maxResults) return;
+    try {
+      const stat = await fs.stat(full);
+      if (!stat.isFile() || stat.size > 500_000) return;
+      const lines = (await fs.readFile(full, "utf8")).split("\n");
+      const rel = relative(root, full);
+      for (let index = 0; index < lines.length && out.length < maxResults; index++) {
+        if (!lines[index].toLowerCase().includes(needle)) continue;
+        const from = Math.max(0, index - contextLines);
+        const to = Math.min(lines.length, index + contextLines + 1);
+        const excerpt = lines.slice(from, to).map((line, offset) => {
+          const lineNo = from + offset + 1;
+          return `${lineNo === index + 1 ? ">" : " "} ${String(lineNo).padStart(5)} | ${line}`;
+        }).join("\n");
+        out.push(`${rel}:${index + 1}\n${excerpt}`);
+      }
+    } catch { /* unreadable/binary files are skipped */ }
+  }
 
   async function walk(dir: string, depth: number): Promise<void> {
-    if (out.length >= 50 || scanned >= MAX || depth > 12) return;
+    if (out.length >= maxResults || scanned >= MAX_FILES || depth > 12) return;
     let entries: import("node:fs").Dirent[] = [];
-    try {
-      entries = await fs.readdir(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of entries) {
-      if (out.length >= 50 || scanned >= MAX) return;
-      if (IGNORED.has(e.name) || (e.name.startsWith(".") && e.isDirectory()))
-        continue;
-      scanned++;
-      const full = join(dir, e.name);
-      const rel = relative(root, full);
-      if (e.isDirectory()) {
-        await walk(full, depth + 1);
-      } else {
-        if (e.name.toLowerCase().includes(q)) {
-          out.push(`${rel} (filename match)`);
-          continue;
-        }
-        try {
-          const stat = await fs.stat(full);
-          if (stat.size > 500_000) continue;
-          const content = await fs.readFile(full, "utf8");
-          const idx = content.toLowerCase().indexOf(q);
-          if (idx >= 0) {
-            const lineNo = content.slice(0, idx).split("\n").length;
-            const line =
-              content.split("\n")[lineNo - 1]?.trim().slice(0, 120) ?? "";
-            out.push(`${rel}:${lineNo}: ${line}`);
-          }
-        } catch {}
-      }
+    try { entries = await fs.readdir(dir, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      if (out.length >= maxResults || scanned >= MAX_FILES) return;
+      if (IGNORED.has(entry.name) || (entry.name.startsWith(".") && entry.isDirectory())) continue;
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) await walk(full, depth + 1);
+      else { scanned++; await inspectFile(full); }
     }
   }
 
-  await walk(root, 0);
+  const stat = await fs.stat(scope).catch(() => null);
+  if (!stat) return out;
+  if (stat.isDirectory()) await walk(scope, 0);
+  else await inspectFile(scope);
   return out;
 }
 
