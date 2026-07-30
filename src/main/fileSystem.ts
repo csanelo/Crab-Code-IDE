@@ -644,6 +644,7 @@ export function registerFileSystem(win: BrowserWindow): void {
       if (!root || !query) return { results: [] as SearchFileResult[], truncated: false }
       const re = buildSearchRegex(query, payload)
       if (!re) return { results: [] as SearchFileResult[], truncated: false, error: 'Invalid pattern' }
+      const searchRegex: RegExp = re
 
       const includeRes = (payload.include ?? '')
         .split(',')
@@ -700,9 +701,9 @@ export function registerFileSystem(win: BrowserWindow): void {
           const fileMatches: SearchMatch[] = []
           for (let i = 0; i < lines.length; i++) {
             const line = lines[i]
-            re.lastIndex = 0
+            searchRegex.lastIndex = 0
             let m: RegExpExecArray | null
-            while ((m = re.exec(line)) !== null) {
+            while ((m = searchRegex.exec(line)) !== null) {
               fileMatches.push({
                 line: i + 1,
                 column: m.index + 1,
@@ -710,7 +711,7 @@ export function registerFileSystem(win: BrowserWindow): void {
                 preview: line.length > 400 ? line.slice(0, 400) : line
               })
               total++
-              if (m.index === re.lastIndex) re.lastIndex++
+              if (m.index === searchRegex.lastIndex) searchRegex.lastIndex++
               if (total >= maxResults) {
                 truncated = true
                 break
@@ -745,7 +746,9 @@ export function registerFileSystem(win: BrowserWindow): void {
       if (!re) return { ok: false, error: 'Invalid pattern' }
       try {
         const content = await readFile(payload.path, 'utf8')
-        const next = content.replace(re, payload.regex ? payload.replacement : () => payload.replacement)
+        const next = payload.regex
+          ? content.replace(re, payload.replacement)
+          : content.replace(re, () => payload.replacement)
         if (next === content) return { ok: true, changed: 0 }
         await writeFile(payload.path, next, 'utf8')
         return { ok: true }

@@ -81,7 +81,7 @@ export function registerTerminal(win: BrowserWindow): void {
         if (!target.isDestroyed()) target.send(channel, ...args);
       };
       const existing = sessions.get(payload.id);
-      if (existing) return { pid: existing.proc.pid, reused: true };
+      if (existing) return { pid: existing.proc?.pid ?? -1, reused: true };
       const { file, args } = shellCommand();
       let proc: IPty;
       try {

@@ -68,7 +68,8 @@ async function transcribeWith(
   language?: string
 ): Promise<{ ok: true; text: string } | { ok: false; status: number; error: string }> {
   const form = new FormData()
-  form.append('file', new Blob([bytes], { type: mimeType }), `audio.${ext}`)
+  const audioBytes = Uint8Array.from(bytes)
+  form.append('file', new Blob([audioBytes], { type: mimeType }), `audio.${ext}`)
   form.append('model', model)
   const lang = (language ?? '').slice(0, 2).toLowerCase()
   if (lang && lang !== 'auto') form.append('language', lang)

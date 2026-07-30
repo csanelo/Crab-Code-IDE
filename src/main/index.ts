@@ -563,7 +563,7 @@ function createWindow(): BrowserWindow {
 
   win.webContents.session.setPermissionRequestHandler(
     (_wc, permission, callback) => {
-      if (permission === "media" || permission === "audioCapture") {
+      if (permission === "media") {
         callback(true);
         return;
       }

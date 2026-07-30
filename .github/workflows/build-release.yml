@@ -19,7 +19,7 @@ jobs:
   build:
     name: Build ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -55,15 +55,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Set up Node.js 26.5.0
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 26.5.0
           cache: npm
           cache-dependency-path: package-lock.json
 
       - name: Install exact dependencies
-        run: npm ci --include=dev
+        run: npm ci --include=dev --no-audit --no-fund
 
       - name: Type-check
         run: npm run typecheck

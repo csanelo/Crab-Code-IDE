@@ -26,7 +26,8 @@ const store = new Store<{ remote: StoredState }>({
   defaults: { remote: { hosts: [] } }
 })
 
-let cached: StoredState = { hosts: [], ...store.get('remote') }
+const storedRemote = store.get('remote')
+let cached: StoredState = { hosts: storedRemote.hosts ?? [] }
 
 function persist(): void {
   store.set('remote', cached)

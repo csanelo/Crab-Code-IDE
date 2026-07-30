@@ -1,8 +1,20 @@
-import { contextBridge, ipcRenderer, webUtils } from "electron";
+import {
+  contextBridge,
+  ipcRenderer,
+  webUtils,
+  type IpcRendererEvent,
+} from "electron";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
+}
+
+interface BrowserCommandPayload {
+  kind: "navigate" | "capture";
+  url?: string;
+  captureKind?: "text" | "screenshot";
+  requestId?: string;
 }
 
 const api = {
@@ -278,14 +290,12 @@ const api = {
   },
   browser: {
     onCommand: (
-      cb: (payload: {
-        kind: "navigate" | "capture";
-        url?: string;
-        captureKind?: "text" | "screenshot";
-        requestId?: string;
-      }) => void,
+      cb: (payload: BrowserCommandPayload) => void,
     ) => {
-      const listener = (_e: unknown, payload: never): void => cb(payload);
+      const listener = (
+        _e: IpcRendererEvent,
+        payload: BrowserCommandPayload,
+      ): void => cb(payload);
       ipcRenderer.on("browser:command", listener);
       return () => {
         ipcRenderer.removeListener("browser:command", listener);

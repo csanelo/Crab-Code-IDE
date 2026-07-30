@@ -1,103 +1,215 @@
-# CrabCode
-<p align="center">
-  <video src="https://github.com/csanelo/Crab-Code-IDE/raw/main/media/crab.mp4" controls width="720"></video>
+<div align="center">
+  <a href="https://github.com/csanelo/Crab-Code-IDE">
+    <img src="build/icon.png" width="104" height="104" alt="CrabCode" />
+  </a>
+
+  <h1>CrabCode</h1>
+
+  <p><strong>Desktop development environment with an integrated coding agent.</strong></p>
+  <p>Editor, terminal, browser, project tools and model integrations in one focused workspace.</p>
+
+  <p>
+    <a href="https://t.me/Crab_Code"><strong>Telegram: @Crab_Code</strong></a>
+    &nbsp;&nbsp;·&nbsp;&nbsp;
+    <a href="https://t.me/csanelo"><strong>Developer: @csanelo</strong></a>
+  </p>
+
+  <p>
+    <a href="https://github.com/csanelo/Crab-Code-IDE/actions/workflows/build-release.yml"><img src="https://img.shields.io/github/actions/workflow/status/csanelo/Crab-Code-IDE/build-release.yml?branch=main&style=flat-square&label=build&labelColor=111318&color=5c6370" alt="Build status" /></a>
+    <a href="https://github.com/csanelo/Crab-Code-IDE/releases"><img src="https://img.shields.io/github/v/release/csanelo/Crab-Code-IDE?style=flat-square&label=release&labelColor=111318&color=5c6370" alt="Latest release" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/csanelo/Crab-Code-IDE?style=flat-square&label=license&labelColor=111318&color=5c6370" alt="License" /></a>
+    <a href="https://t.me/Crab_Code"><img src="https://img.shields.io/badge/Telegram-Crab__Code-111318?style=flat-square&logo=telegram&logoColor=ffffff" alt="CrabCode Telegram" /></a>
+  </p>
+
+  <p>
+    <a href="#overview">Overview</a>
+    &nbsp;·&nbsp;
+    <a href="#capabilities">Capabilities</a>
+    &nbsp;·&nbsp;
+    <a href="#getting-started">Getting started</a>
+    &nbsp;·&nbsp;
+    <a href="#builds">Builds</a>
+    &nbsp;·&nbsp;
+    <a href="#architecture">Architecture</a>
+  </p>
+</div>
+
+---
+
+## Overview
+
+CrabCode is a cross-platform desktop IDE built for direct work with code and AI-assisted development. It combines a Monaco editor, project explorer, terminal, browser and agent runtime inside a single Electron application.
+
+The application is local-first. Projects remain on the machine. Provider credentials are stored locally and are never committed to the repository or embedded into release artifacts.
+
+<table>
+  <tr>
+    <td><strong>Editor</strong><br />Monaco-based editing, tabs, file tree and language services.</td>
+    <td><strong>Agent</strong><br />Project-aware tools for reading, editing, navigation and structured execution.</td>
+  </tr>
+  <tr>
+    <td><strong>Terminal</strong><br />Integrated shell sessions with project context.</td>
+    <td><strong>Browser</strong><br />Built-in page inspection for documentation and interface verification.</td>
+  </tr>
+  <tr>
+    <td><strong>Connections</strong><br />OpenAI-compatible, Anthropic, Gemini and MCP integrations.</td>
+    <td><strong>Remote work</strong><br />GitHub, SSH and remote project workflows from the same interface.</td>
+  </tr>
+</table>
+
+## Capabilities
+
+### Development workspace
+
+- Monaco editor with multi-file navigation and project search
+- Integrated terminal and file explorer
+- Built-in browser for documentation and local application review
+- Language server integration
+- GitHub and SSH project workflows
+- Native desktop packaging for Windows, Linux and macOS
+
+### Agent runtime
+
+- Reads and edits files with project boundaries
+- Maintains project context and local memory
+- Uses web tools only when the Web switch is enabled
+- Uses desktop tools when High access is enabled and the task requires them
+- Supports MCP servers and reusable Skills
+- Works with OpenAI-compatible, Anthropic and Gemini providers
+
+### Access model
+
+| Mode | Behaviour |
+| --- | --- |
+| `Normal` | Restricts tools to the opened project. |
+| `High` | Allows machine-level files, applications and desktop tools. |
+| `Ask` | Requests approval before mutating actions. |
+| `Plan` | Keeps the session read-only and returns an implementation plan. |
+
+Desktop control is currently implemented for Windows through native system APIs. Other platforms retain editor, terminal, browser, SSH, MCP and project tools.
+
+## Technology
+
+<p>
+  <img src="https://img.shields.io/badge/Electron-33-111318?style=for-the-badge&logo=electron&logoColor=ffffff" alt="Electron" />
+  <img src="https://img.shields.io/badge/React-18-111318?style=for-the-badge&logo=react&logoColor=ffffff" alt="React" />
+  <img src="https://img.shields.io/badge/TypeScript-5-111318?style=for-the-badge&logo=typescript&logoColor=ffffff" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Vite-5-111318?style=for-the-badge&logo=vite&logoColor=ffffff" alt="Vite" />
+  <img src="https://img.shields.io/badge/Monaco-Editor-111318?style=for-the-badge&logo=visualstudiocode&logoColor=ffffff" alt="Monaco Editor" />
 </p>
 
-CrabCode is a cross-platform desktop AI development environment built with Electron, React and TypeScript that brings a code editor, an integrated terminal, a file explorer, a built-in web browser and an AI assistant together in one window, so you can open a project, edit files with a Monaco-powered editor, run commands, browse documentation and let an AI agent read, write and reason about your codebase through OpenAI-compatible providers and MCP tools without leaving the app.
+## Getting started
 
-## Requirements
+### Requirements
 
-- Node.js 22
+- Node.js 26.5.0
 - npm 10 or newer
+- Git
 
-## Run in development
+### Installation
 
 ```bash
+git clone https://github.com/csanelo/Crab-Code-IDE.git
+cd Crab-Code-IDE
 npm ci
+```
+
+### Development
+
+```bash
 npm run dev
 ```
 
-## Build a production package
+### Validation
 
 ```bash
+npm run typecheck
 npm run build
-npm run package:win    # Windows installer
-npm run package:mac    # macOS dmg/zip
-npm run package:linux  # Linux AppImage/deb
 ```
 
-The build output is written to `out/`, and installers are written to `dist/`.
+## Builds
+
+Build the native package for the current target platform:
+
+```bash
+npm run package:win
+npm run package:linux
+npm run package:mac
+```
+
+Compiled application files are written to `out/`. Installers and distributable packages are written to `dist/`.
+
+| Platform | Output |
+| --- | --- |
+| Windows | NSIS installer, `.exe` |
+| Linux | `.AppImage`, `.deb` |
+| macOS | `.dmg`, `.zip` |
 
 ## CI/CD
 
-The repository includes `.github/workflows/build-release.yml`.
+The workflow at `.github/workflows/build-release.yml` installs exact dependencies with `npm ci`, runs TypeScript checks and packages the application on Windows, Linux and macOS.
 
-- Every push and pull request to `main` or `master` runs `npm ci`, TypeScript checks, and native packaging on Windows, Linux, and macOS.
-- Installers are uploaded to the workflow run as downloadable artifacts.
-- Pushing a version tag such as `v0.3.2` builds all platforms and automatically creates a GitHub Release with the generated packages.
-
-To publish version `0.3.2` after pushing the source code:
+Every push to `main` or `master` starts a build. Generated packages are attached to the workflow run. A version tag publishes the same artifacts as a GitHub Release.
 
 ```bash
 git tag -a v0.3.2 -m "CrabCode 0.3.2"
 git push origin v0.3.2
 ```
 
-GitHub Actions provides `GITHUB_TOKEN` automatically; no repository secret is required for unsigned builds and releases.
+No additional GitHub secret is required for unsigned builds. The workflow uses the repository-provided `GITHUB_TOKEN` to publish releases.
 
-## Prompt caching
+## Architecture
 
-The agent uses provider-side prompt caching to cut token costs on every request:
-
-- **Anthropic** — the request marks three cache breakpoints with `cache_control: ephemeral`: the system prompt, the tool definitions, and the last message of the conversation. The large static prefix (system prompt + tools + prior history) is cached, so each following agent step and each following user message re-reads it from cache (cache reads cost ~10% of normal input tokens).
-- **OpenAI and custom OpenAI-compatible providers** — caching is automatic for prompts over 1024 tokens; the request additionally sends a stable `prompt_cache_key` per project so consecutive requests land on the same cache and hit rates stay high. If a custom provider rejects the extra field, the request is retried once without it and the key is dropped for the rest of the session. The message prefix (system + history) is kept byte-stable between steps for maximum cache reuse.
-- **Gemini** — the large system prompt is registered once per session as an explicit `cachedContents` entry with a 1-hour TTL and reused across requests via `cachedContent`; if explicit cache creation is not available (small prompt or unsupported endpoint), the request falls back to an inline system instruction, where implicit caching still applies automatically on 2.5-series models.
-
-Nothing needs to be configured: caching activates by itself for every provider based on its API type.
-
-## Configure the AI provider
-
-Open Settings inside the app and add an OpenAI-compatible provider: set the base URL, model and API key. Keys are stored locally on your machine and are never bundled with the project.
-
-## Windows computer control
-
-With the agent access level set to **High**, CrabCode's built-in computer tools let the agent work beyond the project workspace on Windows: it can inspect visible windows and processes, focus an application, capture the desktop, click, type Unicode text, send keyboard shortcuts and scroll. This is a native Electron capability — no separate MCP server or cloud relay is required.
-
-Use **Ask before editing** when you want a desktop-control action (focus, click, typing, keypress or scrolling) to require an approval dialog. The agent receives screenshots only when it explicitly calls the screenshot tool; it is instructed to inspect a fresh screenshot before coordinate-based interaction.
-
-The computer-control layer is implemented for Windows 11 through PowerShell and the Windows user32 APIs. On macOS and Linux the tools clearly report that desktop control is not yet available, while all existing project, terminal, browser, SSH and MCP features remain available.
-
-## Passive-by-default agent
-
-CrabCode Agent does not autonomously inspect a project, watch the desktop, poll applications, browse the web or run commands. Tools are available only when the current user message contains a concrete task that needs them. Greetings, small talk, empty messages and ordinary questions remain tool-free. The agent stops after completing the requested task; High access grants capability, not background permission.
-
-## Project structure
-
-```
+```text
 src/
-  main/      Electron main process: windowing, filesystem, terminal, agent, MCP, LSP
-  preload/   Secure contextBridge IPC surface exposed to the renderer
-  renderer/  React UI: editor, chat, files, terminal, browser, settings
+├── main/       Electron main process, agent runtime and native services
+├── preload/    Secure IPC bridge
+└── renderer/   React interface, editor, chat, browser and settings
+
+build/          Installer resources and application icons
+resources/      Runtime resources
+.github/        Build and release automation
 ```
 
-## UI design
+The main process owns filesystem, terminal, browser, MCP, SSH and computer-control operations. The preload layer exposes a restricted IPC surface. The renderer contains no direct Node.js access.
 
-The interface uses a modern flat style driven by tokens in `src/renderer/src/theme/tokens.css`:
+## Configuration
 
-- Blocks, cards, inputs and panels have no visible outlines — element borders are transparent and surfaces are separated by background depth and soft shadows. Hover and focus states may still tint the border for feedback.
-- Corner rounding is increased across the app: `--radius-sm 10px`, `--radius-md 14px`, `--radius-lg 18px`, `--radius-xl 22px`, `--radius-2xl 28px`; small inline elements use 6–8px.
-- The left and right panels remain unchanged and square.
-- The four corners of the central code editor and of the settings content area are rounded with `--radius-sm`; their position, spacing and size are unchanged. The area behind them uses the same chrome background as the side panels, so the rounded corners are clearly visible.
-- Thin separator lines remain removed from the title bar, status bar, panel headers and internal blocks. The only exception is a subtle divider between the navigation groups in the settings sidebar.
-- When no folder is open, the Files panel shows a short notice at the top with a full-width Open Project button under it that opens the folder picker.
-- Primary action buttons (send, connect, commit, save, conflict resolution, Open Project) use the dark overlay surface with regular text instead of white accent fills; toggles, sliders and the blinking cursor keep the accent color.
-- The UI font is General Sans (loaded from Fontshare, with system font fallbacks when offline); code areas keep the mono font stack.
-- Text renders crisp and clean: the engraved text-shadow effect is disabled, grayscale antialiasing is enabled and body text uses a subtle -0.01em letter-spacing.
-- The access-level chip no longer turns yellow in High mode — it uses the same neutral colors as the other chips.
-- The project switcher lives in the title bar next to the Help menu as a `workspace/<project>` breadcrumb (showing `workspace/No project` when nothing is open); clicking it opens the same folder/GitHub/SSH project menu that used to sit in the status bar.
+Open **Settings** inside CrabCode and connect a provider. A provider configuration consists of a base URL, model identifier and API key. Supported connection paths include:
 
-To restyle the app, edit the token values — components inherit them everywhere.
+- OpenAI-compatible APIs
+- Anthropic
+- Gemini
+- MCP servers
+- GitHub
+- SSH hosts
+
+Credentials are encrypted with the operating system storage facilities when available.
+
+## Security
+
+- Keep API keys and tokens outside the repository.
+- Do not commit `.env` files.
+- Review High access actions before enabling autonomous editing.
+- Use Ask mode when desktop or filesystem changes require confirmation.
+- Publish signed installers when distributing production releases publicly.
+
+## Project links
+
+| Resource | Address |
+| --- | --- |
+| Telegram channel | [@Crab_Code](https://t.me/Crab_Code) |
+| Developer | [@csanelo](https://t.me/csanelo) |
+| Repository | [csanelo/Crab-Code-IDE](https://github.com/csanelo/Crab-Code-IDE) |
+| Releases | [GitHub Releases](https://github.com/csanelo/Crab-Code-IDE/releases) |
+| CI builds | [GitHub Actions](https://github.com/csanelo/Crab-Code-IDE/actions) |
 
 ## License
 
-MIT
+CrabCode is distributed under the [MIT License](LICENSE).
+
+---
+
+<div align="center">
+  <sub>CrabCode 0.3.2 · maintained by <a href="https://t.me/csanelo">@csanelo</a></sub>
+</div>
