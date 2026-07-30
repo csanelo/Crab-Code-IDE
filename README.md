@@ -7,13 +7,13 @@ CrabCode is a cross-platform desktop AI development environment built with Elect
 
 ## Requirements
 
-- Node.js 18 or newer
-- npm
+- Node.js 22
+- npm 10 or newer
 
 ## Run in development
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -27,6 +27,23 @@ npm run package:linux  # Linux AppImage/deb
 ```
 
 The build output is written to `out/`, and installers are written to `dist/`.
+
+## CI/CD
+
+The repository includes `.github/workflows/build-release.yml`.
+
+- Every push and pull request to `main` or `master` runs `npm ci`, TypeScript checks, and native packaging on Windows, Linux, and macOS.
+- Installers are uploaded to the workflow run as downloadable artifacts.
+- Pushing a version tag such as `v0.3.2` builds all platforms and automatically creates a GitHub Release with the generated packages.
+
+To publish version `0.3.2` after pushing the source code:
+
+```bash
+git tag -a v0.3.2 -m "CrabCode 0.3.2"
+git push origin v0.3.2
+```
+
+GitHub Actions provides `GITHUB_TOKEN` automatically; no repository secret is required for unsigned builds and releases.
 
 ## Prompt caching
 

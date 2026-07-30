@@ -1,0 +1,104 @@
+name: Build and release
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            command: npm run package:win
+            artifact: CrabCode-Windows
+            files: |
+              dist/*.exe
+              dist/*.blockmap
+              dist/latest*.yml
+          - name: Linux
+            os: ubuntu-latest
+            command: npm run package:linux
+            artifact: CrabCode-Linux
+            files: |
+              dist/*.AppImage
+              dist/*.deb
+              dist/*.blockmap
+              dist/latest*.yml
+          - name: macOS
+            os: macos-latest
+            command: npm run package:mac
+            artifact: CrabCode-macOS
+            files: |
+              dist/*.dmg
+              dist/*-mac.zip
+              dist/*.blockmap
+              dist/latest*.yml
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install exact dependencies
+        run: npm ci --include=dev
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Package application
+        run: ${{ matrix.command }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.files }}
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/**/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true

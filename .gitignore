@@ -1,0 +1,14 @@
+node_modules/
+out/
+dist/
+release/
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
