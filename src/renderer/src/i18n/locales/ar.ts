@@ -1,6 +1,6 @@
 import type { TKey } from '../translations'
 
-export const ar: Record<TKey, string> = {
+export const ar: Partial<Record<TKey, string>> = {
   'nav.toggleSidebar': 'تبديل الشريط الجانبي',
   'nav.toggleSidebarHint': 'تبديل الشريط الجانبي (Ctrl+B)',
   'nav.toggleRight': 'تبديل اللوحة اليمنى',

@@ -290,13 +290,12 @@ export function BrowserPanel({ onClose }: { onClose: () => void }): JSX.Element 
         </button>
       </div>
       <div className="browserp__view">
-        {/* @ts-expect-error - webview is an Electron custom element */}
         <webview
           ref={webviewRef}
           src={HOME}
           className="browserp__webview"
           // eslint-disable-next-line react/no-unknown-property
-          allowpopups="true"
+          allowpopups={true}
           partition="persist:crab-browser"
         />
         {picking && (

@@ -15,6 +15,7 @@ export interface ToolDiffMeta {
   removed: number;
   diff: string;
   before?: string;
+  after?: string;
   existed?: boolean;
 }
 

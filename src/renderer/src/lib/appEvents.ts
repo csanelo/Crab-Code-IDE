@@ -77,12 +77,16 @@ export function takeSettingsSection(): string | null {
 }
 
 export function on<K extends keyof Events>(event: K, handler: Handler<Events[K]>): () => void {
-  const set = (listeners[event] ??= new Set()) as Set<Handler<Events[K]>>
-  set.add(handler)
-  return () => set.delete(handler)
+  const map = listeners as Record<string, Set<Handler<unknown>>>
+  const set = (map[event as string] ??= new Set())
+  set.add(handler as Handler<unknown>)
+  return () => {
+    set.delete(handler as Handler<unknown>)
+  }
 }
 
 export function emit<K extends keyof Events>(event: K, payload: Events[K]): void {
-  const set = listeners[event] as Set<Handler<Events[K]>> | undefined
+  const map = listeners as Record<string, Set<Handler<unknown>> | undefined>
+  const set = map[event as string]
   set?.forEach((h) => h(payload))
 }

@@ -397,7 +397,7 @@ function TerminalTab({
     }
 
     function trySpawn(): void {
-      if (spawned || disposed) return;
+      if (spawned || disposed || !host) return;
       if (host.clientWidth < 20 || host.clientHeight < 20) {
         requestAnimationFrame(trySpawn);
         return;

@@ -149,7 +149,7 @@ Compiled application files are written to `out/`. Installers and distributable p
 
 The workflow at `.github/workflows/build-release.yml` installs exact dependencies with `npm ci`, runs TypeScript checks and packages the application on Windows, Linux and macOS.
 
-The build starts only when a version tag is pushed. The tag must match the version in `package.json`, so `v0.3.2` builds only source version `0.3.2`. Ordinary branch pushes and backup branches do not start packaging. Generated packages are published directly to the matching GitHub Release.
+Every push to `main` or `master` starts a build. Generated packages are attached to the workflow run. A version tag publishes the same artifacts as a GitHub Release.
 
 ```bash
 git tag -a v0.3.2 -m "CrabCode 0.3.2"

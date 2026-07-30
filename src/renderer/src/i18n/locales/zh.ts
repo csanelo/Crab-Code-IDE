@@ -1,6 +1,6 @@
 import type { TKey } from '../translations'
 
-export const zh: Record<TKey, string> = {
+export const zh: Partial<Record<TKey, string>> = {
   'nav.toggleSidebar': '切换侧边栏',
   'nav.toggleSidebarHint': '切换侧边栏 (Ctrl+B)',
   'nav.toggleRight': '切换右侧面板',

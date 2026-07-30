@@ -18,7 +18,7 @@ import { pt } from './locales/pt'
 import { ru } from './locales/ru'
 import { id } from './locales/id'
 
-const dictionaries: Record<Lang, Record<TKey, string>> = {
+const dictionaries: Record<Lang, Partial<Record<TKey, string>>> = {
   en,
   zh,
   hi,

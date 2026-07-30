@@ -171,12 +171,15 @@ export function AppProvider({
   }, []);
 
   useEffect(() => {
-    return window.api.app.onAgentSessions((payload) => {
+    const unsub = window.api.app.onAgentSessions((payload) => {
       dispatch({
         type: "SYNC_AGENT_SESSIONS",
         payload: payload as AgentSessionSnapshot,
       });
     });
+    return () => {
+      if (typeof unsub === "function") unsub();
+    };
   }, []);
 
   useEffect(() => {
