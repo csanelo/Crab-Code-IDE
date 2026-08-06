@@ -22,8 +22,9 @@ async function afterSign(context) {
     execSync(`codesign --force --deep --sign - "${appPath}"`, { stdio: 'inherit' });
     console.log('[afterSign] Ad-hoc codesign completed successfully.');
   } catch (error) {
-    console.error('[afterSign] Error during ad-hoc codesign:', error);
-    throw error;
+    // Unsigned CI artifacts are still useful for testing and manual distribution.
+    // Do not fail the complete cross-platform release when ad-hoc signing is unavailable.
+    console.warn('[afterSign] Ad-hoc codesign was skipped:', error);
   }
 }
 
