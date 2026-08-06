@@ -6,6 +6,7 @@ import {
   dialog,
   clipboard,
   Menu,
+  TouchBar,
 } from "electron";
 import { basename } from "node:path";
 import { join } from "node:path";
@@ -42,6 +43,32 @@ const appIcon = join(
 );
 
 const isMac = process.platform === "darwin";
+
+// ponytail: On macOS, GUI apps launched from Finder/Spotlight do not inherit user shell PATH (~/.zshrc, Homebrew, Cargo, NVM).
+function fixMacPath(): void {
+  if (!isMac) return;
+  const home = process.env.HOME || `/Users/${process.env.USER || ""}`;
+  const extraPaths = [
+    "/opt/homebrew/bin",
+    "/opt/homebrew/sbin",
+    "/usr/local/bin",
+    "/usr/local/sbin",
+    `${home}/.nvm/versions/node/current/bin`,
+    `${home}/.cargo/bin`,
+    `${home}/.bun/bin`,
+    `${home}/.local/bin`,
+    "/Library/Apple/usr/bin",
+    "/usr/bin",
+    "/bin",
+    "/usr/sbin",
+    "/sbin",
+  ];
+  const existing = (process.env.PATH || "").split(":");
+  const merged = Array.from(new Set([...extraPaths, ...existing])).filter(Boolean);
+  process.env.PATH = merged.join(":");
+}
+fixMacPath();
+
 let currentLang = "ru";
 
 function getMenuTranslations(lang: string) {
@@ -177,6 +204,20 @@ function setupAppMenu(lang: string = currentLang): void {
           accelerator: "CmdOrCtrl+O",
           click: () => sendMenuAction("open-folder"),
         },
+        ...(isMac
+          ? [
+              {
+                label: "Recent Documents",
+                role: "recentDocuments" as const,
+                submenu: [
+                  {
+                    label: "Clear Recent",
+                    role: "clearRecent" as const,
+                  },
+                ],
+              },
+            ]
+          : []),
         { type: "separator" },
         {
           label: t.save,
@@ -259,9 +300,16 @@ function setupAppMenu(lang: string = currentLang): void {
           accelerator: "CmdOrCtrl+0",
           click: () => sendMenuAction("zoom-reset"),
         },
-        { type: "separator" },
         { role: "togglefullscreen", label: t.fullScreen },
-        { role: "toggleDevTools", label: t.devTools },
+        {
+          label: t.devTools || "Toggle Developer Tools",
+          accelerator: "CmdOrCtrl+Alt+I",
+          click: (_item, focusedWindow) => {
+            if (focusedWindow && !focusedWindow.isDestroyed()) {
+              focusedWindow.webContents.toggleDevTools();
+            }
+          },
+        },
       ],
     },
     {
@@ -290,12 +338,101 @@ function setupAppMenu(lang: string = currentLang): void {
 
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
+  setupDockMenu(lang);
 }
 
-ipcMain.handle("app:set-language", (_e, lang: string) => {
+function setupDockMenu(lang: string = currentLang): void {
+  if (!isMac || !app.dock) return;
+  const isRu = lang === "ru" || (lang !== "en" && app.getLocale().startsWith("ru"));
+  const dockMenu = Menu.buildFromTemplate([
+    {
+      label: isRu ? "Новая сессия агента" : "New Agent Session",
+      click: () => sendMenuAction("new-session"),
+    },
+    {
+      label: isRu ? "Открыть папку..." : "Open Folder...",
+      click: () => sendMenuAction("open-folder"),
+    },
+    { type: "separator" as const },
+    {
+      label: isRu ? "Встроенный терминал" : "Toggle Terminal",
+      click: () => sendMenuAction("toggle-terminal"),
+    },
+  ]);
+  app.dock.setMenu(dockMenu);
+}
+
+function createMacTouchBar(): Electron.TouchBar | null {
+  if (!isMac || !TouchBar) return null;
+  const { TouchBarButton, TouchBarSpacer } = TouchBar;
+  const newSessionBtn = new TouchBarButton({
+    label: "✨ New Agent",
+    backgroundColor: "#222222",
+    click: () => sendMenuAction("new-session"),
+  });
+  const openFolderBtn = new TouchBarButton({
+    label: "📁 Open Folder",
+    backgroundColor: "#222222",
+    click: () => sendMenuAction("open-folder"),
+  });
+  const terminalBtn = new TouchBarButton({
+    label: "💻 Terminal",
+    backgroundColor: "#222222",
+    click: () => sendMenuAction("toggle-terminal"),
+  });
+  const searchBtn = new TouchBarButton({
+    label: "🔍 Command Palette",
+    backgroundColor: "#222222",
+    click: () => sendMenuAction("quick-palette"),
+  });
+  return new TouchBar({
+    items: [
+      newSessionBtn,
+      new TouchBarSpacer({ size: "small" }),
+      openFolderBtn,
+      new TouchBarSpacer({ size: "small" }),
+      terminalBtn,
+      new TouchBarSpacer({ size: "flexible" }),
+      searchBtn,
+    ],
+  });
+}
+
+function handleIpc(
+  channel: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  handler: (event: Electron.IpcMainInvokeEvent, ...args: any[]) => any,
+): void {
+  ipcMain.removeHandler(channel);
+  ipcMain.handle(channel, handler);
+}
+
+handleIpc("app:set-language", (_e, lang: string) => {
   if (typeof lang === "string") setupAppMenu(lang);
   return true;
 });
+
+handleIpc(
+  "app:set-represented-file",
+  (_e, payload: { path: string | null; isDirty?: boolean }) => {
+    if (!isMac || !mainWindow || mainWindow.isDestroyed()) return false;
+    if (payload.path) {
+      try {
+        mainWindow.setRepresentedFilename(payload.path);
+      } catch {}
+    } else {
+      try {
+        mainWindow.setRepresentedFilename("");
+      } catch {}
+    }
+    if (typeof payload.isDirty === "boolean") {
+      try {
+        mainWindow.setDocumentEdited(payload.isDirty);
+      } catch {}
+    }
+    return true;
+  },
+);
 
 app.on("web-contents-created", (_event, contents) => {
   contents.on("before-input-event", (event, input) => {
@@ -329,7 +466,12 @@ app.on("web-contents-created", (_event, contents) => {
 });
 
 const frameOptions: Electron.BrowserWindowConstructorOptions = isMac
-  ? { titleBarStyle: "hiddenInset", trafficLightPosition: { x: 14, y: 14 } }
+  ? {
+      titleBarStyle: "hiddenInset",
+      trafficLightPosition: { x: 14, y: 14 },
+      vibrancy: "under-window",
+      visualEffectState: "followWindow",
+    }
   : { frame: false, titleBarStyle: "hidden" };
 
 let editorWindow: BrowserWindow | null = null;
@@ -380,8 +522,14 @@ function deliverOpenPath(target: string): void {
   } catch {
     return;
   }
-  const send = (): void =>
+  const send = (): void => {
     win.webContents.send("app:open-path", { path: target, isDir });
+    if (isMac && target) {
+      try {
+        app.addRecentDocument(target);
+      } catch {}
+    }
+  };
   if (win.webContents.isLoading()) {
     win.webContents.once("did-finish-load", send);
   } else {
@@ -420,7 +568,7 @@ function openEditorWindow(path: string): void {
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
-      devTools: false,
+      devTools: true,
     },
   });
 
@@ -484,18 +632,43 @@ function createWindow(): BrowserWindow {
       contextIsolation: true,
       nodeIntegration: false,
       webviewTag: true,
-      devTools: false,
+      devTools: true,
     },
   });
 
+  win.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+    const srcName = sourceId ? sourceId.split("/").pop()?.split("?")[0] : "renderer";
+    const levelNames = ["LOG", "WARN", "ERROR"];
+    const tag = levelNames[level] ?? "LOG";
+    console.log(`[Renderer:${tag}] (${srcName}:${line}) ${message}`);
+  });
+
   win.on("ready-to-show", () => {
-    // Electron may restore a maximized state or clamp the size on some display
-    // setups, so re-apply the intended bounds right before the first paint.
     if (win.isMaximized()) win.unmaximize();
     win.setSize(1254, 767);
     win.center();
     win.show();
   });
+
+  win.on("maximize", () => win.webContents.send("window:maximized", true));
+  win.on("unmaximize", () => win.webContents.send("window:maximized", false));
+  win.on("enter-full-screen", () => win.webContents.send("window:fullscreen", true));
+  win.on("leave-full-screen", () => win.webContents.send("window:fullscreen", false));
+
+  win.on("focus", () => {
+    if (isMac && app.dock) {
+      try {
+        app.dock.setBadge("");
+      } catch {}
+    }
+  });
+
+  if (isMac) {
+    try {
+      const touchBar = createMacTouchBar();
+      if (touchBar) win.setTouchBar(touchBar);
+    } catch {}
+  }
 
   mainWindow = win;
   win.on("closed", () => {
@@ -524,14 +697,13 @@ function createWindow(): BrowserWindow {
         contextIsolation: true,
         nodeIntegration: false,
         webviewTag: true,
-        devTools: false,
+        devTools: true,
       },
     });
 
     agentWindow.on("ready-to-show", () => {
       const next = agentWindow;
       if (!next || next.isDestroyed()) return;
-      // Agent and IDE stay independent: opening one never hides the other.
       next.show();
       next.focus();
     });
@@ -576,28 +748,34 @@ function createWindow(): BrowserWindow {
     return { action: "deny" };
   });
 
-  ipcMain.handle("window:minimize", (event) => {
+  handleIpc("window:minimize", (event) => {
     BrowserWindow.fromWebContents(event.sender)?.minimize();
   });
-  ipcMain.handle("window:toggle-maximize", (event) => {
+  handleIpc("window:toggle-maximize", (event) => {
     const targetWindow = BrowserWindow.fromWebContents(event.sender);
     if (!targetWindow) return false;
     if (targetWindow.isMaximized()) targetWindow.unmaximize();
     else targetWindow.maximize();
     return targetWindow.isMaximized();
   });
-  ipcMain.handle("window:close", (event) => {
+  handleIpc("window:close", (event) => {
     BrowserWindow.fromWebContents(event.sender)?.close();
   });
-  ipcMain.handle("window:is-maximized", (event) => {
+  handleIpc("window:is-maximized", (event) => {
     return BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false;
+  });
+  handleIpc("app:toggle-devtools", (event) => {
+    const targetWindow = BrowserWindow.fromWebContents(event.sender);
+    if (!targetWindow || targetWindow.isDestroyed()) return false;
+    targetWindow.webContents.toggleDevTools();
+    return true;
   });
   win.on("maximize", () => win.webContents.send("window:maximized", true));
   win.on("unmaximize", () => win.webContents.send("window:maximized", false));
 
   const ZOOM_MIN = -3;
   const ZOOM_MAX = 6;
-  ipcMain.handle("window:zoom", (event, delta: number) => {
+  handleIpc("window:zoom", (event, delta: number) => {
     const wc = event.sender;
     if (delta === 0) {
       wc.setZoomLevel(0);
@@ -611,7 +789,7 @@ function createWindow(): BrowserWindow {
     return wc.getZoomLevel();
   });
 
-  ipcMain.handle("project:open-dialog", async () => {
+  handleIpc("project:open-dialog", async () => {
     const result = await dialog.showOpenDialog(win, {
       title: "Открыть проект",
       properties: ["openDirectory"],
@@ -621,11 +799,11 @@ function createWindow(): BrowserWindow {
     return { path, name: basename(path) };
   });
 
-  ipcMain.handle("app:open-agent-window", () => {
+  handleIpc("app:open-agent-window", () => {
     return openAgentWindow();
   });
 
-  ipcMain.handle("app:return-to-ide", (event, sessionSnapshot?: unknown) => {
+  handleIpc("app:return-to-ide", (event, sessionSnapshot?: unknown) => {
     if (!mainWindow || mainWindow.isDestroyed()) return false;
     if (sessionSnapshot) {
       mainWindow.webContents.send("app:agent-sessions", sessionSnapshot);
@@ -637,19 +815,19 @@ function createWindow(): BrowserWindow {
     return true;
   });
 
-  ipcMain.handle("project:reveal", async (_e, path: string) => {
+  handleIpc("project:reveal", async (_e, path: string) => {
     if (!path) return false;
     await shell.openPath(path);
     return true;
   });
 
-  ipcMain.handle("editor:open", (_e, path: string) => {
+  handleIpc("editor:open", (_e, path: string) => {
     if (!path) return false;
     openEditorWindow(path);
     return true;
   });
 
-  ipcMain.handle(
+  handleIpc(
     "editor:open-diff",
     (_e, payload: { path: string; original: string; modified: string }) => {
       if (!payload?.path) return false;
@@ -658,14 +836,14 @@ function createWindow(): BrowserWindow {
     },
   );
 
-  ipcMain.handle("app:clipboard-write", (_e, text: string) => {
+  handleIpc("app:clipboard-write", (_e, text: string) => {
     clipboard.writeText(text ?? "");
     return true;
   });
 
-  ipcMain.handle("app:clipboard-read", () => clipboard.readText());
+  handleIpc("app:clipboard-read", () => clipboard.readText());
 
-  ipcMain.handle("app:about", () => {
+  handleIpc("app:about", () => {
     const { versions, platform, arch } = process;
     return {
       name: "CrabCode",
@@ -688,7 +866,7 @@ function toElectronAccelerator(shortcut?: string): string | undefined {
   return /^[\x00-\x7F]+$/.test(acc) ? acc : undefined;
 }
 
-  ipcMain.handle(
+  handleIpc(
     "app:show-context-menu",
     async (
       event,
@@ -734,7 +912,7 @@ function toElectronAccelerator(shortcut?: string): string | undefined {
     },
   );
 
-  ipcMain.handle("app:show-about", async () => {
+  handleIpc("app:show-about", async () => {
     const { versions, platform, arch } = process;
     const detail = [
       `Версия: ${app.getVersion()}`,
@@ -806,14 +984,14 @@ if (!gotLock) {
     setupAppMenu();
     registerAgent(ipcMain);
 
-    ipcMain.handle("editor-window:minimize", () => editorWindow?.minimize());
-    ipcMain.handle("editor-window:toggle-maximize", () => {
+    handleIpc("editor-window:minimize", () => editorWindow?.minimize());
+    handleIpc("editor-window:toggle-maximize", () => {
       if (!editorWindow) return false;
       if (editorWindow.isMaximized()) editorWindow.unmaximize();
       else editorWindow.maximize();
       return editorWindow.isMaximized();
     });
-    ipcMain.handle("editor-window:close", () => editorWindow?.close());
+    handleIpc("editor-window:close", () => editorWindow?.close());
 
     createWindow();
     setupAutoUpdate();

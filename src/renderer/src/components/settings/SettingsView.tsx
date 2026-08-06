@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Settings as Gear,
@@ -19,7 +19,6 @@ import {
   Server
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { useApp } from '../../state/AppContext'
 import { useI18n, useT } from '../../i18n'
 import { emit as emitAppEvent, on as onAppEvent, takeSettingsSection } from '../../lib/appEvents'
 import { LANGUAGES, type Lang as UiLang, type TKey } from '../../i18n/translations'
@@ -75,8 +74,12 @@ const NAV_GROUPS: NavGroup[] = [
   }
 ]
 
-export function SettingsView(): JSX.Element {
-  const { setView } = useApp()
+interface SettingsViewProps {
+  onClose: () => void
+  activeRepositoryPath: string | null
+}
+
+function SettingsViewBase({ onClose, activeRepositoryPath }: SettingsViewProps): JSX.Element {
   const t = useT()
   const [section, setSection] = useState<Section>(
     () => (takeSettingsSection() as Section) ?? 'general'
@@ -97,7 +100,7 @@ export function SettingsView(): JSX.Element {
             className="settings__back-arrow"
             aria-label={t('settings.close')}
             data-tip={t('settings.close')}
-            onClick={() => setView('chat')}
+            onClick={onClose}
           >
             <ArrowLeft size={15} strokeWidth={1.7} />
           </button>
@@ -143,7 +146,7 @@ export function SettingsView(): JSX.Element {
         <div key={section} className="settings__main-content">
           {section === 'general' && <GeneralSection />}
           {section === 'providers' && <ProvidersSection />}
-          {section === 'skills' && <SkillsSection />}
+          {section === 'skills' && <SkillsSection root={activeRepositoryPath} />}
           {section === 'mcp' && <McpSection />}
           {section === 'appearance' && <AppearanceSection />}
         </div>
@@ -152,9 +155,15 @@ export function SettingsView(): JSX.Element {
   )
 }
 
+// A streaming assistant updates the global application state several times a
+// second. Settings do not depend on chat history, so keep the whole overlay out
+// of that render path. It now rerenders only for its own controls or repo switch.
+export const SettingsView = memo(SettingsViewBase)
+
 
 function GeneralSection(): JSX.Element {
   type ShellKind = 'auto' | 'cmd' | 'powershell' | 'pwsh' | 'bash' | 'gitbash'
+  type PanelLayout = 'files-left' | 'chat-left'
   interface General {
     language: UiLang
     defaultShell: ShellKind
@@ -165,6 +174,7 @@ function GeneralSection(): JSX.Element {
     telemetry: boolean
     terminalAutoScroll: boolean
     richFileIcons: boolean
+    panelLayout: PanelLayout
   }
 
   const t = useT()
@@ -187,6 +197,10 @@ function GeneralSection(): JSX.Element {
     if (!s) return
     const next = { ...s, ...patch }
     setS(next)
+    if (patch.panelLayout) {
+      window.localStorage.setItem('crabcode.panelLayout', patch.panelLayout)
+      emitAppEvent('layout:changed', { layout: patch.panelLayout })
+    }
     void window.api.settings.setGeneral(patch as unknown as Record<string, unknown>)
   }
 
@@ -212,6 +226,21 @@ function GeneralSection(): JSX.Element {
                   update({ language: v as UiLang })
                   setLang(v as UiLang)
                 }}
+              />
+            }
+          />
+          <Divider />
+          <Row
+            title={t('settings.general.panelLayout')}
+            subtitle={t('settings.general.panelLayoutSub')}
+            trailing={
+              <Select
+                value={s.panelLayout}
+                options={[
+                  { value: 'files-left', label: t('settings.general.layoutFilesLeft') },
+                  { value: 'chat-left', label: t('settings.general.layoutChatLeft') }
+                ]}
+                onChange={(v) => update({ panelLayout: v as PanelLayout })}
               />
             }
           />
@@ -372,7 +401,14 @@ function ProvidersSection(): JSX.Element {
     (p) => p.catalogId !== 'opencode' && p.id !== 'opencode-free-default'
   )
 
-  const FEATURED_IDS = ['google-antigravity', 'anthropic', 'google', 'openrouter', 'groq', 'deepseek']
+  const FEATURED_IDS = [
+    'google-antigravity',
+    'anthropic',
+    'google',
+    'openrouter',
+    'groq',
+    'deepseek'
+  ]
   const featured = FEATURED_IDS
     .map((id) => KNOWN_PROVIDERS.find((p) => p.id === id))
     .filter((p): p is ProviderDef => Boolean(p))
@@ -550,9 +586,9 @@ function ConnectDialog({
   const t = useT()
   const [apiKey, setApiKey] = useState('')
   const [showKey, setShowKey] = useState(false)
-  const initialModel = isEdit ? (initial.defaultModel ?? '') : ''
+  const initialModel = initial.defaultModel ?? ''
   const [modelId, setModelId] = useState(initialModel)
-  const [label, setLabel] = useState(isEdit ? (initial.modelLabel ?? initialModel) : '')
+  const [label, setLabel] = useState(initial.modelLabel ?? initialModel)
   const [baseUrl, setBaseUrl] = useState(initial.baseUrl ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -767,6 +803,7 @@ interface SkillRow {
   name: string
   description: string
   path: string
+  files: number
 }
 
 type McpTransport = 'stdio' | 'http' | 'sse'
@@ -781,11 +818,8 @@ interface McpServer {
   url?: string
 }
 
-function SkillsSection(): JSX.Element {
+function SkillsSection({ root }: { root: string | null }): JSX.Element {
   const t = useT()
-  const { state } = useApp()
-  const root =
-    state.repositories.find((r) => r.id === state.activeRepositoryId)?.path ?? null
 
   const [skills, setSkills] = useState<SkillRow[]>([])
 
@@ -801,7 +835,7 @@ function SkillsSection(): JSX.Element {
     const ok = await window.api.skills.remove(root ?? '', name)
     if (ok) {
       reload()
-      emitAppEvent('fs:changed', undefined)
+      emitAppEvent('fs:changed', { root: root ?? undefined })
     }
   }
 

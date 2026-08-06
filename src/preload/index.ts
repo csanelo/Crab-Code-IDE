@@ -4,10 +4,13 @@ import {
   webUtils,
   type IpcRendererEvent,
 } from "electron";
+import type { ContextUsageSnapshot } from "../shared/contextUsage";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
+  reasoning_content?: string;
+  reasoningContent?: string;
 }
 
 interface BrowserCommandPayload {
@@ -35,6 +38,15 @@ const api = {
         ipcRenderer.removeListener("window:maximized", listener);
       };
     },
+    onFullScreenChange: (cb: (fullscreen: boolean) => void) => {
+      const listener = (_e: unknown, value: boolean): void => cb(value);
+      ipcRenderer.on("window:fullscreen", listener);
+      return () => {
+        ipcRenderer.removeListener("window:fullscreen", listener);
+      };
+    },
+    setRepresentedFile: (path: string | null, isDirty?: boolean) =>
+      ipcRenderer.invoke("app:set-represented-file", { path, isDirty }) as Promise<boolean>,
   },
   app: {
     about: () =>
@@ -184,6 +196,10 @@ const api = {
     pathForFile: (file: File): string => webUtils.getPathForFile(file),
     showInFolder: (path: string) =>
       ipcRenderer.invoke("fs:show-in-folder", path) as Promise<boolean>,
+    revealInFinder: (path: string) =>
+      ipcRenderer.invoke("fs:reveal", path) as Promise<boolean>,
+    quickLook: (path: string) =>
+      ipcRenderer.invoke("fs:quick-look", path) as Promise<boolean>,
     revert: (payload: { path: string; before: string; existed: boolean }) =>
       ipcRenderer.invoke("fs:revert", payload) as Promise<boolean>,
     search: (root: string, query: string, limit?: number) =>
@@ -346,6 +362,7 @@ const api = {
         telemetry: boolean;
         terminalAutoScroll: boolean;
         richFileIcons: boolean;
+        panelLayout: "files-left" | "chat-left";
       }>,
     setGeneral: (partial: Record<string, unknown>) =>
       ipcRenderer.invoke("settings:set-general", partial) as Promise<unknown>,
@@ -460,6 +477,32 @@ const api = {
         ipcRenderer.removeListener("agent:chunk", listener);
       };
     },
+    onContextUsage: (
+      cb: (requestId: string, usage: ContextUsageSnapshot) => void,
+    ) => {
+      const listener = (
+        _e: unknown,
+        id: string,
+        usage: ContextUsageSnapshot,
+      ): void => cb(id, usage);
+      ipcRenderer.on("agent:context-usage", listener);
+      return () => {
+        ipcRenderer.removeListener("agent:context-usage", listener);
+      };
+    },
+    onAborted: (
+      cb: (requestId: string, stopped: boolean) => void,
+    ) => {
+      const listener = (
+        _e: unknown,
+        id: string,
+        stopped: boolean,
+      ): void => cb(id, stopped);
+      ipcRenderer.on("agent:aborted", listener);
+      return () => {
+        ipcRenderer.removeListener("agent:aborted", listener);
+      };
+    },
     onTool: (
       cb: (
         requestId: string,
@@ -483,6 +526,8 @@ const api = {
           confirmId?: string;
           confirmTarget?: string;
           confirmAllowed?: boolean;
+          activityLanguage?: "en" | "zh" | "hi" | "es" | "fr" | "ar" | "bn" | "pt" | "ru" | "id";
+          memoryHit?: boolean;
         },
       ) => void,
     ) => {
@@ -509,6 +554,8 @@ const api = {
           confirmId?: string;
           confirmTarget?: string;
           confirmAllowed?: boolean;
+          activityLanguage?: "en" | "zh" | "hi" | "es" | "fr" | "ar" | "bn" | "pt" | "ru" | "id";
+          memoryHit?: boolean;
         },
       ): void => cb(id, ev);
       ipcRenderer.on("agent:tool", listener);
@@ -600,13 +647,14 @@ const api = {
   skills: {
     list: (root: string) =>
       ipcRenderer.invoke("skills:list", root) as Promise<
-        { name: string; description: string; path: string }[]
+        { name: string; description: string; path: string; files: number }[]
       >,
     add: (root: string, url: string) =>
       ipcRenderer.invoke("skills:add", { root, url }) as Promise<{
         ok: boolean;
         name?: string;
         description?: string;
+        files?: number;
         error?: string;
       }>,
     addFromRepo: (root: string, url: string, skill: string) =>
@@ -618,6 +666,7 @@ const api = {
         ok: boolean;
         name?: string;
         description?: string;
+        files?: number;
         error?: string;
       }>,
     listRepo: (url: string) =>

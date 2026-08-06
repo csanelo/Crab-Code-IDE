@@ -1,7 +1,9 @@
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
+  type CSSProperties,
   type ComponentType,
   type KeyboardEvent,
 } from "react";
@@ -18,6 +20,8 @@ import {
   Diff,
   Terminal,
   Globe,
+  MessageCircle,
+  Infinity as InfinityIcon,
   Boxes,
   Paperclip,
   X,
@@ -50,10 +54,14 @@ import { WorkspaceFolderIcon } from "../icons/WorkspaceIcons";
 import { getPendingEdits, subscribePendingEdits, removePendingEdit, type PendingEdit } from "../../lib/pendingEdits";
 import "./NewSession.css";
 
-const AGENT_MODES: { id: EditMode; label: string }[] = [
-  { id: "auto", label: "Agent" },
-  { id: "readonly", label: "Plan" },
-  { id: "ask", label: "Ask" },
+const AGENT_MODES: {
+  id: EditMode;
+  label: string;
+  icon: ComponentType<{ size?: number | string; className?: string }>;
+}[] = [
+  { id: "auto", label: "Agent", icon: InfinityIcon },
+  { id: "readonly", label: "Plan", icon: GitBranch },
+  { id: "ask", label: "Ask", icon: MessageCircle },
 ];
 
 function pendingLineStats(before: string, after: string): { added: number; removed: number } {
@@ -355,10 +363,13 @@ function expandBuiltinCommand(cmd: string, rest: string): string | null {
   }
 }
 
-/** ~120k tokens at roughly 4 characters per token. */
-const CONTEXT_LIMIT_CHARS = 480_000;
-/** Circumference of the r=7 gauge circle (2 * pi * 7). */
-const CONTEXT_RING = 43.98;
+const EFFORT_META = {
+  low: { label: "Low", description: "Быстрый ответ", bars: 1 },
+  medium: { label: "Medium", description: "Сбалансировано", bars: 2 },
+  high: { label: "High", description: "Глубокий анализ", bars: 3 },
+  xhigh: { label: "xHigh", description: "Очень глубокий", bars: 4 },
+  max: { label: "Max", description: "Максимум рассуждений", bars: 5 },
+} satisfies Record<ReasoningEffort, { label: string; description: string; bars: number }>;
 
 export function NewSession({
   onSend,
@@ -366,7 +377,6 @@ export function NewSession({
   menusDown = false,
   streaming = false,
   onStop,
-  agentMode = false,
 }: {
   onSend: (
     text: string,
@@ -378,12 +388,9 @@ export function NewSession({
   menusDown?: boolean;
   streaming?: boolean;
   onStop?: () => void;
-  /** Agent window only: shows the context-usage ring next to the paperclip. */
-  agentMode?: boolean;
 }): JSX.Element {
   const {
     state,
-    activeConversation,
     selectProject,
     openProject,
     deleteProject,
@@ -395,16 +402,6 @@ export function NewSession({
   const activeRepo =
     state.repositories.find((r) => r.id === state.activeRepositoryId) ?? null;
   const [value, setValue] = useState("");
-  // Rough context gauge: ~4 characters per token against a 120k-token budget.
-  const contextChars =
-    (activeConversation?.messages ?? []).reduce(
-      (sum, message) => sum + (message.content?.length ?? 0),
-      0,
-    ) + value.length;
-  const contextPercent = Math.min(
-    100,
-    Math.round((contextChars / CONTEXT_LIMIT_CHARS) * 100),
-  );
   const [models, setModels] = useState<ModelOption[]>([]);
   const [activeModel, setActiveModel] = useState<ModelOption | null>(null);
   const [editMode, setEditModeState] = useState<EditMode>(getEditMode());
@@ -424,7 +421,7 @@ export function NewSession({
   const [effortOpen, setEffortOpen] = useState(false);
   const [plusOpen, setPlusOpen] = useState(false);
   const [webEnabled, setWebEnabled] = useState(
-    () => window.localStorage.getItem("crabcode.composer.web") === "1",
+    () => window.localStorage.getItem("crabcode.composer.web") !== "0",
   );
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashIndex, setSlashIndex] = useState(0);
@@ -436,21 +433,79 @@ export function NewSession({
   const modelToolRef = useRef<HTMLDivElement>(null);
   const editRef = useRef<HTMLDivElement>(null);
   const effortRef = useRef<HTMLDivElement>(null);
+  const effortMenuRef = useRef<HTMLDivElement>(null);
+  const [effortMenuStyle, setEffortMenuStyle] = useState<CSSProperties>({
+    visibility: "hidden",
+  });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [pendingEdits, setPendingEdits] = useState<PendingEdit[]>(() => getPendingEdits());
   const [changesOpen, setChangesOpen] = useState(false);
   useEffect(() => subscribePendingEdits(setPendingEdits), []);
+
+  useLayoutEffect(() => {
+    if (!effortOpen) {
+      setEffortMenuStyle({ visibility: "hidden" });
+      return;
+    }
+
+    const placeMenu = (): void => {
+      const anchor = effortRef.current?.getBoundingClientRect();
+      const menu = effortMenuRef.current;
+      if (!anchor || !menu) return;
+
+      const margin = 6;
+      const viewportWidth = document.documentElement.clientWidth;
+      const viewportHeight = document.documentElement.clientHeight;
+      const width = Math.max(1, Math.min(220, viewportWidth - margin * 2));
+      const maxLeft = Math.max(margin, viewportWidth - width - margin);
+      const left = Math.min(Math.max(margin, anchor.right - width), maxLeft);
+      const menuHeight = menu.offsetHeight;
+      const preferredTop = menusDown
+        ? anchor.bottom + 4
+        : anchor.top - menuHeight - 4;
+      const alternateTop = menusDown
+        ? anchor.top - menuHeight - 4
+        : anchor.bottom + 4;
+      const fitsPreferred =
+        preferredTop >= margin && preferredTop + menuHeight <= viewportHeight - margin;
+      const unclampedTop = fitsPreferred ? preferredTop : alternateTop;
+      const top = Math.min(
+        Math.max(margin, unclampedTop),
+        Math.max(margin, viewportHeight - menuHeight - margin),
+      );
+
+      setEffortMenuStyle({
+        position: "fixed",
+        left,
+        right: "auto",
+        top,
+        bottom: "auto",
+        width,
+        visibility: "visible",
+      });
+    };
+
+    placeMenu();
+    window.addEventListener("resize", placeMenu);
+    window.addEventListener("scroll", placeMenu, true);
+    return () => {
+      window.removeEventListener("resize", placeMenu);
+      window.removeEventListener("scroll", placeMenu, true);
+    };
+  }, [effortOpen, menusDown]);
   // Keep and Undo both persist immediately — equivalent to confirming the review
   // and pressing Ctrl+S, including when the file is not currently open.
   const keepPending = async (edit: PendingEdit): Promise<void> => {
     const current = await window.api.fs.readFile(edit.path)
     if (current) await window.api.fs.save({ path: edit.path, content: current.content, encoding: current.encoding ?? 'utf8' })
     removePendingEdit(edit.id)
+    emitAppEvent('changes:remove', { path: edit.path })
     emitAppEvent('editor:reload', { path: edit.path })
   };
   const undoPending = async (edit: PendingEdit): Promise<void> => {
     await window.api.fs.save({ path: edit.path, content: edit.fileBefore, encoding: 'utf8' });
     removePendingEdit(edit.id);
+    emitAppEvent('changes:remove', { path: edit.path });
     emitAppEvent('editor:reload', { path: edit.path });
   };
   const keepAllPending = (): void => { void Promise.all(pendingEdits.map(keepPending)); };
@@ -1274,7 +1329,7 @@ export function NewSession({
         <div className="ns__changes">
           <button type="button" className="ns__changes-title" onClick={() => setChangesOpen((v) => !v)}>Changes <span>{pendingEdits.length}</span></button>
           <div className="ns__changes-actions"><button type="button" onClick={undoAllPending}>Undo all</button><button type="button" onClick={keepAllPending}>Keep all</button></div>
-          {changesOpen && <div className="ns__changes-list">{pendingEdits.map((edit) => <div className="ns__change-row" key={edit.id}><div className="ns__change-file" role="button" tabIndex={0} onClick={() => emitAppEvent('editor:open', { path: edit.path })} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); emitAppEvent('editor:open', { path: edit.path }); } }}><img src={fileIcon(edit.name)} alt="" /><span>{edit.name}</span>{(() => { const stats = pendingLineStats(edit.fileBefore, edit.after); return <span className="ns__change-stats">{stats.removed > 0 && <b className="ns__change-minus">−{stats.removed}</b>}{stats.added > 0 && <b className="ns__change-plus">+{stats.added}</b>}</span> })()}</div><div className="ns__change-actions"><button type="button" onClick={() => void undoPending(edit)}>Undo</button><button type="button" onClick={() => void keepPending(edit)}>Keep</button></div></div>)}</div>}
+          {changesOpen && <div className="ns__changes-list">{pendingEdits.map((edit) => <div className="ns__change-row" key={edit.id}><div className="ns__change-file" role="button" tabIndex={0} onClick={() => emitAppEvent('editor:open', { path: edit.path })} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); emitAppEvent('editor:open', { path: edit.path }); } }}><img src={fileIcon(edit.name)} alt="" /><span>{edit.name}</span>{(() => { const stats = pendingLineStats(edit.fileBefore, edit.after); return <span className="ns__change-stats" aria-label={`${stats.added} added, ${stats.removed} removed`}>{stats.added > 0 && <b className="ns__change-plus">+{stats.added}</b>}{stats.removed > 0 && <b className="ns__change-minus">−{stats.removed}</b>}</span> })()}</div><div className="ns__change-actions"><button type="button" onClick={() => void undoPending(edit)}>Undo</button><button type="button" onClick={() => void keepPending(edit)}>Keep</button></div></div>)}</div>}
         </div>
       )}
       {showHeader && (
@@ -1662,7 +1717,16 @@ export function NewSession({
               {(() => {
                 const active =
                   AGENT_MODES.find((m) => m.id === editMode) ?? AGENT_MODES[0];
-                return <span className="ns__mode-label">{active.label}</span>;
+                const ActiveIcon = active.icon;
+                return (
+                  <>
+                    <ActiveIcon
+                      size={17}
+                      className={`ns__mode-button-icon ns__mode-button-icon--${active.id}`}
+                    />
+                    <span className="ns__mode-label">{active.label}</span>
+                  </>
+                );
               })()}
               <ChevronDown
                 size={12}
@@ -1674,29 +1738,36 @@ export function NewSession({
                 className={`ns__menu${menusDown ? "" : " ns__menu--up"} ns__mode-menu`}
                 role="menu"
               >
-                {AGENT_MODES.map((mode) => (
-                  <button
+                {AGENT_MODES.map((mode) => {
+                  const ModeIcon = mode.icon;
+                  const selected = mode.id === editMode;
+                  return <button
                     key={mode.id}
                     type="button"
-                    role="menuitem"
-                    className={`ns__menu-item ns__mode-item ns__mode-item--${mode.id}`}
+                    role="menuitemradio"
+                    aria-checked={selected}
+                    className={`ns__menu-item ns__mode-item${selected ? " ns__mode-item--selected" : ""}`}
                     onClick={() => {
                       setEditModeState(mode.id);
                       setEditMode(mode.id);
                       setEditOpen(false);
                     }}
                   >
-                    <span className="ns__menu-label">{mode.label}</span>
-                    {mode.id === editMode && <Check size={13} />}
+                    <ModeIcon
+                      size={15}
+                      className={`ns__mode-item-icon ns__mode-item-icon--${mode.id}`}
+                    />
+                    <span className="ns__menu-label ns__mode-copy">{mode.label}</span>
+                    {selected && <Check size={14} className="ns__mode-check" />}
                   </button>
-                ))}
+                })}
               </div>
             )}
           </div>
 
           <div className="ns__chip-wrap" ref={modelToolRef}>
             <button
-              className="ns__chip ns__chip--ghost"
+              className={`ns__chip ns__chip--ghost${modelToolOpen ? " ns__chip--open" : ""}`}
               type="button"
               onClick={() => setModelToolOpen((v) => !v)}
               disabled={models.length === 0}
@@ -1731,25 +1802,6 @@ export function NewSession({
 
           <div className="ns__spacer" />
 
-          {agentMode && (
-            <span
-              className="ns__ctx"
-              data-tip={`Context used: ${contextPercent}%`}
-              aria-label={`Context used: ${contextPercent}%`}
-            >
-              <svg viewBox="0 0 18 18" aria-hidden="true">
-                <circle className="ns__ctx-track" cx="9" cy="9" r="7" />
-                <circle
-                  className="ns__ctx-fill"
-                  cx="9"
-                  cy="9"
-                  r="7"
-                  strokeDasharray={`${((contextPercent / 100) * CONTEXT_RING).toFixed(2)} ${CONTEXT_RING}`}
-                />
-              </svg>
-            </span>
-          )}
-
           <div className="ns__chip-wrap ns__effort-wrap" ref={effortRef}>
             <button
               className={`ns__effort ns__effort--${reasoningEffort}${effortOpen ? " ns__effort--open" : ""}`}
@@ -1759,16 +1811,21 @@ export function NewSession({
               aria-expanded={effortOpen}
               onClick={() => setEffortOpen((open) => !open)}
             >
-              <span>{reasoningEffort}</span>
-              <ChevronDown
-                size={11}
-                className={`ns__chevron${effortOpen ? " ns__chevron--open" : ""}`}
-              />
+              <span className="ns__effort-meter" aria-hidden="true">
+                {Array.from({ length: 5 }, (_, index) => (
+                  <i
+                    key={index}
+                    className={index < EFFORT_META[reasoningEffort].bars ? "is-active" : ""}
+                  />
+                ))}
+              </span>
             </button>
             {effortOpen && (
               <div
+                ref={effortMenuRef}
                 className={`ns__menu${menusDown ? "" : " ns__menu--up"} ns__menu--right ns__effort-menu`}
                 role="menu"
+                style={effortMenuStyle}
               >
                 {REASONING_EFFORT_LEVELS.map((level) => (
                   <button
@@ -1776,18 +1833,18 @@ export function NewSession({
                     type="button"
                     role="menuitemradio"
                     aria-checked={reasoningEffort === level}
-                    className={`ns__menu-item ns__effort-item ns__effort-item--${level}`}
+                    className={`ns__menu-item ns__effort-item ns__effort-item--${level}${reasoningEffort === level ? " is-active" : ""}`}
                     onClick={() => {
                       setReasoningEffort(level);
                       setEffortOpen(false);
                     }}
                   >
-                    <span className="ns__menu-label">
-                      {level === "xhigh"
-                        ? "XHigh"
-                        : level.charAt(0).toUpperCase() + level.slice(1)}
+                    <span className="ns__effort-item-label">
+                      {EFFORT_META[level].label}
                     </span>
-                    {reasoningEffort === level && <Check size={13} />}
+                    {reasoningEffort === level && (
+                      <Check size={14} className="ns__effort-check" aria-hidden="true" />
+                    )}
                   </button>
                 ))}
               </div>

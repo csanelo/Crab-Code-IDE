@@ -19,6 +19,7 @@ import {
   addPendingEdit,
   getPendingEditFor,
   removePendingEdit,
+  subscribePendingEdits,
   type PendingEdit
 } from '../../lib/pendingEdits'
 import { toastInfo } from '../../lib/toast'
@@ -539,13 +540,18 @@ export function CodeEditor(): JSX.Element {
   const paintPending = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (editor: any, monaco: any, p: PendingEdit): void => {
+      const model = editor.getModel()
+      const maxLine = model?.getLineCount() ?? p.endLine
+      const startLine = Math.max(1, Math.min(p.startLine, maxLine))
+      const endLine = Math.max(startLine, Math.min(p.endLine, maxLine))
+
       decorRef.current = editor.deltaDecorations(decorRef.current, [
         {
-          range: new monaco.Range(p.startLine, 1, p.endLine, 1),
+          range: new monaco.Range(startLine, 1, endLine, 1),
           options: { isWholeLine: true, className: 'ceditor__line-new' }
         }
       ])
-      const oldLines = p.before.split('\n')
+      const oldLines = p.before.split(/\r?\n/)
       const contentLeft = editor.getLayoutInfo?.()?.contentLeft ?? 64
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       editor.changeViewZones((acc: any) => {
@@ -560,21 +566,21 @@ export function CodeEditor(): JSX.Element {
           dom.appendChild(row)
         })
         zoneRef.current = acc.addZone({
-          afterLineNumber: p.startLine - 1,
-          heightInLines: oldLines.length,
+          afterLineNumber: Math.max(0, Math.min(startLine - 1, maxLine)),
+          heightInLines: Math.max(1, oldLines.length),
           domNode: dom
         })
       })
       pendingRef.current = {
         id: p.id,
         path: p.path,
-        startLine: p.startLine,
-        endLine: p.endLine,
+        startLine,
+        endLine,
         before: p.before,
         fileBefore: p.fileBefore
       }
       const anchor = editor.getScrolledVisiblePosition({
-        lineNumber: p.endLine,
+        lineNumber: endLine,
         column: 1
       })
       setPending({ id: p.id, top: (anchor?.top ?? 0) + 22 })
@@ -1046,29 +1052,48 @@ export function CodeEditor(): JSX.Element {
     if (!p || !editor || !monaco) return
     const model = editor.getModel()
     if (model) {
-      const endLine = Math.min(p.endLine, model.getLineCount())
-      const range = new monaco.Range(
-        p.startLine,
-        1,
-        endLine,
-        model.getLineMaxColumn(endLine)
-      )
-      editor.pushUndoStop()
-      editor.executeEdits('quick-edit-undo', [{ range, text: p.before }])
-      editor.pushUndoStop()
+      if (p.fileBefore) {
+        editor.pushUndoStop()
+        model.setValue(p.fileBefore)
+        editor.pushUndoStop()
+      } else {
+        const lineCount = model.getLineCount()
+        const endLine = Math.min(p.endLine, lineCount)
+        let range: InstanceType<typeof monaco.Range>
+        if (p.before === '' && p.startLine > 1) {
+          range = new monaco.Range(
+            p.startLine - 1,
+            model.getLineMaxColumn(p.startLine - 1),
+            endLine,
+            model.getLineMaxColumn(endLine)
+          )
+        } else if (p.before === '' && p.startLine === 1 && lineCount > endLine) {
+          range = new monaco.Range(1, 1, endLine + 1, 1)
+        } else {
+          range = new monaco.Range(
+            p.startLine,
+            1,
+            endLine,
+            model.getLineMaxColumn(endLine)
+          )
+        }
+        editor.pushUndoStop()
+        editor.executeEdits('quick-edit-undo', [{ range, text: p.before }])
+        editor.pushUndoStop()
+      }
       const value = model.getValue()
       setFiles((prev) =>
         prev.map((f) =>
           f.path === p.path ? { ...f, content: value, dirty: value !== f.original } : f
         )
       )
+      void window.api.fs.save({ path: p.path, content: value, encoding: files.find((f) => f.path === p.path)?.encoding ?? 'utf8' })
     }
-    const nextValue = model?.getValue()
-    if (nextValue !== undefined) void window.api.fs.save({ path: p.path, content: nextValue, encoding: files.find((f) => f.path === p.path)?.encoding ?? 'utf8' })
     removePendingEdit(p.id)
+    emitAppEvent('changes:remove', { path: p.path })
     clearPendingDecorations()
     editor.focus()
-  }, [clearPendingDecorations])
+  }, [clearPendingDecorations, files])
 
   acceptRef.current = acceptEdit
   rejectRef.current = rejectEdit
@@ -1096,21 +1121,10 @@ export function CodeEditor(): JSX.Element {
     if (!entry) return
     const model = editor.getModel()
     if (!model) return
-    // Never discard an unconfirmed review merely because Monaco is briefly
-    // showing the previous model while switching tabs or restoring a session.
-    // The entry is durable until the user explicitly keeps or undoes it.
     const restoreWhenModelReady = (): void => {
       const currentModel = editor.getModel()
-      if (!currentModel || entry.endLine > currentModel.getLineCount()) return
-      const current = currentModel.getValueInRange(
-        new monaco.Range(
-          entry.startLine,
-          1,
-          entry.endLine,
-          currentModel.getLineMaxColumn(entry.endLine)
-        )
-      )
-      if (current.trimEnd() === entry.after.trimEnd()) paintPending(editor, monaco, entry)
+      if (!currentModel) return
+      paintPending(editor, monaco, entry)
     }
     restoreWhenModelReady()
     const retry = window.setTimeout(restoreWhenModelReady, 90)
@@ -1128,12 +1142,23 @@ export function CodeEditor(): JSX.Element {
   }, [])
 
   useEffect(() => {
+    return subscribePendingEdits((list) => {
+      if (activePath) {
+        const hasPending = list.some((x) => x.path === activePath)
+        if (!hasPending && pendingRef.current?.path === activePath) {
+          clearPendingDecorations()
+        }
+      }
+    })
+  }, [activePath, clearPendingDecorations])
+
+  useEffect(() => {
     return onAppEvent('editor:agentEdit', ({ path, before, after }) => {
       let agentPending: PendingEdit | undefined
       if (before !== undefined && after !== undefined && before !== after) {
         // Limit the inline review block to the real changed hunk, like Cursor.
-        const oldLines = before.split('\n')
-        const newLines = after.split('\n')
+        const oldLines = before.split(/\r?\n/)
+        const newLines = after.split(/\r?\n/)
         let start = 0
         while (start < oldLines.length && start < newLines.length && oldLines[start] === newLines[start]) start++
         let suffix = 0
@@ -1300,6 +1325,8 @@ export function CodeEditor(): JSX.Element {
   }
 
   if (files.length === 0) {
+    const isMac = window.api?.window?.platform === 'darwin'
+    const modKey = isMac ? '⌘' : 'Ctrl'
     return (
       <div className="ceditor ceditor--empty">
         <img src={asset('icon.png')} alt="" className="ceditor__empty-icon" />
@@ -1307,25 +1334,25 @@ export function CodeEditor(): JSX.Element {
           <li>
             <span className="ceditor__hint-label">{t('welcome.openChat')}</span>
             <span className="ceditor__hint-keys">
-              <kbd>Ctrl</kbd> + <kbd>J</kbd>
+              <kbd>{modKey}</kbd> + <kbd>J</kbd>
             </span>
           </li>
           <li>
             <span className="ceditor__hint-label">{t('welcome.showCommands')}</span>
             <span className="ceditor__hint-keys">
-              <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd>
+              <kbd>{modKey}</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd>
             </span>
           </li>
           <li>
             <span className="ceditor__hint-label">{t('welcome.openFile')}</span>
             <span className="ceditor__hint-keys">
-              <kbd>Ctrl</kbd> + <kbd>O</kbd>
+              <kbd>{modKey}</kbd> + <kbd>O</kbd>
             </span>
           </li>
           <li>
             <span className="ceditor__hint-label">{t('welcome.openFolder')}</span>
             <span className="ceditor__hint-keys">
-              <kbd>Ctrl</kbd> + <kbd>K</kbd> <kbd>Ctrl</kbd> + <kbd>O</kbd>
+              <kbd>{modKey}</kbd> + <kbd>K</kbd> <kbd>{modKey}</kbd> + <kbd>O</kbd>
             </span>
           </li>
         </ul>
@@ -1487,7 +1514,7 @@ export function CodeEditor(): JSX.Element {
                     onClick={addSelectionToChat}
                   >
                     {t('editor.addToChat')}
-                    <span className="ceditor__selmenu-kbd">Ctrl+L</span>
+                    <span className="ceditor__selmenu-kbd">{isMac ? '⌘L' : 'Ctrl+L'}</span>
                   </button>
                   <span className="ceditor__selmenu-sep" />
                   <button
@@ -1496,7 +1523,7 @@ export function CodeEditor(): JSX.Element {
                     onClick={openQuickEdit}
                   >
                     {t('editor.quickEdit')}
-                    <span className="ceditor__selmenu-kbd">Ctrl+K</span>
+                    <span className="ceditor__selmenu-kbd">{isMac ? '⌘K' : 'Ctrl+K'}</span>
                   </button>
                 </div>
               )}
@@ -1563,7 +1590,7 @@ export function CodeEditor(): JSX.Element {
                     onClick={rejectEdit}
                   >
                     {t('editor.undo')}
-                    <span className="ceditor__keepbar-kbd">Ctrl+N</span>
+                    <span className="ceditor__keepbar-kbd">{isMac ? '⌘N' : 'Ctrl+N'}</span>
                   </button>
                   <button
                     type="button"
@@ -1572,7 +1599,7 @@ export function CodeEditor(): JSX.Element {
                     onClick={acceptEdit}
                   >
                     {t('editor.keep')}
-                    <span className="ceditor__keepbar-kbd">Ctrl+Shift+Y</span>
+                    <span className="ceditor__keepbar-kbd">{isMac ? '⌘Shift+Y' : 'Ctrl+Shift+Y'}</span>
                   </button>
                 </div>
               )}

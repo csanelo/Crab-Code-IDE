@@ -1,11 +1,14 @@
 import { ipcMain, safeStorage } from 'electron'
+import { handleIpc } from './ipcHelper'
 import Store from 'electron-store'
+import { contextWindowForModel } from '../shared/contextUsage'
 
 export type ProviderApi = 'openai' | 'anthropic' | 'gemini' | 'custom'
 
 export interface StoredModel {
   id: string
   label: string
+  contextWindow?: number
 }
 
 export interface ProviderConfig {
@@ -25,6 +28,13 @@ export interface ProviderState {
   providers: ProviderConfig[]
   activeId: string | null
   activeModel: string | null
+}
+
+function normalizeStoredModel(model: StoredModel): StoredModel {
+  return {
+    ...model,
+    contextWindow: contextWindowForModel(model.id, model.contextWindow)
+  }
 }
 
 function selectAntigravityModels(models: StoredModel[]): StoredModel[] {
@@ -58,7 +68,7 @@ function selectAntigravityModels(models: StoredModel[]): StoredModel[] {
   return selected.flatMap((model, index) => {
     if (!model || seen.has(model.id)) return []
     seen.add(model.id)
-    return [{ id: model.id, label: cleanLabels[index] }]
+    return [normalizeStoredModel({ ...model, label: cleanLabels[index] })]
   })
 }
 
@@ -69,10 +79,10 @@ const DEFAULT_OPENCODE_PROVIDER: ProviderConfig = {
   api: 'openai',
   baseUrl: 'https://opencode.ai/zen/v1',
   models: [
-    { id: 'deepseek-v4-flash-free', label: 'DeepSeek V4 Flash Free' },
-    { id: 'mimo-v2.5-free', label: 'MiMo V2.5 Free' },
-    { id: 'ling-3.0-flash-free', label: 'Ling 3.0 Flash Free' },
-    { id: 'nemotron-3-ultra-free', label: 'Nemotron 3 Ultra Free' }
+    { id: 'deepseek-v4-flash-free', label: 'DeepSeek V4 Flash Free', contextWindow: 1000000 },
+    { id: 'mimo-v2.5-free', label: 'MiMo V2.5 Free', contextWindow: 131072 },
+    { id: 'ling-3.0-flash-free', label: 'Ling 3.0 Flash Free', contextWindow: 262144 },
+    { id: 'nemotron-3-ultra-free', label: 'Nemotron 3 Ultra Free', contextWindow: 1000000 }
   ]
 }
 
@@ -89,15 +99,36 @@ const store = new Store<{ providers: ProviderState }>({
 
 let cached: ProviderState = { ...DEFAULTS, ...store.get('providers') }
 
+// AgentRouter rejects CrabCode at the server allow-list layer. Remove the
+// retired catalog connection during migration so it no longer appears as an
+// installed provider or remains selected after this update.
+const retiredAgentRouterIds = new Set(
+  cached.providers
+    .filter((provider) => provider.catalogId === 'agentrouter')
+    .map((provider) => provider.id)
+)
+if (retiredAgentRouterIds.size > 0) {
+  cached.providers = cached.providers.filter(
+    (provider) => provider.catalogId !== 'agentrouter'
+  )
+  if (cached.activeId && retiredAgentRouterIds.has(cached.activeId)) {
+    cached.activeId = DEFAULT_OPENCODE_PROVIDER.id
+    cached.activeModel = DEFAULT_OPENCODE_PROVIDER.models[0].id
+  }
+}
+
 // Sync/update models for existing installed OpenCode provider
 const existingOpencode = cached.providers.find((p) => p.catalogId === 'opencode' || p.id === 'opencode-free-default')
 if (existingOpencode) {
-  existingOpencode.models = DEFAULT_OPENCODE_PROVIDER.models
+  existingOpencode.models = DEFAULT_OPENCODE_PROVIDER.models.map(normalizeStoredModel)
   if (cached.activeId === existingOpencode.id && !existingOpencode.models.some((m) => m.id === cached.activeModel)) {
     cached.activeModel = DEFAULT_OPENCODE_PROVIDER.models[0].id
   }
 } else {
-  cached.providers.unshift(DEFAULT_OPENCODE_PROVIDER)
+  cached.providers.unshift({
+    ...DEFAULT_OPENCODE_PROVIDER,
+    models: DEFAULT_OPENCODE_PROVIDER.models.map(normalizeStoredModel)
+  })
   if (!cached.activeId) {
     cached.activeId = DEFAULT_OPENCODE_PROVIDER.id
     cached.activeModel = DEFAULT_OPENCODE_PROVIDER.models[0].id
@@ -112,6 +143,9 @@ for (const provider of cached.providers) {
   if (cached.activeId === provider.id && !availableModels(provider).some((model) => model.id === cached.activeModel)) {
     cached.activeModel = availableModels(provider)[0]?.id ?? null
   }
+}
+for (const provider of cached.providers) {
+  provider.models = provider.models.map(normalizeStoredModel)
 }
 store.set('providers', cached)
 
@@ -158,7 +192,12 @@ export function decrypt(value: string | undefined): string {
   return value
 }
 
-export async function getActiveProvider(): Promise<{ config: ProviderConfig; apiKey: string; model: string } | null> {
+export async function getActiveProvider(signal?: AbortSignal): Promise<{
+  config: ProviderConfig
+  apiKey: string
+  model: string
+  contextWindow: number
+} | null> {
   const id = cached.activeId
   if (!id) return null
   const config = cached.providers.find((p) => p.id === id)
@@ -172,21 +211,25 @@ export async function getActiveProvider(): Promise<{ config: ProviderConfig; api
     cached.activeModel = model || null
     persist()
   }
+  const selectedModel = usableModels.find((candidate) => candidate.id === model)
+  const contextWindow = contextWindowForModel(model, selectedModel?.contextWindow)
 
   // Auto-refresh Google OAuth token if needed before agent requests
   if (config.catalogId === 'google-antigravity') {
-    const refreshedKey = await refreshGoogleTokenIfNeeded(config)
+    const refreshedKey = await refreshGoogleTokenIfNeeded(config, signal)
     return {
       config,
       apiKey: refreshedKey,
-      model
+      model,
+      contextWindow
     }
   }
 
   return {
     config,
     apiKey: decrypt(config.apiKeyEnc),
-    model
+    model,
+    contextWindow
   }
 }
 
@@ -222,7 +265,10 @@ function sanitize(state: ProviderState): ProviderState {
 const DEFAULT_GOOGLE_CLIENT_ID = ['1071006060591-tmhssin2h21lcre235vtolojh4g40', '3ep.apps.googleusercontent.com'].join('')
 const DEFAULT_GOOGLE_CLIENT_SECRET = ['GOCSPX-K58FWR486Ld', 'LJ1mLB8sXC4z6qDAf'].join('')
 
-export async function refreshGoogleTokenIfNeeded(prov: ProviderConfig): Promise<string> {
+export async function refreshGoogleTokenIfNeeded(
+  prov: ProviderConfig,
+  signal?: AbortSignal
+): Promise<string> {
   if (prov.catalogId !== 'google-antigravity') {
     return decrypt(prov.apiKeyEnc)
   }
@@ -253,7 +299,8 @@ export async function refreshGoogleTokenIfNeeded(prov: ProviderConfig): Promise<
         refresh_token: refreshToken,
         client_id: DEFAULT_GOOGLE_CLIENT_ID,
         client_secret: DEFAULT_GOOGLE_CLIENT_SECRET
-      })
+      }),
+      signal
     })
 
     if (!res.ok) {
@@ -287,9 +334,9 @@ export async function refreshGoogleTokenIfNeeded(prov: ProviderConfig): Promise<
 }
 
 export function registerProviders(ipcMain_: typeof ipcMain): void {
-  ipcMain_.handle('providers:get', () => sanitize(cached))
+  handleIpc('providers:get', () => sanitize(cached))
 
-  ipcMain_.handle('providers:upsert', (_e, partial: ProviderConfig & { apiKey?: string; refreshToken?: string }) => {
+  handleIpc('providers:upsert', (_e, partial: ProviderConfig & { apiKey?: string; refreshToken?: string }) => {
     const existing = cached.providers.find((p) => p.id === partial.id)
     const apiKeyEnc =
       partial.apiKey !== undefined && partial.apiKey !== '***'
@@ -305,10 +352,10 @@ export function registerProviders(ipcMain_: typeof ipcMain): void {
       name: partial.name,
       api: partial.api,
       baseUrl: partial.baseUrl,
-      models:
-        partial.catalogId === 'google-antigravity'
-          ? selectAntigravityModels(partial.models ?? [])
-          : partial.models ?? [],
+      models: (partial.catalogId === 'google-antigravity'
+        ? selectAntigravityModels(partial.models ?? [])
+        : partial.models ?? []
+      ).map(normalizeStoredModel),
       apiKeyEnc,
       refreshTokenEnc,
       expiresAt: partial.expiresAt ?? existing?.expiresAt,
@@ -326,7 +373,7 @@ export function registerProviders(ipcMain_: typeof ipcMain): void {
     return sanitize(cached)
   })
 
-  ipcMain_.handle('providers:remove', (_e, id: string) => {
+  handleIpc('providers:remove', (_e, id: string) => {
     cached.providers = cached.providers.filter((p) => p.id !== id)
     if (cached.activeId === id) {
       cached.activeId = cached.providers[0]?.id ?? null
@@ -338,7 +385,7 @@ export function registerProviders(ipcMain_: typeof ipcMain): void {
     return sanitize(cached)
   })
 
-  ipcMain_.handle('providers:set-active', (_e, payload: { id: string; model?: string }) => {
+  handleIpc('providers:set-active', (_e, payload: { id: string; model?: string }) => {
     const found = cached.providers.find((p) => p.id === payload.id)
     if (!found) return sanitize(cached)
     const usableModels = availableModels(found)
@@ -352,7 +399,7 @@ export function registerProviders(ipcMain_: typeof ipcMain): void {
     return sanitize(cached)
   })
 
-  ipcMain_.handle('providers:antigravity-quota', async (_e, rawToken: string) => {
+  handleIpc('providers:antigravity-quota', async (_e, rawToken: string) => {
     const CC_BASE = 'https://cloudcode-pa.googleapis.com'
     const AG_UA = 'antigravity/ide/2.1.1 darwin/arm64'
 
@@ -449,7 +496,7 @@ export function registerProviders(ipcMain_: typeof ipcMain): void {
     }
   })
 
-  ipcMain_.handle('providers:google-oauth', async (_e, customClientId?: string, customClientSecret?: string) => {
+  handleIpc('providers:google-oauth', async (_e, customClientId?: string, customClientSecret?: string) => {
     const clientId = customClientId?.trim() || DEFAULT_GOOGLE_CLIENT_ID
     const clientSecret = customClientSecret?.trim() || DEFAULT_GOOGLE_CLIENT_SECRET
 
@@ -666,16 +713,21 @@ export function registerProviders(ipcMain_: typeof ipcMain): void {
     })
   })
 
-  ipcMain_.handle('providers:test', async (_e, id: string) => {
+  handleIpc('providers:test', async (_e, id: string) => {
     const cfg = cached.providers.find((p) => p.id === id)
     if (!cfg) return { ok: false, error: 'Provider not found' }
+    const isOpencode = cfg.catalogId === 'opencode' || cfg.baseUrl.includes('opencode.ai')
     const key = decrypt(cfg.apiKeyEnc)
-    if (!key) return { ok: false, error: 'API key / OAuth token not set' }
+    if (!key && !isOpencode) return { ok: false, error: 'API key / OAuth token not set' }
     try {
       let url = `${cfg.baseUrl.replace(/\/$/, '')}/models`
-      let headers: Record<string, string> = { Authorization: `Bearer ${key}` }
+      let headers: Record<string, string> = {}
+      if (key) {
+        headers['Authorization'] = `Bearer ${key}`
+      }
       if (cfg.api === 'anthropic') {
-        headers = { 'x-api-key': key, 'anthropic-version': '2023-06-01' }
+        headers['x-api-key'] = key
+        headers['anthropic-version'] = '2023-06-01'
       } else if (cfg.api === 'gemini') {
         if (
           cfg.catalogId === 'google-antigravity' ||
@@ -683,13 +735,48 @@ export function registerProviders(ipcMain_: typeof ipcMain): void {
           key.startsWith('Bearer ')
         ) {
           url = `${cfg.baseUrl.replace(/\/$/, '')}/v1beta/models`
-          headers = { Authorization: `Bearer ${key.replace(/^Bearer\s+/i, '')}` }
-        } else {
+          headers['Authorization'] = `Bearer ${key.replace(/^Bearer\s+/i, '')}`
+        } else if (key) {
           url = `${cfg.baseUrl.replace(/\/$/, '')}/v1beta/models?key=${encodeURIComponent(key)}`
-          headers = {}
         }
       }
+      if (isOpencode) {
+        headers['x-opencode-client'] = 'desktop'
+      }
       const res = await fetch(url, { headers })
+      if (res.ok) {
+        try {
+          const json = (await res.json()) as Record<string, unknown>
+          const rawModels = (json.data ?? json.models) as Array<Record<string, unknown>> | undefined
+          if (Array.isArray(rawModels)) {
+            let updated = false
+            for (const item of rawModels) {
+              const mId = (item.id ?? item.name) as string | undefined
+              const ctxLen =
+                Number(item.context_length) ||
+                Number(item.context_window) ||
+                Number(item.max_input_tokens) ||
+                Number(item.inputTokenLimit) ||
+                Number(item.input_token_limit)
+              if (mId) {
+                const cleanId = mId.replace(/^models\//, '')
+                const existing = cfg.models.find((m) => m.id === mId || m.id === cleanId)
+                if (existing) {
+                  if (Number.isFinite(ctxLen) && ctxLen >= 4096 && existing.contextWindow !== ctxLen) {
+                    existing.contextWindow = ctxLen
+                    updated = true
+                  }
+                } else if (isOpencode) {
+                  const fallbackCtx = contextWindowForModel(cleanId, Number.isFinite(ctxLen) && ctxLen >= 4096 ? ctxLen : undefined)
+                  cfg.models.push(normalizeStoredModel({ id: cleanId, label: (item.name as string) || cleanId, contextWindow: fallbackCtx }))
+                  updated = true
+                }
+              }
+            }
+            if (updated) persist()
+          }
+        } catch { }
+      }
       return { ok: res.ok, status: res.status }
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) }

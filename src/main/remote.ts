@@ -1,4 +1,5 @@
 import { ipcMain, safeStorage, type IpcMain } from 'electron'
+import { handleIpc } from './ipcHelper'
 import Store from 'electron-store'
 import { readFile } from 'node:fs/promises'
 import { Client, type ClientChannel, type SFTPWrapper } from 'ssh2'
@@ -280,9 +281,9 @@ export function listRemoteHosts(): ReturnType<typeof sanitize>[] {
 }
 
 export function registerRemote(ipcMain_: IpcMain = ipcMain): void {
-  ipcMain_.handle('remote:list', () => listRemoteHosts())
+  handleIpc('remote:list', () => listRemoteHosts())
 
-  ipcMain_.handle('remote:upsert', (_e, partial: RemoteHostConfig & { password?: string; passphrase?: string }) => {
+  handleIpc('remote:upsert', (_e, partial: RemoteHostConfig & { password?: string; passphrase?: string }) => {
     const existing = cached.hosts.find((h) => h.id === partial.id)
     const next: RemoteHostConfig = {
       id: partial.id || `host_${Date.now().toString(36)}`,
@@ -309,7 +310,7 @@ export function registerRemote(ipcMain_: IpcMain = ipcMain): void {
     return { id: next.id }
   })
 
-  ipcMain_.handle('remote:remove', (_e, id: string) => {
+  handleIpc('remote:remove', (_e, id: string) => {
     cached.hosts = cached.hosts.filter((h) => h.id !== id)
     live.get(id)?.client.end()
     live.delete(id)
@@ -317,15 +318,15 @@ export function registerRemote(ipcMain_: IpcMain = ipcMain): void {
     return true
   })
 
-  ipcMain_.handle('remote:connect', async (_e, id: string) => connectRemoteHost(id))
+  handleIpc('remote:connect', async (_e, id: string) => connectRemoteHost(id))
 
-  ipcMain_.handle('remote:disconnect', (_e, id: string) => {
+  handleIpc('remote:disconnect', (_e, id: string) => {
     live.get(id)?.client.end()
     live.delete(id)
     return true
   })
 
-  ipcMain_.handle('remote:read-dir', async (_e, remotePath: string) => {
+  handleIpc('remote:read-dir', async (_e, remotePath: string) => {
     const r = parseRemote(remotePath)
     if (!r) return []
     const conn = await ensureRemote(r.id)
@@ -338,7 +339,7 @@ export function registerRemote(ipcMain_: IpcMain = ipcMain): void {
     }
   })
 
-  ipcMain_.handle('remote:read-file', async (_e, remotePath: string) => {
+  handleIpc('remote:read-file', async (_e, remotePath: string) => {
     const r = parseRemote(remotePath)
     if (!r) return null
     const conn = await ensureRemote(r.id)
@@ -351,7 +352,7 @@ export function registerRemote(ipcMain_: IpcMain = ipcMain): void {
     }
   })
 
-  ipcMain_.handle('remote:write-file', async (_e, payload: { path: string; content: string }) => {
+  handleIpc('remote:write-file', async (_e, payload: { path: string; content: string }) => {
     const r = parseRemote(payload.path)
     if (!r) return { error: 'Bad path' }
     const conn = await ensureRemote(r.id)
@@ -364,7 +365,7 @@ export function registerRemote(ipcMain_: IpcMain = ipcMain): void {
     }
   })
 
-  ipcMain_.handle('remote:exec', async (_e, payload: { id: string; command: string; cwd?: string }) => {
+  handleIpc('remote:exec', async (_e, payload: { id: string; command: string; cwd?: string }) => {
     const r = payload.cwd ? parseRemote(payload.cwd) : null
     return remoteExec(payload.id, payload.command, r?.path)
   })

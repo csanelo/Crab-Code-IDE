@@ -1,6 +1,9 @@
 import type { IpcMain, WebContents } from 'electron'
+import { handleIpc } from './ipcHelper'
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { pathToFileURL } from 'node:url'
+import { promises as fs } from 'node:fs'
+import { extname } from 'node:path'
 
 
 interface ServerConfig {
@@ -48,6 +51,7 @@ class LspServer {
   private nextId = 1
   private pending = new Map<number, Pending>()
   private opened = new Set<string>()
+  public diagnostics = new Map<string, unknown[]>()
   ready: Promise<boolean>
   available = false
 
@@ -121,6 +125,7 @@ class LspServer {
           },
           hover: { contentFormat: ['markdown', 'plaintext'] },
           definition: { dynamicRegistration: false },
+          references: { dynamicRegistration: false },
           publishDiagnostics: { relatedInformation: true }
         },
         workspace: { workspaceFolders: true, configuration: true }
@@ -164,6 +169,7 @@ class LspServer {
     const method = msg.method as string | undefined
     if (method === 'textDocument/publishDiagnostics') {
       const params = msg.params as { uri: string; diagnostics: unknown[] }
+      this.diagnostics.set(params.uri, params.diagnostics ?? [])
       this.send('lsp:diagnostics', { uri: params.uri, diagnostics: params.diagnostics })
     } else if (method === 'workspace/configuration' && typeof msg.id === 'number') {
       const items = (msg.params as { items?: unknown[] })?.items ?? []
@@ -270,7 +276,7 @@ export function registerLsp(ipcMain: IpcMain): void {
     if (!wc.isDestroyed()) wc.send(channel, ...args)
   }
 
-  ipcMain.handle(
+  handleIpc(
     'lsp:open',
     async (e, p: { root: string; languageId: string; uri: string; text: string }) => {
       const srv = await getServer(p.root, p.languageId, sender(e.sender))
@@ -280,7 +286,7 @@ export function registerLsp(ipcMain: IpcMain): void {
     }
   )
 
-  ipcMain.handle(
+  handleIpc(
     'lsp:change',
     async (e, p: { root: string; languageId: string; uri: string; version: number; text: string }) => {
       const srv = await getServer(p.root, p.languageId, sender(e.sender))
@@ -290,13 +296,13 @@ export function registerLsp(ipcMain: IpcMain): void {
     }
   )
 
-  ipcMain.handle('lsp:close', async (e, p: { root: string; languageId: string; uri: string }) => {
+  handleIpc('lsp:close', async (e, p: { root: string; languageId: string; uri: string }) => {
     const srv = await getServer(p.root, p.languageId, sender(e.sender))
     srv?.didClose(p.uri)
     return { ok: true }
   })
 
-  ipcMain.handle(
+  handleIpc(
     'lsp:completion',
     async (
       e,
@@ -315,7 +321,7 @@ export function registerLsp(ipcMain: IpcMain): void {
     }
   )
 
-  ipcMain.handle(
+  handleIpc(
     'lsp:hover',
     async (
       e,
@@ -334,7 +340,7 @@ export function registerLsp(ipcMain: IpcMain): void {
     }
   )
 
-  ipcMain.handle(
+  handleIpc(
     'lsp:definition',
     async (
       e,
@@ -357,4 +363,106 @@ export function registerLsp(ipcMain: IpcMain): void {
 export function killAllLsp(): void {
   for (const srv of servers.values()) srv.dispose()
   servers.clear()
+}
+
+export function detectLanguageId(filePath: string): string {
+  const ext = extname(filePath).toLowerCase()
+  switch (ext) {
+    case '.ts':
+    case '.tsx':
+      return 'typescript'
+    case '.js':
+    case '.jsx':
+    case '.mjs':
+    case '.cjs':
+      return 'javascript'
+    case '.py':
+      return 'python'
+    case '.rs':
+      return 'rust'
+    case '.go':
+      return 'go'
+    case '.c':
+    case '.h':
+      return 'c'
+    case '.cpp':
+    case '.cc':
+    case '.hpp':
+      return 'cpp'
+    default:
+      return ''
+  }
+}
+
+export async function getLspDiagnosticsForFile(
+  root: string,
+  filePath: string
+): Promise<unknown[] | null> {
+  const langId = detectLanguageId(filePath)
+  if (!langId) return null
+  const srv = await getServer(root, langId, () => {})
+  if (!srv) return null
+  const uri = pathToFileURL(filePath).toString()
+  return srv.diagnostics.get(uri) ?? []
+}
+
+export async function getLspAllDiagnostics(
+  root: string
+): Promise<Record<string, unknown[]>> {
+  const results: Record<string, unknown[]> = {}
+  for (const srv of servers.values()) {
+    for (const [uri, diags] of srv.diagnostics.entries()) {
+      if (diags && diags.length > 0) {
+        results[uri] = diags
+      }
+    }
+  }
+  return results
+}
+
+export async function queryLspReferences(
+  root: string,
+  filePath: string,
+  line: number,
+  character: number
+): Promise<unknown | null> {
+  const langId = detectLanguageId(filePath)
+  if (!langId) return null
+  const srv = await getServer(root, langId, () => {})
+  if (!srv) return null
+  const uri = pathToFileURL(filePath).toString()
+  try {
+    const text = await fs.readFile(filePath, 'utf8')
+    srv.didOpen(uri, langId, text)
+    return await srv.request('textDocument/references', {
+      textDocument: { uri },
+      position: { line: line - 1, character: character - 1 },
+      context: { includeDeclaration: true }
+    })
+  } catch {
+    return null
+  }
+}
+
+export async function queryLspDefinition(
+  root: string,
+  filePath: string,
+  line: number,
+  character: number
+): Promise<unknown | null> {
+  const langId = detectLanguageId(filePath)
+  if (!langId) return null
+  const srv = await getServer(root, langId, () => {})
+  if (!srv) return null
+  const uri = pathToFileURL(filePath).toString()
+  try {
+    const text = await fs.readFile(filePath, 'utf8')
+    srv.didOpen(uri, langId, text)
+    return await srv.request('textDocument/definition', {
+      textDocument: { uri },
+      position: { line: line - 1, character: character - 1 }
+    })
+  } catch {
+    return null
+  }
 }

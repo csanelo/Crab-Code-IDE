@@ -46,9 +46,9 @@
   --radius-pill: 999px;
 
   
-  --font-sans: 'Aileron', 'Avenir Next', Avenir, -apple-system, BlinkMacSystemFont,
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Avenir Next", Avenir, 'Aileron',
     'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', Consolas, 'Courier New', monospace;
+  --font-mono: 'SF Mono', 'JetBrains Mono', 'Cascadia Code', Consolas, 'Courier New', monospace;
   --text-xs: 12px;
   --text-sm: 13px;
   --text-base: 14px;

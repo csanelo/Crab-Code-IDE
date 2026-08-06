@@ -1,4 +1,5 @@
 import { ipcMain, BrowserWindow } from "electron";
+import { handleIpc } from "./ipcHelper";
 import { spawn } from "node:child_process";
 import * as pty from "@lydell/node-pty";
 import type { IPty } from "@lydell/node-pty";
@@ -47,6 +48,7 @@ export function killAllTerminals(): void {
 function shellCommand(): { file: string; args: string[] } {
   const pref = getGeneralSettings().defaultShell;
   const isWin = process.platform === "win32";
+  const isMac = process.platform === "darwin";
 
   if (pref !== "auto") {
     if (pref === "cmd" && isWin)
@@ -61,16 +63,20 @@ function shellCommand(): { file: string; args: string[] } {
       };
     }
     if (pref === "bash") return { file: "bash", args: [] };
+    if (pref === "zsh") return { file: process.env.SHELL ?? "/bin/zsh", args: ["-l"] };
   }
 
   if (isWin) {
     return { file: process.env.ComSpec ?? "cmd.exe", args: [] };
   }
+  if (isMac) {
+    return { file: process.env.SHELL ?? "/bin/zsh", args: ["-l"] };
+  }
   return { file: process.env.SHELL ?? "/bin/bash", args: [] };
 }
 
 export function registerTerminal(win: BrowserWindow): void {
-  ipcMain.handle(
+  handleIpc(
     "terminal:spawn",
     (
       event,
@@ -118,7 +124,7 @@ export function registerTerminal(win: BrowserWindow): void {
     },
   );
 
-  ipcMain.handle(
+  handleIpc(
     "terminal:spawn-remote",
     async (
       event,
@@ -181,14 +187,14 @@ export function registerTerminal(win: BrowserWindow): void {
     },
   );
 
-  ipcMain.handle("terminal:write", (_e, id: string, data: string) => {
+  handleIpc("terminal:write", (_e, id: string, data: string) => {
     const s = sessions.get(id);
     if (s?.remote) s.remote.write(data);
     else s?.proc?.write(data);
     return true;
   });
 
-  ipcMain.handle("terminal:interrupt", (_e, id: string) => {
+  handleIpc("terminal:interrupt", (_e, id: string) => {
     const s = sessions.get(id);
     if (!s) return false;
     try {
@@ -198,7 +204,7 @@ export function registerTerminal(win: BrowserWindow): void {
     return true;
   });
 
-  ipcMain.handle(
+  handleIpc(
     "terminal:resize",
     (_e, id: string, cols: number, rows: number) => {
       const s = sessions.get(id);
@@ -217,7 +223,7 @@ export function registerTerminal(win: BrowserWindow): void {
     },
   );
 
-  ipcMain.handle("terminal:kill", (_e, id: string) => {
+  handleIpc("terminal:kill", (_e, id: string) => {
     const s = sessions.get(id);
     if (!s) return false;
     if (s.remote) {

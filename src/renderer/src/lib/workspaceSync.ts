@@ -24,15 +24,15 @@ function toAbsolute(cwd: string | null, path: string | null): string | null {
 export function installWorkspaceSync(): void {
   if (installed) return
   installed = true
-  const api = (window as unknown as { api?: { workspace?: { onChanged?: (cb: (p: { tool: string; cwd: string | null; path: string | null }) => void) => () => void } } }).api
+  const api = (window as unknown as { api?: { workspace?: { onChanged?: (cb: (p: { tool: string; cwd: string | null; path: string | null; before?: string; after?: string }) => void) => () => void } } }).api
   const onChanged = api?.workspace?.onChanged
   if (!onChanged) return
-  onChanged(({ tool, cwd, path }) => {
-    emit('fs:changed', undefined)
+  onChanged(({ tool, cwd, path, before, after }) => {
     const abs = toAbsolute(cwd, path)
+    emit('fs:changed', { root: cwd ?? undefined, path: abs ?? undefined })
     if (!abs) return
     if (tool === 'write_file' || tool === 'edit_file' || tool === 'move_path' || tool === 'copy_path') {
-      emit('editor:agentEdit', { path: abs })
+      emit('editor:agentEdit', { path: abs, before, after })
     } else if (tool === 'delete_path') {
       emit('editor:reload', { path: abs })
     }

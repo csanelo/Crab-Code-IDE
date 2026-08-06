@@ -31,6 +31,7 @@
         "to": "resources"
       }
     ],
+    "afterSign": "scripts/afterSign.js",
     "win": {
       "icon": "build/icon.ico",
       "target": [
@@ -49,6 +50,8 @@
     "mac": {
       "icon": "build/icon.png",
       "category": "public.app-category.developer-tools",
+      "identity": null,
+      "gatekeeperAssess": false,
       "target": [
         "dmg",
         "zip"

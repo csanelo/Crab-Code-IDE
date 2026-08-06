@@ -113,7 +113,7 @@ export function ImageViewer({ path, name }: Props): JSX.Element {
       const outPath = `${dirOf(path)}/${outName}`
       const res = await window.api.fs.writeBinary({ path: outPath, base64 })
       if ('error' in res) throw new Error(res.error)
-      emitAppEvent('fs:changed', undefined)
+      emitAppEvent('fs:changed', { root: dirOf(res.path), path: res.path })
       emitAppEvent('editor:open', { path: res.path })
       toastSuccess(t('image.converted', { name: outName }))
     } catch {

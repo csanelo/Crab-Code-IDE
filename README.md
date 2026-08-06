@@ -4,8 +4,9 @@
   </a>
 
   <h1>CrabCode</h1>
-  <p><strong>A cross-platform AI development environment for serious project work.</strong></p>
-  <p>Code editor, terminal, browser, project tools, model providers, MCP and desktop automation in one application.</p>
+
+  <p><strong>A local-first desktop IDE with an integrated autonomous coding agent.</strong></p>
+  <p>Editor, terminal, browser, project memory, reusable skills and model integrations in one focused workspace.</p>
 
   <p>
     <a href="https://t.me/Crab_Code"><strong>Telegram: @Crab_Code</strong></a>
@@ -14,255 +15,200 @@
   </p>
 
   <p>
-    <a href="https://github.com/csanelo/Crab-Code-IDE/releases"><img src="https://img.shields.io/github/v/release/csanelo/Crab-Code-IDE?style=flat-square&label=release&labelColor=111318&color=5c6370" alt="Latest release" /></a>
-    <a href="https://github.com/csanelo/Crab-Code-IDE/actions"><img src="https://img.shields.io/github/actions/workflow/status/csanelo/Crab-Code-IDE/release.yml?style=flat-square&label=release%20build&labelColor=111318&color=5c6370" alt="Release build" /></a>
-    <a href="LICENSE"><img src="https://img.shields.io/github/license/csanelo/Crab-Code-IDE?style=flat-square&label=license&labelColor=111318&color=5c6370" alt="License" /></a>
-    <a href="https://t.me/Crab_Code"><img src="https://img.shields.io/badge/Telegram-Crab__Code-111318?style=flat-square&logo=telegram&logoColor=ffffff" alt="Telegram" /></a>
+    <a href="https://github.com/csanelo/Crab-Code-IDE/actions/workflows/build-release.yml"><img src="https://img.shields.io/github/actions/workflow/status/csanelo/Crab-Code-IDE/build-release.yml?branch=main&style=flat-square&label=build&labelColor=111318&color=7c5cff" alt="Build status" /></a>
+    <a href="https://github.com/csanelo/Crab-Code-IDE/releases"><img src="https://img.shields.io/github/v/release/csanelo/Crab-Code-IDE?style=flat-square&label=release&labelColor=111318&color=7c5cff" alt="Latest release" /></a>
+    <a href="https://t.me/Crab_Code"><img src="https://img.shields.io/badge/Telegram-Crab__Code-111318?style=flat-square&logo=telegram&logoColor=ffffff" alt="CrabCode Telegram" /></a>
   </p>
 
   <p>
+    <a href="#whats-new-in-032">What’s new</a>
+    &nbsp;·&nbsp;
     <a href="#overview">Overview</a>
     &nbsp;·&nbsp;
-    <a href="#release-032">Release 0.3.2</a>
+    <a href="#capabilities">Capabilities</a>
     &nbsp;·&nbsp;
-    <a href="#core-capabilities">Capabilities</a>
+    <a href="#getting-started">Getting started</a>
     &nbsp;·&nbsp;
-    <a href="#installation">Installation</a>
+    <a href="#building">Building</a>
     &nbsp;·&nbsp;
-    <a href="#release-history">Release history</a>
+    <a href="#architecture">Architecture</a>
   </p>
 </div>
 
 ---
 
+## What’s new in 0.3.2
+
+This release focuses on long-session performance, transparent context usage, reliable cancellation and deeper terminal-aware agent execution.
+
+### Long sessions stay responsive
+
+- Optimized chat rendering and state updates for sessions containing tens of thousands of tokens.
+- Reduced unnecessary work while the model is streaming or thinking.
+- Settings, model controls and the project explorer remain responsive in large sessions.
+- Fixed the project tree briefly disappearing and reappearing during agent activity.
+- Reduced repeated file analysis by using persistent per-project working memory.
+
+### Real context and token accounting
+
+- The context menu shows the maximum context window of the currently selected model.
+- Provider-reported model metadata is preferred when available, with a built-in model capability registry as a fallback.
+- Tracks cumulative input, output, total and cached-input tokens across the complete agent/tool loop.
+- Reads real usage metadata from OpenAI-compatible, Anthropic and Gemini responses.
+- Clearly labels usage as **measured** when every step is provider-reported and **estimated** when a provider omits usage data.
+- Includes support for explicit context suffixes such as `128k`, `256k` and `1m` in custom model identifiers.
+
+### Stop now stops the complete run
+
+- **Stop** cancels provider streaming immediately.
+- Running web requests and abort-aware tools are cancelled.
+- OAuth refresh and confirmation waits no longer keep a cancelled run alive.
+- The renderer leaves the streaming state immediately, even if cancellation happens before the request map is populated.
+- Late chunks, tool events and completion events from cancelled runs are ignored.
+
+### Deeper terminal integration
+
+- Pressing **Run** opens the integrated terminal when it is closed and inserts the exact command from the command card.
+- The agent waits for the command to finish before continuing.
+- Successful output produces a verdict; failed output is analyzed so the agent can propose a correction.
+- Inline terminal output is colored, shows a compact initial viewport and remains scrollable.
+- A running-state watchdog prevents commands from remaining stuck on `Running` forever.
+- CrabCode respects the shell selected in Settings.
+- Terminal execution memory remembers the working directory and avoids redundant `cd` commands.
+- Command cards no longer append unrelated text to the command being executed.
+
+### Better project memory and clearer agent activity
+
+- Persistent file memory helps the agent remember already-read files across a task.
+- Duplicate reads and repeated analysis of unchanged files are reduced.
+- File-memory limits keep context bounded across projects and long sessions.
+- Agent activity is shown as understandable actions—searching, reviewing, editing and validating—instead of raw internal tool names.
+- Activity text follows the language used in the current dialogue.
+- Whitespace-tolerant edit matching makes targeted code edits more resilient.
+
+### Portable Skills
+
+- Installed skills can include their complete bundle, not only `SKILL.md`.
+- Scripts, templates and other required resources remain available when a new project is opened.
+- Skills can be reused without reinstalling their supporting files for every project.
+
+### Interface and workflow polish
+
+- Redesigned mode, model and reasoning-effort selectors with a more compact visual hierarchy.
+- Added an animated reasoning-effort indicator and clearer selected states.
+- Simplified dropdown icons, descriptions and hover treatments.
+- Refined action buttons, Steps indicators, attachment controls and invisible scrollbars.
+- The default layout is **Files on the left, Chat on the right**.
+- Settings include an option to swap the file and chat sides.
+- Web access is enabled by default and can still be disabled per session.
+- The context popover uses compact cards rather than the old technical footer.
+
+### Provider cleanup
+
+- Supports OpenAI-compatible APIs, Anthropic and Gemini.
+- Includes the OpenCode Free connection path.
+- Keeps MCP server integrations for external tools and services.
+- Removed the non-working AgentRouter preset from the provider catalog.
+
+---
+
 ## Overview
 
-CrabCode is a desktop IDE built with Electron, React and TypeScript. It combines a Monaco-based editor, integrated terminal, file explorer, browser, AI agent and external tool connections inside a single workspace.
+CrabCode is a cross-platform desktop development environment built for direct work with code and AI-assisted software development. It combines a Monaco editor, project explorer, integrated terminal, browser and project-aware agent runtime inside one Electron application.
 
-The project is designed around direct, controlled work. The agent can inspect a codebase, modify files, use terminals, connect to MCP servers, work with Skills, browse the web when enabled and interact with the desktop when High access is available. Sensitive operations remain governed by explicit access modes and approval controls.
+CrabCode is local-first:
 
-CrabCode supports local projects, GitHub repositories and SSH workspaces. Provider credentials are stored locally and are not embedded into source code or release packages.
+- Projects stay on your machine.
+- Provider credentials are stored locally.
+- The renderer has no direct Node.js access.
+- Tools operate through a restricted preload bridge and the Electron main process.
+- Agent access can be limited to the project, elevated intentionally or placed behind confirmation.
 
-## Release 0.3.2
-
-Version `0.3.2` focuses on agent quality, model access, MCP and Skills integration, desktop control, change review and long-running development workflows.
-
-### Improved AI agent
-
-The agent runtime has been refined for more reliable multi-step work across real projects.
-
-- Better selection of tools for the current task.
-- More consistent continuation across long conversations.
-- Improved recovery after failed commands, tool calls and provider responses.
-- More accurate handling of project context, previous edits and active files.
-- Better separation between planning, approval and autonomous execution.
-- Reduced unnecessary tool usage during ordinary questions or local code analysis.
-- Clearer system instructions for coding, terminal work, web access and desktop control.
-
-### Improved MCP integration
-
-MCP connections are now treated as first-class tools inside the IDE.
-
-- Dedicated MCP section in Settings.
-- Connected servers are displayed in one place.
-- Servers can be enabled or disabled without removing their configuration.
-- Cleaner server presentation without unnecessary transport labels beside the name.
-- Unified MCP iconography and a more compact settings layout.
-- Improved MCP discovery and tool availability for the agent.
-- Better support for local command-based servers and remote HTTP or SSE endpoints.
-
-### Improved Skills workflow
-
-Skills are easier to understand and use from the agent workflow.
-
-- Simplified Skills interface.
-- Removed the previous manual GitHub URL form from the main Skills screen.
-- Added direct guidance to ask the agent to connect or install a Skill.
-- Cleaner Skill names without repository path noise.
-- Updated Skill icon and restrained visual presentation.
-- Improved agent instructions for discovering and applying relevant Skills.
-
-### Free AI models
-
-CrabCode now includes access to free model options through the built-in provider catalog.
-
-- Free models can be selected without manually creating every provider entry.
-- Model availability is synchronized with the interface.
-- Active model switching is faster and more predictable.
-- Text-only and vision-capable model differences are handled more safely.
-- Provider-specific payload compatibility has been improved, including text-only DeepSeek-style endpoints.
-
-Free model availability can change according to provider limits, regional access and upstream service policies.
-
-### Antigravity integration
-
-The IDE can connect to and work through the Antigravity provider flow.
-
-- Antigravity authentication and provider setup are integrated into CrabCode.
-- Supported models are loaded and normalized for the model selector.
-- Expired access tokens can be refreshed automatically when a refresh token is available.
-- Model quota information can be requested from the provider.
-- Agent conversations, tools and project work operate through the same IDE workflow as other providers.
-- Provider failures and unavailable models are handled with safer fallback behavior.
-
-### Reasoning effort controls
-
-The model reasoning level can be selected according to the complexity of the task.
-
-| Level | Intended use |
-| --- | --- |
-| `Low` | Small edits, quick explanations and lightweight tasks. |
-| `Medium` | General development work and normal debugging. |
-| `High` | Complex implementation, investigation and multi-file changes. |
-| `XHigh` | Deep analysis, difficult debugging and larger architectural work. |
-| `Max` | Long-running tasks that require the largest available reasoning budget and extended agent steps. |
-
-The selected level affects the reasoning budget, maximum tool steps and supported provider parameters. Unsupported provider options are removed automatically when an endpoint rejects them.
-
-### Improved Computer Access
-
-Computer Access has been redesigned around the High access boundary.
-
-- Desktop tools are available whenever High access is enabled.
-- The user no longer needs to repeat a special permission phrase in every message.
-- The agent decides whether a task actually requires the desktop.
-- Ordinary chat, code reading and direct file edits remain tool-free when desktop interaction is unnecessary.
-- The agent can list windows and processes, focus applications, capture the desktop, click, type, send keyboard shortcuts and scroll.
-- Fresh screenshots are required before coordinate-based actions.
-- Important actions can be verified with another capture afterward.
-- Text-only models no longer receive unsupported `image_url` blocks.
-- When possible, screenshots are converted into a textual visual description for models without vision support.
-
-Desktop control is currently implemented for Windows. Editor, terminal, browser, MCP, SSH and project tools remain available on Linux and macOS.
-
-### Improved Web access behavior
-
-The Web switch is now the actual permission boundary for internet tools.
-
-- When Web is enabled, the agent may search, fetch, browse and open online pages when the task requires it.
-- A special phrase such as “search the web” is no longer required in every message.
-- Repository pages, README files, documentation and relevant web resources can be opened directly.
-- When Web is disabled, web tools and online URL operations remain blocked.
-- Tool descriptions and system instructions now use the same Web access rules.
-
-### Prompt and context improvements
-
-Prompts and runtime instructions have been reorganized for more predictable behavior.
-
-- Clearer separation between project rules, access rules, reasoning controls and tool instructions.
-- Better handling of provider-specific prompt formats.
-- Improved context compaction for long sessions.
-- Older images and oversized tool results are omitted or summarized when necessary.
-- Stable prompt prefixes improve provider-side caching.
-- Agent instructions now prioritize direct project tools over unnecessary terminal or desktop actions.
-- Recovery behavior is clearer when an edit, command or provider request fails.
-
-### Inline file diffs
-
-File changes can be reviewed directly inside the editor.
-
-- Added lines are shown inline with the affected file.
-- Previous content remains visible for comparison.
-- Changes can be accepted or rejected without moving to a separate review screen.
-- Pending edits remain associated with their files across navigation and application restarts.
-- Confirmed changes are saved automatically.
-
-### Safe Keep All
-
-`Keep All` provides a controlled way to preserve the full set of pending changes.
-
-- Keeps all currently reviewed edits instead of resolving each diff separately.
-- Applies only to the visible pending change set.
-- Preserves the original file state until the action is confirmed.
-- Works with the existing unsaved-change protections.
-- Reduces the risk of losing a multi-file agent result during review.
-
-For sensitive repositories, Ask mode should still be used so each mutating operation requires approval before execution.
-
-### Terminal observation
-
-The agent can follow terminal output as part of an active development task.
-
-- Terminal sessions remain connected to the project context.
-- The model can inspect relevant command output and continue from build, test or runtime results.
-- Long output is compacted to protect the model context window.
-- Terminal state can be used to diagnose failed builds, missing dependencies and runtime errors.
-- Commands are not executed silently when execution approval is required.
-
-This behavior applies to active task sessions. CrabCode does not run a hidden background monitor outside the requested workflow.
-
-## Core capabilities
+## Capabilities
 
 ### Development workspace
 
-- Monaco editor with syntax highlighting and multi-file navigation.
-- Project-aware file explorer and icons.
-- Integrated local and SSH terminals.
-- Built-in browser with page capture support.
-- Language server integration.
-- Local, GitHub and SSH project workflows.
-- Light and dark interface themes.
+- Monaco editor with tabs, multi-file navigation and project search
+- Integrated file explorer and terminal sessions
+- Built-in browser for documentation and local interface review
+- Language-server integration
+- GitHub, SSH and remote-project workflows
+- Adjustable Files/Chat panel layout
+- Native desktop packaging for Windows, Linux and macOS
 
-### Agent modes
+### Coding agent
 
-| Mode | Behavior |
+- Reads, searches, creates and edits project files
+- Uses project rules, local context and reusable Skills
+- Remembers previously analyzed files and invalidates memory after mutations
+- Runs a multi-step model/tool loop with visible, localized activity
+- Uses the integrated terminal and follows command execution to completion
+- Can inspect web content when the Web switch is enabled
+- Can use desktop tools in High access when the task requires them
+- Supports MCP servers for external tools and services
+
+### Context transparency
+
+The session context popover is based on the selected model rather than a fixed generic limit. It provides:
+
+- Selected-model maximum context window
+- Current prompt composition by category
+- Cumulative input and output tokens for the run
+- Cached-input token usage when reported by the provider
+- Measured or estimated usage status
+
+Usage is collected across intermediate agent steps, including calls made after tool results are returned to the model.
+
+### Terminal-aware execution
+
+Command cards are connected to the integrated terminal execution lifecycle:
+
+1. The user reviews and presses **Run**.
+2. CrabCode opens the terminal if necessary and inserts the exact command.
+3. The agent waits while terminal output is collected.
+4. On success, the agent continues with the verified result.
+5. On failure, the agent analyzes the output and prepares a correction.
+
+The configured shell and remembered working directory are used to avoid invalid syntax and unnecessary directory changes.
+
+### Reusable Skills
+
+A skill may contain instructions, scripts, templates and supporting assets. CrabCode preserves the complete skill bundle so it can be used in future projects instead of copying only the instruction file.
+
+### Providers and connections
+
+CrabCode supports:
+
+- OpenAI-compatible APIs
+- Anthropic
+- Gemini
+- OpenCode Free
+- MCP servers
+- GitHub
+- SSH hosts
+
+Model identifiers, base URLs and credentials are configured in **Settings → Providers**.
+
+## Access modes
+
+| Mode | Behaviour |
 | --- | --- |
-| `Agent` | Applies approved project changes directly and verifies the result. |
-| `Ask` | Requests confirmation before each mutating action. |
-| `Plan` | Keeps the session read-only and produces an implementation plan. |
+| `Normal` | Restricts file and project tools to the opened project. |
+| `High` | Allows machine-level files, applications and desktop tools when needed. |
+| `Ask` | Requests approval before mutating actions. |
+| `Plan` | Keeps the session read-only and returns an implementation plan. |
 
-### Access levels
+Desktop control is currently implemented for Windows through native system APIs. Other platforms retain the editor, terminal, browser, SSH, MCP and project tools.
 
-| Access | Behavior |
-| --- | --- |
-| `Normal` | Restricts filesystem and tools to the opened project. |
-| `High` | Enables machine-level files, applications and desktop-control tools. |
-
-### Providers and integrations
-
-- OpenAI-compatible APIs.
-- Anthropic.
-- Gemini.
-- Antigravity.
-- Free model catalog.
-- MCP servers.
-- Skills.
-- GitHub.
-- SSH.
-
-## Keyboard shortcuts
-
-| Shortcut | Action |
-| --- | --- |
-| `Ctrl+K` | Open inline AI editing for the selected code. |
-| `Ctrl+L` | Send the selected code range to chat with its file reference. |
-| `Ctrl+Shift+P` | Open the Command Palette. |
-| `Ctrl+Shift+Y` | Accept the current pending edit. |
-| `Ctrl+N` | Reject or move away from the current pending edit, depending on editor context. |
-
-Shortcuts may use `Cmd` instead of `Ctrl` on macOS.
-
-## Installation
-
-Download the latest package from [GitHub Releases](https://github.com/csanelo/Crab-Code-IDE/releases).
-
-| Platform | Package |
-| --- | --- |
-| Windows x64 | NSIS `.exe` installer |
-| Linux x64 | `.AppImage` or `.deb` |
-| macOS Apple Silicon | ARM64 `.zip` or `.dmg`, depending on the release |
-
-Builds are currently unsigned. Windows SmartScreen or macOS Gatekeeper may display a warning for downloaded packages.
-
-## Build from source
+## Getting started
 
 ### Requirements
 
-- Node.js `26.5.0`
-- npm
+- Node.js 26.5.0
+- npm 10 or newer
 - Git
 
-### Setup
+### Install
 
 ```bash
 git clone https://github.com/csanelo/Crab-Code-IDE.git
@@ -270,20 +216,22 @@ cd Crab-Code-IDE
 npm ci
 ```
 
-### Development
+### Run in development
 
 ```bash
 npm run dev
 ```
 
-### Validation
+### Validate
 
 ```bash
 npm run typecheck
 npm run build
 ```
 
-### Native packages
+## Building
+
+Build a native package for a target platform:
 
 ```bash
 npm run package:win
@@ -293,18 +241,24 @@ npm run package:mac
 
 Compiled application files are written to `out/`. Installers and distributable packages are written to `dist/`.
 
-## Release workflow
+| Platform | Output |
+| --- | --- |
+| Windows | NSIS installer, `.exe` |
+| Linux | `.AppImage`, `.deb` |
+| macOS | `.dmg`, `.zip` |
 
-Release packaging runs only when a version tag is pushed. Ordinary branch pushes, backup branches and pull requests do not create release builds.
+## CI/CD
 
-The tag must match the version in `package.json`. For version `0.3.2`:
+The workflow at `.github/workflows/build-release.yml` installs exact dependencies with `npm ci`, runs TypeScript checks and packages CrabCode on Windows, Linux and macOS.
+
+Every push to `main` or `master` starts a build. A version tag publishes generated artifacts as a GitHub Release.
 
 ```bash
 git tag -a v0.3.2 -m "CrabCode 0.3.2"
 git push origin v0.3.2
 ```
 
-The workflow validates the source, runs TypeScript checks, builds Windows, Linux and macOS packages, uploads the artifacts and publishes the matching GitHub Release.
+Unsigned builds use the repository-provided `GITHUB_TOKEN`; no additional GitHub secret is required for release publication.
 
 ## Architecture
 
@@ -312,203 +266,39 @@ The workflow validates the source, runs TypeScript checks, builds Windows, Linux
 src/
 ├── main/       Electron main process, agent runtime and native services
 ├── preload/    Restricted IPC bridge
-└── renderer/   React interface, editor, chat, browser and settings
+├── renderer/   React interface, editor, chat, browser and settings
+└── shared/     Shared context, language and cross-process types
 
 build/          Installer resources and application icons
 resources/      Runtime resources
-.github/        Release automation
+.github/        Build and release automation
 ```
 
-The main process owns filesystem, terminal, browser, MCP, SSH and computer-control operations. The preload layer exposes a restricted IPC surface. The renderer has no unrestricted direct Node.js access.
+The main process owns filesystem, terminal, browser, MCP, SSH and computer-control operations. The preload layer exposes a restricted IPC surface. The renderer contains no direct Node.js access.
 
-## Security model
+## Technology
 
-- Provider tokens and API keys are stored locally.
-- Operating-system encryption is used when available.
-- `.env` files and generated build directories are excluded from source control.
-- Normal access stays inside the active project.
-- High access is required for machine-level and desktop operations.
-- Ask mode requires approval before changes are applied.
-- Plan mode removes mutating tools from the session.
-- Unsaved file changes are protected by save, discard and cancel dialogs.
+<p>
+  <img src="https://img.shields.io/badge/Electron-33-111318?style=for-the-badge&logo=electron&logoColor=ffffff" alt="Electron" />
+  <img src="https://img.shields.io/badge/React-18-111318?style=for-the-badge&logo=react&logoColor=ffffff" alt="React" />
+  <img src="https://img.shields.io/badge/TypeScript-5-111318?style=for-the-badge&logo=typescript&logoColor=ffffff" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Vite-5-111318?style=for-the-badge&logo=vite&logoColor=ffffff" alt="Vite" />
+  <img src="https://img.shields.io/badge/Monaco-Editor-111318?style=for-the-badge&logo=visualstudiocode&logoColor=ffffff" alt="Monaco Editor" />
+</p>
 
-## Release history
+## Configuration
 
-### 0.3.2 — Agent, integrations and control
+Open **Settings** and connect a provider using a base URL, model identifier and API key. Then choose the default shell, interface language, panel layout and other runtime preferences.
 
-- Improved AI agent behavior and multi-step task execution.
-- Improved MCP connection management and tool availability.
-- Improved Skills installation and presentation.
-- Added free AI model options.
-- Added Antigravity connection and IDE workflow.
-- Added `Low`, `Medium`, `High`, `XHigh` and `Max` reasoning levels.
-- Improved Computer Access and text-only model compatibility.
-- Improved Web permission handling.
-- Improved prompts, context management and provider recovery.
-- Added inline file diffs.
-- Added safe `Keep All` for pending changes.
-- Improved terminal output observation during active tasks.
+Web access is enabled by default for new sessions. Disable the Web switch whenever a task should remain fully offline.
 
-### 0.3.0 — Computer Access and controlled editing
+## Security
 
-Version `0.3.0` moved the agent beyond chat and introduced controlled access to the development environment and operating system.
-
-#### Computer Access
-
-- Added command execution through the integrated terminal.
-- Added project and machine-level file reading and writing.
-- Added editing, archive creation, archive extraction, file upload and file download tools.
-- Added confirmation requests for potentially dangerous actions.
-- The agent displays the intended action and waits for Allow or Reject in approval mode.
-
-#### Agent modes
-
-- `Agent`: changes are applied automatically within the selected access boundary.
-- `Ask`: every modification waits for confirmation.
-- `Plan`: the agent investigates in read-only mode and returns a complete plan.
-
-#### Inline editing
-
-- Added `Ctrl+K` inline editing for selected code.
-- Inline requests use the model selected in chat.
-- Added `Ctrl+L` to send a file reference and exact line range to chat.
-
-#### Change review
-
-- New lines are highlighted in green.
-- Previous content is displayed above the replacement.
-- Changes can be accepted or rejected from the editor.
-- Unresolved edits survive file navigation and application restarts.
-- Accepted edits are saved automatically.
-
-#### Data-loss protection
-
-- Modified tabs display a dirty-state indicator.
-- Closing a modified tab or exiting the application opens Save, Do Not Save and Cancel options.
-- The application no longer closes silently with unsaved work.
-
-#### Built-in browser
-
-- Added a browser panel inside the IDE.
-- Added rectangular region capture.
-- Added full-page capture, including content outside the visible viewport.
-- Captures can be sent directly to the agent conversation.
-
-#### MCP servers
-
-- Added a dedicated interface for external MCP server management.
-- MCP tools are available to the agent alongside built-in tools.
-
-#### Interface
-
-- Added first-launch welcome experience.
-- Added hover tooltips across the application.
-- Replaced the loading spinner with a gradient response indicator.
-- Added the ClopCode theme.
-- Updated application and installer icons.
-
-#### Fixes
-
-- Fixed application startup failure caused by a localization file error.
-- Fixed selection toolbar movement relative to the pointer.
-- Fixed pending edits being lost when the editor closed.
-- Removed the redundant confirmation panel above the chat input.
-
-[View release 0.3.0](https://github.com/csanelo/Crab-Code-IDE/releases/tag/v0.3.0)
-
-### 0.2.9 — Standalone Agent
-
-Version `0.2.9` introduced a dedicated Agent workspace outside the main editor layout.
-
-- Standalone Agent window focused on dialogue and task execution.
-- Fast switching between the IDE and Agent workspace.
-- Shared sessions and message history across modes.
-- Session panel for managing active conversations.
-- Integrated terminal below the Agent chat.
-- Support for local and SSH terminals.
-- Command Palette through `Ctrl+Shift+P`.
-- Independent window scaling.
-- Direct access to Settings from the Agent workspace.
-
-[View release 0.2.9](https://github.com/csanelo/Crab-Code-IDE/releases/tag/v0.2.9)  
-[Compare 0.2.8...0.2.9](https://github.com/csanelo/Crab-Code-IDE/compare/v0.2.8...v0.2.9)
-
-### 0.2.8 — Global update
-
-Version `0.2.8` improved agent performance, context management, change control and the overall interface.
-
-#### Smart project index
-
-- Added background indexing for files, functions, classes, types, symbols, imports and dependencies.
-- Ranked codebase search results by relevance.
-- Updated the index automatically after project changes.
-- Reduced repeated file reads in large repositories.
-
-#### Context optimization
-
-- Added deep conversation history management.
-- Compacted older messages and tool output automatically.
-- Preserved recent and important context without modification.
-- Removed outdated images and redundant data from the active context window.
-
-#### Prompt caching
-
-- Expanded caching for OpenAI, Anthropic and Gemini.
-- Reused system instructions and repeated context.
-- Added automatic cache refresh and recovery.
-- Reduced token usage in long sessions and large projects.
-
-#### Change control
-
-- Enforced Ask before editing at the tool level.
-- Required confirmation before writing, editing, creating, deleting, copying or moving files.
-- Fully blocked writes in read-only mode.
-- Preserved autonomous changes in Agent mode.
-
-#### Models, web and files
-
-- Added context usage indicator beside the active model.
-- Added technical enforcement for the Web switch.
-- Added chat file uploads up to 20 MB.
-- Improved provider and model management.
-- Synchronized model list changes with the interface.
-- Preserved OpenAI, Anthropic, Gemini and compatible API support.
-
-#### Interface and workspace
-
-- Redesigned the editor, chat, terminal, Files, Changes, Workspace and Settings surfaces.
-- Standardized spacing, rounding and component states.
-- Removed unnecessary outlines and separators.
-- Improved light and dark theme behavior.
-- Added General Sans.
-- Improved local, GitHub and SSH project workflows.
-- Improved the workspace switcher.
-
-#### Automatic updates
-
-- Added GitHub Release checks every five minutes.
-- Added automatic update download and installation.
-- Restarted the application after an update completed.
-
-[View release 0.2.8](https://github.com/csanelo/Crab-Code-IDE/releases/tag/v0.2.8)  
-[View full changelog](https://github.com/csanelo/Crab-Code-IDE/commits/v0.2.8)
-
-### 0.1.0 — Initial public release
-
-The first public version established the core CrabCode workspace.
-
-- Cross-platform Electron, React and TypeScript application.
-- Monaco code editor with syntax highlighting.
-- Integrated `node-pty` terminal.
-- Project-aware file explorer.
-- Built-in browser panel.
-- AI chat and file-editing agent.
-- OpenAI-compatible provider configuration.
-- MCP tool integration.
-- Light and dark themes.
-- Multi-language interface.
-
-[View release 0.1.0](https://github.com/csanelo/Crab-Code-IDE/releases/tag/v0.1.0)
+- Keep API keys and access tokens outside the repository.
+- Do not commit `.env` files.
+- Review High access actions before enabling autonomous desktop or machine-level work.
+- Use Ask mode when mutations should require confirmation.
+- Publish signed installers when distributing production releases publicly.
 
 ## Project links
 
@@ -518,11 +308,11 @@ The first public version established the core CrabCode workspace.
 | Developer | [@csanelo](https://t.me/csanelo) |
 | Repository | [csanelo/Crab-Code-IDE](https://github.com/csanelo/Crab-Code-IDE) |
 | Releases | [GitHub Releases](https://github.com/csanelo/Crab-Code-IDE/releases) |
-| Build status | [GitHub Actions](https://github.com/csanelo/Crab-Code-IDE/actions) |
+| CI builds | [GitHub Actions](https://github.com/csanelo/Crab-Code-IDE/actions) |
 
 ## License
 
-CrabCode is distributed under the [MIT License](LICENSE).
+CrabCode is distributed under the MIT License.
 
 ---
 

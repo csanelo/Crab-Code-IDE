@@ -149,7 +149,7 @@ export function EditorWindow(): JSX.Element {
             type="button"
             className="edw__win-btn edw__win-btn--save"
             aria-label="Save"
-            data-tip="Save (Ctrl+S)"
+            data-tip={isMac ? "Save (⌘S)" : "Save (Ctrl+S)"}
             onClick={() => void save()}
           >
             <Save size={17} />

@@ -27,10 +27,11 @@ import { createId } from "../domain/ids";
 import { agentService } from "../services/agentService";
 import { projectService } from "../services/projectService";
 import { providersService } from "../services/providersService";
-import { emit, on as onAppEvent } from "../lib/appEvents";
+import { on as onAppEvent, emit } from "../lib/appEvents";
 import { getAccessLevel } from "../lib/agentAccess";
 import { getEditMode } from "../lib/agentEditMode";
 import { playSound } from "../lib/sounds";
+import { terminalKnowledgeContext } from "../lib/terminalKnowledge";
 
 interface AppContextValue {
   state: AppState;
@@ -68,6 +69,7 @@ interface AppContextValue {
     agentContent?: string,
     webEnabled?: boolean,
   ) => void;
+  continueAgent: (agentContent: string) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -183,6 +185,19 @@ export function AppProvider({
   }, []);
 
   useEffect(() => {
+    return onAppEvent("changes:remove", ({ path }) => {
+      const repoId = state.activeRepositoryId;
+      if (!repoId) return;
+      const repoPath = state.repositories.find((r) => r.id === repoId)?.path;
+      const rel = repoPath && path.startsWith(repoPath)
+        ? path.slice(repoPath.length).replace(/^[\\/]/, "")
+        : path;
+      dispatch({ type: "REMOVE_CHANGE", repositoryId: repoId, path: rel });
+      dispatch({ type: "REMOVE_CHANGE", repositoryId: repoId, path });
+    });
+  }, [state.activeRepositoryId, state.repositories]);
+
+  useEffect(() => {
     return onAppEvent("github:auth", () => {
       void window.api.github.getAuth().then((auth) => {
         if (auth.connected) return;
@@ -198,6 +213,23 @@ export function AppProvider({
     });
   }, [state.repositories, state.activeRepositoryId]);
 
+  // Materialize complete global skill bundles as soon as a local project opens.
+  // This keeps scripts, references, assets and manifests available before the
+  // first agent request instead of waiting until SKILL.md is read.
+  useEffect(() => {
+    const active = state.repositories.find(
+      (repository) => repository.id === state.activeRepositoryId,
+    );
+    if (!active?.path || active.source === "ssh") return;
+    let cancelled = false;
+    void window.api.skills.sync(active.path).then(() => {
+      if (!cancelled) emit("fs:changed", { root: active.path });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [state.activeRepositoryId, state.repositories]);
+
   const activeConversation = state.activeConversationId
     ? (state.conversations[state.activeConversationId] ?? null)
     : null;
@@ -208,9 +240,16 @@ export function AppProvider({
       attachments?: import("../domain/types").Attachment[],
       agentContent?: string,
       webEnabled = false,
+      visibleUserMessage = true,
     ): void {
       const trimmed = content.trim();
-      if (!trimmed && (!attachments || attachments.length === 0)) return;
+      const requestedAgentContent = (agentContent ?? trimmed).trim();
+      if (
+        !trimmed &&
+        !requestedAgentContent &&
+        (!attachments || attachments.length === 0)
+      )
+        return;
 
       let conversationId = state.activeConversationId;
       let baseMessages: Conversation["messages"] = [];
@@ -249,15 +288,17 @@ export function AppProvider({
       const userMessageId = createId("msg_");
       const assistantMessageId = createId("msg_");
 
-      dispatch({
-        type: "ADD_MESSAGE",
-        conversationId: targetId,
-        messageId: userMessageId,
-        role: "user",
-        content: trimmed,
-        attachments:
-          attachments && attachments.length ? attachments : undefined,
-      });
+      if (visibleUserMessage) {
+        dispatch({
+          type: "ADD_MESSAGE",
+          conversationId: targetId,
+          messageId: userMessageId,
+          role: "user",
+          content: trimmed,
+          attachments:
+            attachments && attachments.length ? attachments : undefined,
+        });
+      }
       dispatch({
         type: "ADD_MESSAGE",
         conversationId: targetId,
@@ -267,12 +308,21 @@ export function AppProvider({
         streaming: true,
       });
 
+      const repo = state.repositories.find(
+        (r) => r.id === (state.activeRepositoryId ?? ""),
+      );
+      const cwd = repo?.path ?? null;
+      const terminalContext = terminalKnowledgeContext(cwd);
+      const effectiveAgentContent = terminalContext
+        ? `${requestedAgentContent}\n\n${terminalContext}`
+        : requestedAgentContent;
+
       const history = [
         ...baseMessages.map((m) => ({ ...m })),
         {
           id: userMessageId,
           role: "user" as const,
-          content: (agentContent ?? trimmed).trim(),
+          content: effectiveAgentContent,
           createdAt: Date.now(),
           attachments:
             attachments && attachments.length ? attachments : undefined,
@@ -280,10 +330,6 @@ export function AppProvider({
       ];
 
       const requestId = createId("req_");
-      const repo = state.repositories.find(
-        (r) => r.id === (state.activeRepositoryId ?? ""),
-      );
-      const cwd = repo?.path ?? null;
       const access = getAccessLevel();
       const editMode = getEditMode();
       const dispose = agentService.send(
@@ -301,6 +347,24 @@ export function AppProvider({
               messageId: assistantMessageId,
               chunk,
             }),
+          onContextUsage: (usage) =>
+            dispatch({
+              type: "CONTEXT_USAGE",
+              conversationId: targetId,
+              usage,
+            }),
+          onAborted: () => {
+            dispatch({
+              type: "FINISH_MESSAGE",
+              conversationId: targetId,
+              messageId: assistantMessageId,
+            });
+            disposers.current.get(requestId)?.();
+            disposers.current.delete(requestId);
+            if (activeRequests.current.get(targetId) === requestId) {
+              activeRequests.current.delete(targetId);
+            }
+          },
           onTool: (tool) => {
             dispatch({
               type: "TOOL_EVENT",
@@ -310,7 +374,6 @@ export function AppProvider({
               tool,
             });
             if (tool.status === "done" && tool.mutated) {
-              emit("fs:changed", undefined);
               const meta = tool.meta;
               if (
                 meta?.path &&
@@ -359,25 +422,33 @@ export function AppProvider({
       activeRequests.current.set(targetId, requestId);
     }
 
+    function continueAgent(agentContent: string): void {
+      // Terminal completion is an internal event. Give the model the complete
+      // trace and create only its response — never add a fake user chat bubble.
+      sendMessage("", undefined, agentContent, false, false);
+    }
+
     function stopMessage(): void {
       const targetId = state.activeConversationId;
       if (!targetId) return;
       const requestId = activeRequests.current.get(targetId);
-      if (!requestId) return;
-      window.api.agent.abort(requestId);
-      void playSound("stopped");
       const conv = state.conversations[targetId];
       const last = conv?.messages[conv.messages.length - 1];
-      if (last && last.streaming) {
+      if (!requestId && !last?.streaming) return;
+      if (requestId) {
+        window.api.agent.abort(requestId);
+        disposers.current.get(requestId)?.();
+        disposers.current.delete(requestId);
+        activeRequests.current.delete(targetId);
+      }
+      if (last?.streaming) {
         dispatch({
           type: "FINISH_MESSAGE",
           conversationId: targetId,
           messageId: last.id,
         });
       }
-      disposers.current.get(requestId)?.();
-      disposers.current.delete(requestId);
-      activeRequests.current.delete(targetId);
+      void playSound("stopped");
     }
 
     async function openProject(): Promise<void> {
@@ -426,6 +497,7 @@ export function AppProvider({
       canGoBack: back.length > 0,
       canGoForward: forward.length > 0,
       sendMessage,
+      continueAgent,
     };
   }, [
     state,

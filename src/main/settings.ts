@@ -1,4 +1,5 @@
 import type { IpcMain } from 'electron'
+import { handleIpc } from './ipcHelper'
 import Store from 'electron-store'
 
 export type ShellKind = 'auto' | 'cmd' | 'powershell' | 'pwsh' | 'bash' | 'gitbash'
@@ -6,6 +7,8 @@ export type ShellKind = 'auto' | 'cmd' | 'powershell' | 'pwsh' | 'bash' | 'gitba
 export type UiLang = 'en' | 'zh' | 'hi' | 'es' | 'fr' | 'ar' | 'bn' | 'pt' | 'ru' | 'id'
 
 export type UiTheme = 'dark' | 'light'
+
+export type PanelLayout = 'files-left' | 'chat-left'
 
 export interface GeneralSettings {
   language: UiLang
@@ -19,6 +22,7 @@ export interface GeneralSettings {
   telemetry: boolean
   terminalAutoScroll: boolean
   richFileIcons: boolean
+  panelLayout: PanelLayout
 }
 
 const DEFAULTS: GeneralSettings = {
@@ -32,7 +36,8 @@ const DEFAULTS: GeneralSettings = {
   autoUpdate: true,
   telemetry: false,
   terminalAutoScroll: true,
-  richFileIcons: true
+  richFileIcons: true,
+  panelLayout: 'files-left'
 }
 
 const store = new Store<{ general: GeneralSettings }>({
@@ -47,8 +52,8 @@ export function getGeneralSettings(): GeneralSettings {
 }
 
 export function registerSettings(ipcMain: IpcMain): void {
-  ipcMain.handle('settings:get-general', () => cached)
-  ipcMain.handle('settings:set-general', (_e, partial: Partial<GeneralSettings>) => {
+  handleIpc('settings:get-general', () => cached)
+  handleIpc('settings:set-general', (_e, partial: Partial<GeneralSettings>) => {
     cached = { ...cached, ...partial, autosave: true }
     store.set('general', cached)
     return cached

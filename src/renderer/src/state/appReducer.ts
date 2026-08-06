@@ -8,6 +8,7 @@ import type {
 } from "../domain/types";
 import { createId } from "../domain/ids";
 import { translate } from "../i18n";
+import type { ContextUsageSnapshot } from "../../../shared/contextUsage";
 
 export interface AppState {
   repositories: Repository[];
@@ -56,6 +57,11 @@ export type Action =
       type: "RECORD_CHANGE";
       repositoryId: ID;
       change: import("../domain/types").FileChange;
+    }
+  | {
+      type: "CONTEXT_USAGE";
+      conversationId: ID;
+      usage: ContextUsageSnapshot;
     }
   | { type: "FINISH_MESSAGE"; conversationId: ID; messageId: ID }
   | { type: "FAIL_MESSAGE"; conversationId: ID; messageId: ID; error: string }
@@ -384,6 +390,16 @@ export function appReducer(state: AppState, action: Action): AppState {
           const calls = m.toolCalls ? [...m.toolCalls] : [];
           const segments = m.segments ? [...m.segments] : [];
           if (action.tool.status === "done") {
+            if (action.tool.memoryHit) {
+              return {
+                ...m,
+                toolCalls: calls.filter((call) => call.id !== action.tool.id),
+                segments: segments.filter(
+                  (segment) =>
+                    segment.kind !== "tool" || segment.tool.id !== action.tool.id,
+                ),
+              };
+            }
             const idx = [...calls]
               .reverse()
               .findIndex(
@@ -486,6 +502,21 @@ export function appReducer(state: AppState, action: Action): AppState {
         nextList = [c, ...prev];
       }
       return { ...state, changes: { ...state.changes, [repoId]: nextList } };
+    }
+
+    case "CONTEXT_USAGE": {
+      const conv = state.conversations[action.conversationId];
+      if (!conv) return state;
+      return {
+        ...state,
+        conversations: {
+          ...state.conversations,
+          [action.conversationId]: {
+            ...conv,
+            contextUsage: action.usage,
+          },
+        },
+      };
     }
 
     case "FINISH_MESSAGE": {

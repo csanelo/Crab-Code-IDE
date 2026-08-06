@@ -55,6 +55,16 @@ export function translate(key: TKey, params?: Record<string, string | number>): 
   return interpolate(dict[key] ?? en[key] ?? key, params)
 }
 
+/** Translate activity narration in the language used by the current dialogue. */
+export function translateForLanguage(
+  language: Lang,
+  key: TKey,
+  params?: Record<string, string | number>
+): string {
+  const dict = dictionaries[language] ?? en
+  return interpolate(dict[key] ?? en[key] ?? key, params)
+}
+
 export function getActiveLang(): Lang {
   return activeLang
 }

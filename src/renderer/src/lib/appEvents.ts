@@ -3,6 +3,13 @@ type Handler<T> = (payload: T) => void
 
 interface Events {
   'terminal:run': { command: string; watch?: boolean; runId?: string }
+  'terminal:trace': {
+    runId: string
+    command: string
+    output: string
+    cwd: string | null
+    startedAt: number
+  }
   'terminal:result': {
     runId: string
     command: string
@@ -10,9 +17,12 @@ interface Events {
     exitCode: number | null
     output: string
     cwd: string | null
+    projectRoot: string | null
+    timedOut?: boolean
   }
-  'fs:changed': void
+  'fs:changed': { root?: string; path?: string }
   'settings:section': { section: string }
+  'layout:changed': { layout: 'files-left' | 'chat-left' }
   'composer:insert': { text: string }
   'composer:mention': {
     path: string
@@ -48,17 +58,20 @@ interface Events {
   'editor:saveAll': void
   'edits:accept': { id?: string }
   'edits:reject': { id?: string }
+  'changes:remove': { path: string }
 }
 
 const listeners: { [K in keyof Events]?: Set<Handler<Events[K]>> } = {}
 
-let pendingCommand: string | null = null
+export type TerminalRunRequest = Events['terminal:run']
 
-export function queueTerminalCommand(command: string): void {
-  pendingCommand = command
+let pendingCommand: TerminalRunRequest | null = null
+
+export function queueTerminalCommand(command: string | TerminalRunRequest): void {
+  pendingCommand = typeof command === 'string' ? { command } : command
 }
 
-export function takePendingCommand(): string | null {
+export function takePendingCommand(): TerminalRunRequest | null {
   const c = pendingCommand
   pendingCommand = null
   return c

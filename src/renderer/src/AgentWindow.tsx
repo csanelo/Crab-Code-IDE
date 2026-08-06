@@ -27,8 +27,15 @@ export function AgentWindow(): JSX.Element {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [terminalMounted, setTerminalMounted] = useState(false);
+  const terminalMountedRef = useRef(false);
+  const terminalUnmountTimerRef = useRef<number | null>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const settingsOpen = state.view === "settings";
+  const setViewRef = useRef(setView);
+  setViewRef.current = setView;
+  const closeSettings = useCallback(() => setViewRef.current("chat"), []);
+  const activeRepositoryPath =
+    state.repositories.find((repository) => repository.id === state.activeRepositoryId)?.path ?? null;
 
   useEffect(() => {
     setLeftWidth((width) => Math.min(LEFT_MAX, Math.max(LEFT_MIN, width)));
@@ -37,7 +44,14 @@ export function AgentWindow(): JSX.Element {
 
   const toggleTerminal = useCallback((): void => {
     setTerminalOpen((open) => {
-      if (!open) setTerminalMounted(true);
+      if (!open) {
+        if (terminalUnmountTimerRef.current !== null) {
+          window.clearTimeout(terminalUnmountTimerRef.current);
+          terminalUnmountTimerRef.current = null;
+        }
+        terminalMountedRef.current = true;
+        setTerminalMounted(true);
+      }
       return !open;
     });
   }, []);
@@ -149,8 +163,13 @@ export function AgentWindow(): JSX.Element {
   useEffect(() => onAppEvent("palette:open", () => setPaletteOpen(true)), []);
 
   useEffect(() => {
-    return onAppEvent("terminal:run", ({ command }) => {
-      queueTerminalCommand(command);
+    return onAppEvent("terminal:run", (payload) => {
+      if (terminalUnmountTimerRef.current !== null) {
+        window.clearTimeout(terminalUnmountTimerRef.current);
+        terminalUnmountTimerRef.current = null;
+      }
+      if (!terminalMountedRef.current) queueTerminalCommand(payload);
+      terminalMountedRef.current = true;
       setTerminalMounted(true);
       setTerminalOpen(true);
     });
@@ -194,7 +213,7 @@ export function AgentWindow(): JSX.Element {
           <div className="app__rightside">
             <div className="app__row app__row--inner">
               <div className="app__agent-center">
-                <ChatPanel centerEmpty hideTabs />
+                <ChatPanel centerEmpty hideTabs suspended={settingsOpen} />
               </div>
             </div>
             {terminalMounted && (
@@ -204,7 +223,14 @@ export function AgentWindow(): JSX.Element {
                 <TerminalPanel
                   onClose={() => {
                     setTerminalOpen(false);
-                    window.setTimeout(() => setTerminalMounted(false), 220);
+                    if (terminalUnmountTimerRef.current !== null) {
+                      window.clearTimeout(terminalUnmountTimerRef.current);
+                    }
+                    terminalUnmountTimerRef.current = window.setTimeout(() => {
+                      terminalUnmountTimerRef.current = null;
+                      terminalMountedRef.current = false;
+                      setTerminalMounted(false);
+                    }, 220);
                   }}
                 />
               </div>
@@ -214,7 +240,10 @@ export function AgentWindow(): JSX.Element {
       </div>
       {settingsOpen && (
         <div className="app__settings-overlay app__settings-overlay--open">
-          <SettingsView />
+          <SettingsView
+            onClose={closeSettings}
+            activeRepositoryPath={activeRepositoryPath}
+          />
         </div>
       )}
       {paletteOpen && (

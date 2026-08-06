@@ -3,6 +3,7 @@ export type ProviderApi = "openai" | "anthropic" | "gemini" | "custom";
 export interface StoredModel {
   id: string;
   label: string;
+  contextWindow?: number;
 }
 
 export interface ProviderConfig {

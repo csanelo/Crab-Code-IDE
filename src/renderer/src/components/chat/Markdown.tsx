@@ -1,5 +1,5 @@
 import { memo, useState, type ReactNode } from 'react'
-import { Copy, Check, Terminal } from 'lucide-react'
+import { Copy, Check } from 'lucide-react'
 import { copyText } from '../../lib/clipboard'
 import { highlightCode } from '../../lib/highlight'
 import { runCommandWatched } from '../../lib/runCommand'
@@ -209,7 +209,7 @@ function CommandBlock({ command }: { command: string }): JSX.Element {
   return (
     <div className="cmd-card">
       <div className="cmd-card__head">
-        <Terminal size={15} className="cmd-card__icon" aria-hidden="true" />
+        <span className="cmd-card__prompt-icon" aria-hidden="true">{'>_'}</span>
         <span className="cmd-card__label">{t('tool.command_label')}</span>
         <div className="cmd-card__actions">
           <button

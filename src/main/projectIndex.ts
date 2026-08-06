@@ -1,5 +1,5 @@
 import { promises as fs } from "node:fs";
-import { extname, join, relative, resolve } from "node:path";
+import { extname, isAbsolute, join, relative, resolve } from "node:path";
 
 type IndexedPoint = { value: string; line: number };
 type IndexedFile = {
@@ -86,7 +86,7 @@ function extractPoints(lines: string[]): {
   const symbols: IndexedPoint[] = [];
   const imports: IndexedPoint[] = [];
   const symbolPattern =
-    /\b(?:class|interface|type|enum|function|const|let|var|def|fn|struct|trait)\s+([A-Za-z_$][\w$]*)/g;
+    /(?:\b(?:class|interface|type|enum|function|func|const|let|var|def|fn|struct|trait|union|int|void|char|long|short|bool|double|float|size_t|[A-Za-z_][\w_]*_t)\s+|\bdef\s+|\bfn\s+|\bfunc\s+)(?:\*+\s*)?([A-Za-z_$][\w$]*)(?=\s*\(|\s*=|\s*;|\s*\{)/g;
   const importPatterns = [
     /\bfrom\s+['"]([^'"]+)['"]/g,
     /\brequire\(\s*['"]([^'"]+)['"]\s*\)/g,
@@ -261,4 +261,140 @@ export async function searchProjectIndex(
 
   hits.sort((a, b) => b.score - a.score || a.text.localeCompare(b.text));
   return [...new Set(hits.map((hit) => hit.text))].slice(0, limit);
+}
+
+export async function getFileOutline(
+  root: string,
+  filePath: string,
+): Promise<string> {
+  const absolute = isAbsolute(filePath) ? filePath : resolve(root, filePath);
+  let content = "";
+  try {
+    content = await fs.readFile(absolute, "utf8");
+  } catch {
+    return `File not found: ${filePath}`;
+  }
+  const lines = content.split("\n");
+  const outlineLines: string[] = [];
+  const outlinePattern =
+    /^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:class|interface|type|enum|function|const|let|var|def|fn|struct|trait)\s+([A-Za-z_$][\w$]*)/;
+
+  for (let idx = 0; idx < lines.length; idx += 1) {
+    const line = lines[idx];
+    if (outlinePattern.test(line)) {
+      outlineLines.push(`L${idx + 1}: ${line.trim().slice(0, 140)}`);
+    }
+  }
+
+  if (outlineLines.length === 0) {
+    return `No top-level declarations found in ${relative(root, absolute)} (${lines.length} lines total).`;
+  }
+  return `Outline for ${relative(root, absolute)} (${lines.length} lines total):\n${outlineLines.join("\n")}`;
+}
+
+export async function findSymbolDefinition(
+  root: string,
+  symbolName: string
+): Promise<string> {
+  if (!canIndex(root)) return "Indexing not supported.";
+  const key = resolve(root);
+  await warmProjectIndex(key);
+  const state = indexes.get(key);
+  if (!state) return "Project index not available.";
+
+  const target = symbolName.trim();
+  if (!target) return "Error: empty symbol name.";
+
+  const matches: string[] = [];
+  const declRegex = new RegExp(
+    `(?:^|\\s)(?:class|interface|type|enum|function|func|const|let|var|def|fn|struct|trait|union|int|void|char|long|short|bool|double|float|size_t|[A-Za-z_][\\w_]*_t)\\s+(?:\\*+\\s*)?\\b${target}\\b`
+  );
+
+  for (const file of state.files) {
+    for (let idx = 0; idx < file.lines.length; idx++) {
+      const line = file.lines[idx];
+      if (declRegex.test(line)) {
+        matches.push(`📍 ${file.path}:${idx + 1}\n   ${line.trim().slice(0, 150)}`);
+      }
+    }
+  }
+
+  if (matches.length === 0) {
+    for (const file of state.files) {
+      for (const sym of file.symbols) {
+        if (sym.value === target) {
+          const lineText = file.lines[sym.line - 1]?.trim() ?? "";
+          matches.push(`📍 ${file.path}:${sym.line}\n   ${lineText.slice(0, 150)}`);
+        }
+      }
+    }
+  }
+
+  if (matches.length === 0) {
+    const refs = await findSymbolReferences(root, target, 15);
+    if (!refs.startsWith("No references found")) {
+      return `Symbol "${target}" is an external/library symbol (no local declaration found). Usage sites in project:\n${refs}`;
+    }
+    return `Symbol "${target}" not found in project definitions or usages.`;
+  }
+
+  const unique = [...new Set(matches)];
+  return `Symbol definitions for "${target}" (${unique.length} found):\n${unique.slice(0, 30).join("\n\n")}`;
+}
+
+export async function findSymbolReferences(
+  root: string,
+  symbolName: string,
+  limit = 40
+): Promise<string> {
+  if (!canIndex(root)) return "Indexing not supported.";
+  const key = resolve(root);
+  await warmProjectIndex(key);
+  const state = indexes.get(key);
+  if (!state) return "Project index not available.";
+
+  const target = symbolName.trim();
+  if (!target) return "Error: empty symbol name.";
+
+  const refs: string[] = [];
+  const wordRegex = new RegExp(`\\b${target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
+
+  for (const file of state.files) {
+    for (let idx = 0; idx < file.lines.length; idx++) {
+      const line = file.lines[idx];
+      if (wordRegex.test(line)) {
+        refs.push(`${file.path}:${idx + 1}: ${line.trim().slice(0, 140)}`);
+        if (refs.length >= limit) break;
+      }
+    }
+    if (refs.length >= limit) break;
+  }
+
+  if (refs.length === 0) {
+    return `No references found for "${target}".`;
+  }
+
+  return `References for "${target}" (${refs.length} found):\n${refs.join("\n")}`;
+}
+
+export async function getCodebaseMap(root: string): Promise<string> {
+  if (!canIndex(root)) return "Indexing not supported.";
+  const key = resolve(root);
+  await warmProjectIndex(key);
+  const state = indexes.get(key);
+  if (!state || state.files.length === 0) return "Project index is empty.";
+
+  const mapLines: string[] = [];
+  for (const file of state.files) {
+    if (file.symbols.length > 0) {
+      const symList = file.symbols.slice(0, 12).map((s) => s.value).join(", ");
+      mapLines.push(`• ${file.path} (${file.lines.length} lines) -> [${symList}]`);
+    }
+  }
+
+  if (mapLines.length === 0) {
+    return `Codebase contains ${state.files.length} files.`;
+  }
+
+  return `Codebase Map (${state.files.length} indexed files):\n${mapLines.slice(0, 80).join("\n")}`;
 }

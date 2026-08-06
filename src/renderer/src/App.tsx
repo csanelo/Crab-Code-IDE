@@ -28,6 +28,8 @@ const RIGHT_MAX = 760;
 const RIGHT_DEFAULT = 420;
 const TERM_MIN = 120;
 const TERM_DEFAULT = 240;
+type PanelLayout = "files-left" | "chat-left";
+const PANEL_LAYOUT_CACHE_KEY = "crabcode.panelLayout";
 
 function Workspace(): JSX.Element {
   const {
@@ -43,6 +45,8 @@ function Workspace(): JSX.Element {
   const [rightOpen, setRightOpen] = usePersistentState("rightOpen", true);
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [terminalMounted, setTerminalMounted] = useState(false);
+  const terminalMountedRef = useRef(false);
+  const terminalUnmountTimerRef = useRef<number | null>(null);
   const [leftWidth, setLeftWidth] = usePersistentState(
     "leftWidth",
     LEFT_DEFAULT,
@@ -63,13 +67,38 @@ function Workspace(): JSX.Element {
   const [editorFileCount, setEditorFileCount] = useState(0);
   const [leftMode, setLeftMode] = useState<"files" | "search">("files");
   const [searchSeed, setSearchSeed] = useState("");
+  const [panelLayout, setPanelLayout] = useState<PanelLayout>(() =>
+    window.localStorage.getItem(PANEL_LAYOUT_CACHE_KEY) === "chat-left"
+      ? "chat-left"
+      : "files-left",
+  );
   const mainRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const setViewRef = useRef(setView);
+  setViewRef.current = setView;
+  const closeSettings = useCallback(() => setViewRef.current("chat"), []);
 
   useEffect(() => {
     setRightWidth((w) => Math.min(RIGHT_MAX, Math.max(RIGHT_MIN, w)));
     setLeftWidth((w) => Math.min(LEFT_MAX, Math.max(LEFT_MIN, w)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const applyLayout = (layout: PanelLayout): void => {
+      if (cancelled) return;
+      setPanelLayout(layout);
+      window.localStorage.setItem(PANEL_LAYOUT_CACHE_KEY, layout);
+    };
+    void window.api.settings.getGeneral().then((general) => {
+      applyLayout(general.panelLayout === "chat-left" ? "chat-left" : "files-left");
+    });
+    const dispose = onAppEvent("layout:changed", ({ layout }) => applyLayout(layout));
+    return () => {
+      cancelled = true;
+      dispose();
+    };
   }, []);
 
   const activeRepo =
@@ -104,7 +133,14 @@ function Workspace(): JSX.Element {
 
   function toggleTerminal(): void {
     setTerminalOpen((v) => {
-      if (!v) setTerminalMounted(true);
+      if (!v) {
+        if (terminalUnmountTimerRef.current !== null) {
+          window.clearTimeout(terminalUnmountTimerRef.current);
+          terminalUnmountTimerRef.current = null;
+        }
+        terminalMountedRef.current = true;
+        setTerminalMounted(true);
+      }
       return !v;
     });
   }
@@ -221,16 +257,15 @@ function Workspace(): JSX.Element {
 
   useEffect(() => {
     return onAppEvent("terminal:run", (payload) => {
-      let alreadyOpen = true;
-      setTerminalMounted((m) => {
-        if (!m) alreadyOpen = false;
-        return true;
-      });
-      setTerminalOpen((o) => {
-        if (!o) alreadyOpen = false;
-        return true;
-      });
-      if (!alreadyOpen) queueTerminalCommand(payload.command);
+      if (terminalUnmountTimerRef.current !== null) {
+        window.clearTimeout(terminalUnmountTimerRef.current);
+        terminalUnmountTimerRef.current = null;
+      }
+      const wasMounted = terminalMountedRef.current;
+      terminalMountedRef.current = true;
+      setTerminalMounted(true);
+      setTerminalOpen(true);
+      if (!wasMounted) queueTerminalCommand(payload);
     });
   }, []);
 
@@ -293,9 +328,13 @@ function Workspace(): JSX.Element {
       setResizing("left");
       const main = mainRef.current;
       if (!main) return;
-      const left = main.getBoundingClientRect().left;
+      const rect = main.getBoundingClientRect();
       function onMove(ev: PointerEvent): void {
-        const next = Math.min(LEFT_MAX, Math.max(LEFT_MIN, ev.clientX - left));
+        const raw =
+          panelLayout === "chat-left"
+            ? rect.right - ev.clientX
+            : ev.clientX - rect.left;
+        const next = Math.min(LEFT_MAX, Math.max(LEFT_MIN, raw));
         setLeftWidth(next);
       }
       function onUp(): void {
@@ -306,7 +345,7 @@ function Workspace(): JSX.Element {
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
     },
-    [],
+    [panelLayout],
   );
 
   const startResizeRight = useCallback(
@@ -315,11 +354,15 @@ function Workspace(): JSX.Element {
       setResizing("right");
       const main = mainRef.current;
       if (!main) return;
-      const right = main.getBoundingClientRect().right;
+      const rect = main.getBoundingClientRect();
       function onMove(ev: PointerEvent): void {
+        const raw =
+          panelLayout === "chat-left"
+            ? ev.clientX - rect.left
+            : rect.right - ev.clientX;
         const next = Math.min(
           RIGHT_MAX,
-          Math.max(RIGHT_MIN, right - ev.clientX),
+          Math.max(RIGHT_MIN, raw),
         );
         setRightWidth(next);
       }
@@ -331,7 +374,7 @@ function Workspace(): JSX.Element {
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
     },
-    [],
+    [panelLayout],
   );
 
   const startResizeTerminal = useCallback(
@@ -386,6 +429,7 @@ function Workspace(): JSX.Element {
         rightOpen={rightOpen}
         terminalOpen={terminalOpen}
         browserOpen={browserOpen}
+        sidebarPosition={panelLayout === "chat-left" ? "right" : "left"}
       />
       <div
         ref={mainRef}
@@ -398,7 +442,9 @@ function Workspace(): JSX.Element {
           } as React.CSSProperties
         }
       >
-        <div className="app__row">
+        <div
+          className={`app__row${panelLayout === "chat-left" ? " app__row--chat-left" : ""}`}
+        >
           <div
             className={`app__panel app__panel--left${leftOpen ? "" : " app__panel--collapsed"}`}
           >
@@ -469,7 +515,14 @@ function Workspace(): JSX.Element {
                   <TerminalPanel
                     onClose={() => {
                       setTerminalOpen(false);
-                      setTimeout(() => setTerminalMounted(false), 200);
+                      if (terminalUnmountTimerRef.current !== null) {
+                        window.clearTimeout(terminalUnmountTimerRef.current);
+                      }
+                      terminalUnmountTimerRef.current = window.setTimeout(() => {
+                        terminalUnmountTimerRef.current = null;
+                        terminalMountedRef.current = false;
+                        setTerminalMounted(false);
+                      }, 200);
                     }}
                   />
                 </div>
@@ -493,7 +546,7 @@ function Workspace(): JSX.Element {
             className={`app__panel app__panel--right${rightOpen ? "" : " app__panel--collapsed"}`}
           >
             <div className="app__panel-inner app__panel-inner--right">
-              <ChatPanel />
+              <ChatPanel suspended={settingsOpen} />
             </div>
           </div>
         </div>
@@ -506,7 +559,10 @@ function Workspace(): JSX.Element {
           className={`app__settings-overlay${settingsOpen ? " app__settings-overlay--open" : ""}`}
           aria-hidden={!settingsOpen}
         >
-          <SettingsView />
+          <SettingsView
+            onClose={closeSettings}
+            activeRepositoryPath={activeRepo?.path ?? null}
+          />
         </div>
       )}
 

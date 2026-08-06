@@ -110,15 +110,19 @@
 
 .edw__win-controls {
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  gap: 4px;
+  padding: 0 7px 0 4px;
   -webkit-app-region: no-drag;
 }
 
 .edw__win-btn {
   display: grid;
   place-items: center;
-  width: 44px;
-  border: none;
+  width: 30px;
+  height: 24px;
+  border: 1px solid transparent;
+  border-radius: 6px;
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -126,7 +130,7 @@
 }
 
 .edw__win-btn:hover {
-  background: var(--color-surface);
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
   color: var(--color-text);
 }
 
@@ -136,8 +140,17 @@
 }
 
 .edw__win-btn--close:hover {
-  background: #e81123;
-  color: #fff;
+  background: color-mix(in srgb, var(--color-danger) 16%, transparent);
+  color: color-mix(in srgb, var(--color-danger) 82%, #fff);
+}
+
+.edw__win-btn:active {
+  background: color-mix(in srgb, var(--color-text) 11%, transparent);
+  transform: translateY(1px);
+}
+
+.edw__win-btn--close:active {
+  background: color-mix(in srgb, var(--color-danger) 24%, transparent);
 }
 
 

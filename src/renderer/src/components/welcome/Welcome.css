@@ -41,29 +41,29 @@
   inherits: false;
 }
 
-/* Colours follow the CrabCode Default theme: near-black base lifted by the
-   accent green (#10a37f) and its hover tint (#1cc09a). */
+/* Neutral graphite palette: the welcome action stays dark and does not inherit
+   the workspace accent colour. */
 @property --gb-color-1 {
   syntax: "<color>";
-  initial-value: #04120e;
+  initial-value: #08090a;
   inherits: false;
 }
 
 @property --gb-color-2 {
   syntax: "<color>";
-  initial-value: #0b3428;
+  initial-value: #15171a;
   inherits: false;
 }
 
 @property --gb-color-3 {
   syntax: "<color>";
-  initial-value: #0f7f63;
+  initial-value: #292c31;
   inherits: false;
 }
 
 @property --gb-color-4 {
   syntax: "<color>";
-  initial-value: #10a37f;
+  initial-value: #1b1d21;
   inherits: false;
 }
 
@@ -178,11 +178,11 @@
   --gb-pos-y: 95.51%;
   --gb-spread-x: 110.24%;
   --gb-spread-y: 110.2%;
-  --gb-color-1: #04120e;
-  --gb-color-2: #1cc09a;
-  --gb-color-3: #10a37f;
-  --gb-color-4: #0b3428;
-  --gb-color-5: #000000;
+  --gb-color-1: #090a0b;
+  --gb-color-2: #383b41;
+  --gb-color-3: #292c31;
+  --gb-color-4: #15171a;
+  --gb-color-5: #030304;
   --gb-stop-1: 0%;
   --gb-stop-2: 10%;
   --gb-stop-3: 35.44%;
@@ -222,10 +222,11 @@
 /* Window controls, since the intro covers the app title bar. */
 .welcome__winbtns {
   position: absolute;
-  top: 0;
-  right: 0;
+  top: 6px;
+  right: 7px;
   z-index: 2;
   display: flex;
+  gap: 4px;
   -webkit-app-region: no-drag;
 }
 
@@ -233,9 +234,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 46px;
-  height: 32px;
-  border: 0;
+  width: 30px;
+  height: 24px;
+  border: 1px solid transparent;
+  border-radius: 6px;
   background: transparent;
   color: #a6a6a6;
   cursor: pointer;
@@ -245,13 +247,22 @@
 }
 
 .welcome__win-btn:hover {
-  background: #2a2a2a;
+  background: rgba(255, 255, 255, 0.07);
   color: #ececec;
 }
 
 .welcome__win-btn--close:hover {
-  background: #e81123;
-  color: #ffffff;
+  background: rgba(224, 108, 117, 0.16);
+  color: #f08a92;
+}
+
+.welcome__win-btn:active {
+  background: rgba(255, 255, 255, 0.11);
+  transform: translateY(1px);
+}
+
+.welcome__win-btn--close:active {
+  background: rgba(224, 108, 117, 0.24);
 }
 
 .welcome__win-btn:focus,

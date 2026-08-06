@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+import { handleIpc } from './ipcHelper'
 import { getProviderConfigs } from './providers'
 
 
@@ -91,7 +92,7 @@ async function transcribeWith(
 }
 
 export function registerTranscribe(ipcMain_: typeof ipcMain): void {
-  ipcMain_.handle('speech:transcribe', async (_e, req: TranscribeReq) => {
+  handleIpc('speech:transcribe', async (_e, req: TranscribeReq) => {
     const provider = pickWhisperProvider()
     if (!provider) {
       return {

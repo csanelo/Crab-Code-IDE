@@ -1,4 +1,5 @@
 import { ipcMain, safeStorage, type IpcMain } from 'electron'
+import { handleIpc } from './ipcHelper'
 import { app } from 'electron'
 import Store from 'electron-store'
 import { spawn } from 'node:child_process'
@@ -175,7 +176,7 @@ export async function commitAndPush(payload: {
 }
 
 export function registerGithub(ipcMain_: IpcMain = ipcMain): void {
-  ipcMain_.handle('github:get-auth', async () => {
+  handleIpc('github:get-auth', async () => {
     if (cached.tokenEnc && !cached.avatarUrl) {
       try {
         const { ok, data } = await ghFetch('/user')
@@ -197,18 +198,18 @@ export function registerGithub(ipcMain_: IpcMain = ipcMain): void {
     }
   })
 
-  ipcMain_.handle('github:connect', async (_e, pat: string) => {
+  handleIpc('github:connect', async (_e, pat: string) => {
     const r = await connectGithub(pat)
     return { ...r, avatarUrl: cached.avatarUrl ?? null }
   })
 
-  ipcMain_.handle('github:disconnect', () => {
+  handleIpc('github:disconnect', () => {
     cached = {}
     persist()
     return { ok: true }
   })
 
-  ipcMain_.handle('github:list-repos', async () => {
+  handleIpc('github:list-repos', async () => {
     if (!cached.tokenEnc) return { ok: false, error: 'Not connected', repos: [] as GithubRepo[] }
     const { ok, status, data } = await ghFetch(
       '/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member'
@@ -228,7 +229,7 @@ export function registerGithub(ipcMain_: IpcMain = ipcMain): void {
     return { ok: true, repos }
   })
 
-  ipcMain_.handle(
+  handleIpc(
     'github:clone',
     async (_e, payload: { fullName: string; cloneUrl: string }) => {
       if (!cached.tokenEnc) return { error: 'Not connected' }
@@ -254,7 +255,7 @@ export function registerGithub(ipcMain_: IpcMain = ipcMain): void {
     }
   )
 
-  ipcMain_.handle('github:status', async (_e, path: string) => {
+  handleIpc('github:status', async (_e, path: string) => {
     if (!path || !existsSync(join(path, '.git'))) return { isRepo: false }
     const branchRes = await runGit(['rev-parse', '--abbrev-ref', 'HEAD'], path)
     const statusRes = await runGit(['status', '--porcelain'], path)
@@ -274,7 +275,7 @@ export function registerGithub(ipcMain_: IpcMain = ipcMain): void {
     }
   })
 
-  ipcMain_.handle('github:pull', async (_e, path: string) => {
+  handleIpc('github:pull', async (_e, path: string) => {
     if (!path || !existsSync(join(path, '.git'))) return { ok: false, error: 'Not a git repo' }
     const res = await runGit([...authHeaderArgs(), 'pull', '--no-rebase'], path)
     if (res.code !== 0) {
@@ -283,7 +284,7 @@ export function registerGithub(ipcMain_: IpcMain = ipcMain): void {
     return { ok: true }
   })
 
-  ipcMain_.handle(
+  handleIpc(
     'github:commit-push',
     async (_e, payload: { path: string; message: string; paths?: string[] }) => {
       return commitAndPush(payload)
@@ -296,7 +297,7 @@ export function repoDisplayName(path: string): string {
 }
 
 export function registerSsh(ipcMain_: IpcMain = ipcMain): void {
-  ipcMain_.handle('ssh:clone', async (_e, payload: { url: string }) => {
+  handleIpc('ssh:clone', async (_e, payload: { url: string }) => {
     const url = (payload?.url ?? '').trim()
     if (!url) return { error: 'URL is empty' }
     if (!/^(ssh:\/\/|git@|[^@\s]+@[^:\s]+:)/.test(url)) {

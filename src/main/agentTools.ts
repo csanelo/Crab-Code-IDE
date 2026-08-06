@@ -3,12 +3,14 @@ import { resolve, relative, join, isAbsolute, dirname } from "node:path";
 import { homedir } from "node:os";
 import { exec } from "node:child_process";
 import { shell } from "electron";
+import { applyWhitespaceTolerantEdit } from "./editMatcher";
 import {
   addSkillFromUrl,
   addSkillFromRepo,
   listRepoSkills,
   createSkill,
   listSkills,
+  syncSkills,
 } from "./skills";
 import { browserNavigate, browserCapture } from "./browser";
 import { describeImage, activeModelHasVision } from "./vision";
@@ -24,7 +26,20 @@ import {
   connectRemoteHost,
   listRemoteHosts,
 } from "./remote";
-import { searchProjectIndex } from "./projectIndex";
+import {
+  searchProjectIndex,
+  getFileOutline,
+  findSymbolDefinition,
+  findSymbolReferences,
+  getCodebaseMap,
+} from "./projectIndex";
+import { parseAstFile, getSymbolScopeAtLine } from "./astParser";
+import {
+  getLspDiagnosticsForFile,
+  getLspAllDiagnostics,
+  queryLspReferences,
+  queryLspDefinition,
+} from "./lsp";
 import {
   computerClick,
   computerFocusWindow,
@@ -58,13 +73,15 @@ export interface ToolResult {
   command?: string;
   mutated?: boolean;
   image?: { mimeType: string; dataUrl: string };
+  /** True when an unchanged duplicate call was served from request memory. */
+  memoryHit?: boolean;
 }
 
 export const TOOL_DEFS: ToolDef[] = [
   {
     name: "read_file",
     description:
-      "Read a UTF-8 text file inside the project. Returns the content with 1-based line numbers. Use before editing.",
+      "Read a UTF-8 text file inside the project. Returns the content with 1-based line numbers. Read each unchanged file at most once per task: reuse the earlier result instead of reopening it. Use before editing when exact current text is not already available.",
     parameters: {
       type: "object",
       properties: {
@@ -92,7 +109,7 @@ export const TOOL_DEFS: ToolDef[] = [
   {
     name: "edit_file",
     description:
-      "Modify an EXISTING file by replacing an exact substring. `old_str` must appear exactly once. Always use this tool for changes to existing files, including full-file rewrites (pass the current full content as old_str).",
+      "Modify an EXISTING file by replacing a unique substring. `old_str` should come from the latest read. Exact matches are preferred; indentation, tabs/spaces, and blank-line drift are recovered automatically. Always use this tool for existing files, including full-file rewrites.",
     parameters: {
       type: "object",
       properties: {
@@ -152,7 +169,7 @@ export const TOOL_DEFS: ToolDef[] = [
   {
     name: "search",
     description:
-      "Search file names and text with exact line numbers plus nearby Read context. Use this to locate a symbol/string before read_file or edit_file.",
+      "Search text content in files. Do NOT use this tool to locate function, class, or symbol declarations — use find_symbol_definition instead.",
     parameters: {
       type: "object",
       properties: {
@@ -165,6 +182,127 @@ export const TOOL_DEFS: ToolDef[] = [
         max_results: { type: "number", description: "Maximum matching locations (default 30, max 80)." },
       },
       required: ["query"],
+    },
+  },
+  {
+    name: "get_file_outline",
+    description:
+      "Get a high-level structural outline (classes, functions, types, exports, and line numbers) of a file without reading the entire content.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "Project-relative file path.",
+        },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "find_symbol_definition",
+    description:
+      "PRIMARY TOOL FOR SYMBOLS. Always use this tool FIRST whenever asked to locate where a function, class, type, interface, struct, or main entry point is declared in the codebase.",
+    parameters: {
+      type: "object",
+      properties: {
+        symbol: {
+          type: "string",
+          description: "Name of the class, function, interface, type, or identifier to find.",
+        },
+      },
+      required: ["symbol"],
+    },
+  },
+  {
+    name: "find_symbol_references",
+    description:
+      "PRIMARY TOOL FOR USAGES, CALL SITES AND REFERENCES. Always use this tool FIRST when asked to find call sites, usages, or references (e.g. 'вызовы', 'покажи вызовы', 'где используется', 'references') of any function, struct, or variable.",
+    parameters: {
+      type: "object",
+      properties: {
+        symbol: {
+          type: "string",
+          description: "Name of the symbol to search references for.",
+        },
+      },
+      required: ["symbol"],
+    },
+  },
+  {
+    name: "codebase_map",
+    description:
+      "Get a bird's-eye architectural summary of all indexed modules, files, and exported symbols in the codebase.",
+    parameters: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
+    name: "get_ast_tree",
+    description:
+      "Parse a file into an AST tree returning all functions, classes, structs, interfaces, and macros with start/end line bounds.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Project-relative file path." },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "get_symbol_scope",
+    description:
+      "Find which function, class, or struct AST block encloses a specific line number in a file.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Project-relative file path." },
+        line: { type: "number", description: "1-based line number in the file." },
+      },
+      required: ["path", "line"],
+    },
+  },
+  {
+    name: "lsp_diagnostics",
+    description:
+      "Query LSP language server type/syntax errors and warnings for a specific file or all project files.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "Optional project-relative path. If omitted, returns all project diagnostics.",
+        },
+      },
+    },
+  },
+  {
+    name: "lsp_find_references",
+    description:
+      "Find all usages, imports, and references of a symbol at a line and character position using LSP.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Project-relative file path." },
+        line: { type: "number", description: "1-based line number." },
+        character: { type: "number", description: "1-based character position on the line." },
+      },
+      required: ["path", "line", "character"],
+    },
+  },
+  {
+    name: "lsp_goto_definition",
+    description:
+      "Find the declaration or definition location of a symbol at a line and character position using LSP.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Project-relative file path." },
+        line: { type: "number", description: "1-based line number." },
+        character: { type: "number", description: "1-based character position on the line." },
+      },
+      required: ["path", "line", "character"],
     },
   },
   {
@@ -185,11 +323,11 @@ export const TOOL_DEFS: ToolDef[] = [
   {
     name: "report_progress",
     description:
-      "Publish one short, user-visible progress label before a meaningful investigation or implementation step. This is NOT private reasoning: write only a concise action summary such as 'Inspecting the authentication flow' or 'Comparing the changed files'. Do not include hidden chain-of-thought, secrets, or long explanations.",
+      "Publish one short, user-visible activity thought before a meaningful investigation or implementation step. Match the language of the latest user-authored dialogue, not the interface language. Use present-tense wording that says exactly what you are doing (for example, Russian: 'Ищу обработчик авторизации'; English: 'Searching for the auth handler'). This is concise progress narration, NOT private chain-of-thought: never include secrets or long reasoning.",
     parameters: {
       type: "object",
       properties: {
-        summary: { type: "string", description: "Short public label (3-10 words) for the next step." },
+        summary: { type: "string", description: "Concrete public activity thought in the latest dialogue language (3-10 words)." },
       },
       required: ["summary"],
     },
@@ -291,8 +429,9 @@ export const TOOL_DEFS: ToolDef[] = [
       "(2) url = a repository (e.g. https://github.com/anthropics/skills) PLUS a `skills` array of names — " +
       "each is fetched from `skills/<name>/SKILL.md` inside that repo. This is exactly what " +
       "`npx skills add <repo> --skill <name> --skill <name>` means. " +
-      "(3) url = a repository with NO `skills` array — lists the skills available in that repo so you " +
-      "can show the user what they can install. Installed skills are saved under .crab/skills/<name>/ and " +
+      "(3) url = a repository with NO `skills` array ��� lists the skills available in that repo so you " +
+      "can show the user what they can install. The entire skill directory is installed recursively, including " +
+      "scripts, references, assets, templates and manifests. Installed skills are saved under .crab/skills/<name>/ and " +
       "become /<name> slash commands.",
     parameters: {
       type: "object",
@@ -381,6 +520,22 @@ export const TOOL_DEFS: ToolDef[] = [
         },
       },
       required: ["note"],
+    },
+  },
+  {
+    name: "remember_file_context",
+    description:
+      "Save one concise, fingerprint-aware analysis of a file for later turns and sessions. Call once after you have genuinely understood a relevant file or when its responsibilities/relationships changed. Do not call repeatedly and never store secrets or raw file contents.",
+    parameters: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Project-relative file path already inspected." },
+        summary: {
+          type: "string",
+          description: "Concise factual summary: responsibility, relevant symbols, relationships, and task-specific conclusion (up to 5 short sentences).",
+        },
+      },
+      required: ["path", "summary"],
     },
   },
   {
@@ -767,6 +922,27 @@ function safe(root: string, p: string, fullAccess = false): string {
   return abs;
 }
 
+function isSkillBundlePath(value: string): boolean {
+  const normalized = value.trim().replace(/\\/g, "/").replace(/^\.\//, "").toLowerCase();
+  return normalized === ".crab/skills" || normalized.startsWith(".crab/skills/");
+}
+
+async function persistSkillBundleMutation(root: string | null, ...paths: string[]): Promise<void> {
+  if (!root || isRemotePath(root) || !paths.some(isSkillBundlePath)) return;
+  await syncSkills(root);
+}
+
+function stripRedundantLeadingCd(command: string, root: string): string {
+  const match = /^\s*cd(?:\s+\/d)?\s+(?:"([^"]+)"|'([^']+)'|([^;&]+?))\s*(?:&&|;)\s*([\s\S]+)$/i.exec(command)
+  if (!match) return command
+  const target = (match[1] ?? match[2] ?? match[3] ?? '').trim()
+  const remainder = match[4].trim()
+  if (!target || !remainder) return command
+  if (target === '.' || target === root) return remainder
+  if (!isRemotePath(root) && resolve(root, target) === resolve(root)) return remainder
+  return command
+}
+
 function withLineNumbers(content: string): string {
   const lines = content.split("\n");
   const width = String(lines.length).length;
@@ -803,7 +979,9 @@ export async function runTool(
   input: Record<string, unknown>,
   access: "normal" | "high" = "normal",
   editMode: "auto" | "ask" | "readonly" = "auto",
+  signal?: AbortSignal,
 ): Promise<ToolResult> {
+  if (signal?.aborted) return { text: "Cancelled by user." };
   const MUTATING = new Set([
     "write_file",
     "edit_file",
@@ -859,6 +1037,7 @@ export async function runTool(
         }
         await fs.mkdir(dirname(abs), { recursive: true });
         await fs.writeFile(abs, next, "utf8");
+        await persistSkillBundleMutation(root, rel);
         const meta = buildDiff(rel, prev, next, existed);
         return {
           text: `Wrote ${rel} (+${meta.added} -${meta.removed}).`,
@@ -870,20 +1049,72 @@ export async function runTool(
       case "edit_file": {
         const abs = safe(base, String(input.path), fullAccess);
         const rel = String(input.path);
-        const oldStr = stripCopiedLineNumbers(String(input.old_str ?? ""));
-        const newStr = String(input.new_str ?? "");
-        const content = await fs.readFile(abs, "utf8");
-        const count = content.split(oldStr).length - 1;
-        if (oldStr === "") return { text: "Retry: old_str was empty. Read the file and retry with the exact target text." };
-        if (count === 0) return { text: `Retry: target text was not found in ${rel}. Read the latest file contents, then retry the edit.` };
+        const rawOldStr = stripCopiedLineNumbers(String(input.old_str ?? ""));
+        let newStr = String(input.new_str ?? "");
+        const rawContent = await fs.readFile(abs, "utf8");
+
+        if (rawOldStr === "") {
+          return { text: "Retry: old_str was empty. Read the file and retry with the exact target text." };
+        }
+
+        let oldStr = rawOldStr;
+        let content = rawContent;
+        let count = content.split(oldStr).length - 1;
+
+        // Normalize CRLF to LF
+        if (count === 0 && rawContent.includes("\r\n")) {
+          const normContent = rawContent.replace(/\r\n/g, "\n");
+          const normOldStr = rawOldStr.replace(/\r\n/g, "\n");
+          const normCount = normContent.split(normOldStr).length - 1;
+          if (normCount === 1) {
+            content = normContent;
+            oldStr = normOldStr;
+            newStr = newStr.replace(/\r\n/g, "\n");
+            count = 1;
+          }
+        }
+
+        // Recover safe formatting-only drift without asking the model to re-read.
+        // Textual differences still fail closed so stale edits cannot overwrite newer work.
+        if (count === 0) {
+          const tolerantEdit = applyWhitespaceTolerantEdit(rawContent, rawOldStr, newStr);
+          if (tolerantEdit) {
+            await fs.writeFile(abs, tolerantEdit.content, "utf8");
+            await persistSkillBundleMutation(root, rel);
+            const meta = buildDiff(rel, rawContent, tolerantEdit.content, true);
+            return {
+              text: `Edited ${rel} (+${meta.added} -${meta.removed}).`,
+              meta,
+              mutated: true,
+            };
+          }
+        }
+
+        if (count === 0) {
+          const firstLine = rawOldStr.split("\n")[0].trim();
+          const fileLines = rawContent.split("\n");
+          const matches = fileLines
+            .map((l, idx) => ({ line: idx + 1, content: l.slice(0, 120) }))
+            .filter((l) => firstLine && l.content.includes(firstLine.slice(0, 25)));
+
+          let helpText = `Retry: target text was not found in ${rel}.`;
+          if (matches.length > 0) {
+            helpText += ` Nearby line matches for "${firstLine.slice(0, 25)}...":\n` +
+              matches.slice(0, 4).map((m) => `L${m.line}: ${m.content}`).join("\n");
+          }
+          return { text: `${helpText}\nCall read_file to get the exact current lines and retry once.` };
+        }
+
         if (count > 1) {
           return {
             text: `Retry: target text appears ${count} times in ${rel}. Read the file and include more surrounding lines so the edit is unique.`,
           };
         }
+
         const next = content.replace(oldStr, newStr);
         await fs.writeFile(abs, next, "utf8");
-        const meta = buildDiff(rel, content, next, true);
+        await persistSkillBundleMutation(root, rel);
+        const meta = buildDiff(rel, rawContent, next, true);
         return {
           text: `Edited ${rel} (+${meta.added} -${meta.removed}).`,
           meta,
@@ -929,10 +1160,93 @@ export async function runTool(
         return { text: indexedHits.length ? indexedHits.join("\n") : "No matches. Try a shorter term or list_dir to verify the path." };
       }
 
+      case "get_file_outline": {
+        const filePath = String(input.path ?? "");
+        if (!filePath) return { text: "Error: missing path argument." };
+        const outline = await getFileOutline(base, filePath);
+        return { text: outline };
+      }
+
+      case "find_symbol_definition": {
+        const symbol = String(input.symbol ?? "").trim();
+        if (!symbol) return { text: "Error: missing symbol argument." };
+        const result = await findSymbolDefinition(base, symbol);
+        return { text: result };
+      }
+
+      case "find_symbol_references": {
+        const symbol = String(input.symbol ?? "").trim();
+        if (!symbol) return { text: "Error: missing symbol argument." };
+        const result = await findSymbolReferences(base, symbol);
+        return { text: result };
+      }
+
+      case "codebase_map": {
+        const result = await getCodebaseMap(base);
+        return { text: result };
+      }
+
+      case "get_ast_tree": {
+        const filePath = String(input.path ?? "");
+        if (!filePath) return { text: "Error: missing path argument." };
+        const tree = await parseAstFile(base, filePath);
+        const formatted = tree.symbols.map(
+          (s) => `[${s.kind}] ${s.name} (L${s.line}-L${s.endLine}): ${s.signature}`
+        ).join("\n");
+        return {
+          text: `AST Tree for ${filePath} (${tree.totalLines} lines, ${tree.symbols.length} symbols):\n${formatted || "(no top-level symbols found)"}`,
+        };
+      }
+
+      case "get_symbol_scope": {
+        const filePath = String(input.path ?? "");
+        const line = Number(input.line ?? 1);
+        if (!filePath) return { text: "Error: missing path argument." };
+        const res = await getSymbolScopeAtLine(base, filePath, line);
+        return { text: res };
+      }
+
+      case "lsp_diagnostics": {
+        const filePath = input.path ? String(input.path) : undefined;
+        if (filePath) {
+          const abs = safe(base, filePath, fullAccess);
+          const diags = await getLspDiagnosticsForFile(base, abs);
+          if (!diags) return { text: `LSP server not available for file ${filePath}` };
+          if (diags.length === 0) return { text: `No LSP diagnostics (errors/warnings) for ${filePath}` };
+          return { text: `LSP Diagnostics for ${filePath}:\n${JSON.stringify(diags, null, 2)}` };
+        }
+        const allDiags = await getLspAllDiagnostics(base);
+        const entries = Object.entries(allDiags);
+        if (entries.length === 0) return { text: "No active LSP diagnostics across the project." };
+        return { text: `Project LSP Diagnostics:\n${JSON.stringify(allDiags, null, 2)}` };
+      }
+
+      case "lsp_find_references": {
+        const filePath = String(input.path ?? "");
+        const line = Number(input.line ?? 1);
+        const character = Number(input.character ?? 1);
+        const abs = safe(base, filePath, fullAccess);
+        const refs = await queryLspReferences(base, abs, line, character);
+        if (!refs) return { text: `No references found or LSP server not available for ${filePath}` };
+        return { text: `LSP References for ${filePath}:${line}:${character}:\n${JSON.stringify(refs, null, 2)}` };
+      }
+
+      case "lsp_goto_definition": {
+        const filePath = String(input.path ?? "");
+        const line = Number(input.line ?? 1);
+        const character = Number(input.character ?? 1);
+        const abs = safe(base, filePath, fullAccess);
+        const defs = await queryLspDefinition(base, abs, line, character);
+        if (!defs) return { text: `No definition found or LSP server not available for ${filePath}` };
+        return { text: `LSP Definition for ${filePath}:${line}:${character}:\n${JSON.stringify(defs, null, 2)}` };
+      }
+
       case "run_command": {
         const command = String(input.command ?? "");
         if (!command.trim()) return { text: "Error: empty command." };
-        return { text: await runCommand(base, command) };
+        const text = await runCommand(base, command);
+        if (root) await syncSkills(root);
+        return { text };
       }
 
       case "report_progress": {
@@ -941,7 +1255,7 @@ export async function runTool(
       }
 
       case "propose_command": {
-        const command = String(input.command ?? "").trim();
+        const command = stripRedundantLeadingCd(String(input.command ?? "").trim(), base);
         if (!command) return { text: "Error: empty command." };
         const note = String(input.explanation ?? "").trim();
         return {
@@ -956,14 +1270,14 @@ export async function runTool(
       case "web_search": {
         const query = String(input.query ?? "").trim();
         if (!query) return { text: "Error: empty query." };
-        return { text: await webSearch(query) };
+        return { text: await webSearch(query, signal) };
       }
 
       case "fetch_url": {
         const url = String(input.url ?? "").trim();
         if (!/^https?:\/\//i.test(url))
           return { text: "Error: provide an absolute http(s) URL." };
-        return { text: await fetchUrl(url) };
+        return { text: await fetchUrl(url, signal) };
       }
 
       case "add_skill": {
@@ -977,7 +1291,7 @@ export async function runTool(
           const failed: string[] = [];
           for (const n of names) {
             const r = await addSkillFromRepo(root, url, n);
-            if (r.ok) done.push(`/${r.name}`);
+            if (r.ok) done.push(`/${r.name} (${r.files ?? 1} files)`);
             else failed.push(`${n} (${r.error})`);
           }
           const parts: string[] = [];
@@ -1001,7 +1315,8 @@ export async function runTool(
           return {
             text:
               `Installed skill "/${direct.name}"${direct.description ? ` — ${direct.description}` : ""}. ` +
-              `Read .crab/skills/${direct.name}/SKILL.md to use it.`,
+              `Installed the complete ${direct.files ?? 1}-file bundle in .crab/skills/${direct.name}/. ` +
+              `Read SKILL.md there to use it; resolve its scripts/assets relative to that directory.`,
             mutated: true,
           };
         }
@@ -1521,6 +1836,16 @@ async function runRemoteTool(
         }
         const count = content.split(oldStr).length - 1;
         if (count === 0) {
+          const tolerantEdit = applyWhitespaceTolerantEdit(content, oldStr, newStr);
+          if (tolerantEdit) {
+            await remoteSftp.writeFile(conn.sftp, abs, tolerantEdit.content);
+            const meta = buildDiff(rel, content, tolerantEdit.content, true);
+            return {
+              text: `Edited ${rel} (+${meta.added} -${meta.removed}).`,
+              meta,
+              mutated: true,
+            };
+          }
           return { text: `Retry: target text was not found in ${rel}. Read the latest file contents, then retry the edit.` };
         }
         if (count > 1) {
@@ -1756,7 +2081,7 @@ export async function readProjectSteering(
       await fs.readFile(join(root, ".crab", "CRAB.md"), "utf8")
     ).trim();
     if (top) primary = top;
-  } catch {}
+  } catch { }
 
   async function walk(d: string): Promise<void> {
     let entries: import("node:fs").Dirent[] = [];
@@ -1780,7 +2105,7 @@ export async function readProjectSteering(
             const rel = relative(steeringDir, full).replace(/\\/g, "/");
             otherParts.push(`### ${rel}\n${content}`);
           }
-        } catch {}
+        } catch { }
       }
     }
   }
@@ -1789,10 +2114,27 @@ export async function readProjectSteering(
   return { primary, others: otherParts.join("\n\n") };
 }
 
+const MAX_DURABLE_MEMORY_NOTES = 120;
+const MAX_DURABLE_MEMORY_CHARS = 20_000;
+
+function cleanDurableMemory(text: string): string {
+  const lines = text
+    .split("\n")
+    // Legacy builds recorded every edit here. Those logs are noisy state, not knowledge.
+    .filter((line) => !/^-\s+\([^)]*\)\s+Edited\s+/i.test(line));
+  const notes = lines.filter((line) => /^-\s+/.test(line)).slice(-MAX_DURABLE_MEMORY_NOTES);
+  const heading = lines.filter((line) => !/^-\s+/.test(line)).join("\n").trim();
+  const compact = `${heading || "# Project memory"}\n\n${notes.join("\n")}`
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (compact.length <= MAX_DURABLE_MEMORY_CHARS) return compact;
+  return `${compact.slice(0, 400)}\n\n[older memory compacted]\n\n${compact.slice(-(MAX_DURABLE_MEMORY_CHARS - 440))}`;
+}
+
 export async function readProjectMemory(root: string): Promise<string> {
   if (!root) return "";
   try {
-    return (await fs.readFile(join(root, ".crab", "MEMORY.md"), "utf8")).trim();
+    return cleanDurableMemory(await fs.readFile(join(root, ".crab", "MEMORY.md"), "utf8"));
   } catch {
     return "";
   }
@@ -1806,16 +2148,19 @@ export async function appendProjectMemory(
   const dir = join(root, ".crab");
   const file = join(dir, "MEMORY.md");
   await fs.mkdir(dir, { recursive: true });
-  let existing = "";
+  let existing = "# Project memory\n\nDurable notes the agent keeps across sessions.\n";
   try {
     existing = await fs.readFile(file, "utf8");
-  } catch {
-    existing =
-      "# Project memory\n\nDurable notes the agent keeps across sessions.\n";
-  }
+  } catch { }
+
+  const trimmed = note.replace(/\s+/g, " ").trim().slice(0, 1_000);
+  if (!trimmed || /^Edited\s+/i.test(trimmed)) return;
+  const cleaned = cleanDurableMemory(existing);
+  const lines = cleaned.split("\n");
+  if (lines.some((line) => line.toLocaleLowerCase().includes(trimmed.toLocaleLowerCase()))) return;
   const stamp = new Date().toISOString().slice(0, 10);
-  const line = `- (${stamp}) ${note.trim()}\n`;
-  await fs.writeFile(file, `${existing.replace(/\s*$/, "")}\n${line}`, "utf8");
+  lines.push(`- (${stamp}) ${trimmed}`);
+  await fs.writeFile(file, cleanDurableMemory(lines.join("\n")) + "\n", "utf8");
 }
 
 async function runGitTimeTravel(
@@ -1894,7 +2239,10 @@ function htmlToText(html: string): string {
     .trim();
 }
 
-async function webSearch(query: string): Promise<string> {
+async function webSearch(
+  query: string,
+  signal?: AbortSignal,
+): Promise<string> {
   try {
     const res = await fetch(
       `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
@@ -1904,6 +2252,7 @@ async function webSearch(query: string): Promise<string> {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
         },
+        signal,
       },
     );
     if (!res.ok) return `Search failed (HTTP ${res.status}).`;
@@ -1939,13 +2288,17 @@ async function webSearch(query: string): Promise<string> {
   }
 }
 
-async function fetchUrl(url: string): Promise<string> {
+async function fetchUrl(
+  url: string,
+  signal?: AbortSignal,
+): Promise<string> {
   try {
     const res = await fetch(url, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
       },
+      signal,
     });
     if (!res.ok) return `Fetch failed (HTTP ${res.status}).`;
     const ct = res.headers.get("content-type") ?? "";

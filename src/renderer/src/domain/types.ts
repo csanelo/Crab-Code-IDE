@@ -1,3 +1,6 @@
+import type { Lang } from "../i18n/translations";
+import type { ContextUsageSnapshot } from "../../../shared/contextUsage";
+
 export type ID = string;
 
 export type MessageRole = "user" | "assistant";
@@ -33,6 +36,10 @@ export interface ToolCall {
   confirmId?: string;
   confirmTarget?: string;
   confirmAllowed?: boolean;
+  /** Language detected from the latest user-authored dialogue turn. */
+  activityLanguage?: Lang;
+  /** Duplicate unchanged tool calls are removed from the visible timeline. */
+  memoryHit?: boolean;
 }
 
 export interface FileChange {
@@ -60,6 +67,8 @@ export interface ChatMessage {
   tokens?: number;
   toolCalls?: ToolCall[];
   segments?: MessageSegment[];
+  reasoningContent?: string;
+  reasoning_content?: string;
 }
 
 export interface Conversation {
@@ -72,6 +81,8 @@ export interface Conversation {
   createdAt: number;
   updatedAt: number;
   pinned?: boolean;
+  /** Latest prompt/context composition reported for this session. */
+  contextUsage?: ContextUsageSnapshot;
 }
 
 export interface Repository {

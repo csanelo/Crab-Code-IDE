@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+import { handleIpc } from './ipcHelper'
 import Store from 'electron-store'
 
 
@@ -66,9 +67,9 @@ export function listMcpServers(): McpServer[] {
 }
 
 export function registerMcp(ipcMain_: typeof ipcMain): void {
-  ipcMain_.handle('mcp:list', () => cached.servers)
+  handleIpc('mcp:list', () => cached.servers)
 
-  ipcMain_.handle('mcp:upsert', (_e, payload: Partial<McpServer> & { id?: string }) => {
+  handleIpc('mcp:upsert', (_e, payload: Partial<McpServer> & { id?: string }) => {
     const next = normalize(payload)
     const existing = cached.servers.findIndex((s) => s.id === next.id)
     if (existing >= 0) {
@@ -80,13 +81,13 @@ export function registerMcp(ipcMain_: typeof ipcMain): void {
     return cached.servers
   })
 
-  ipcMain_.handle('mcp:remove', (_e, id: string) => {
+  handleIpc('mcp:remove', (_e, id: string) => {
     cached.servers = cached.servers.filter((s) => s.id !== id)
     persist()
     return cached.servers
   })
 
-  ipcMain_.handle('mcp:set-enabled', (_e, id: string, enabled: boolean) => {
+  handleIpc('mcp:set-enabled', (_e, id: string, enabled: boolean) => {
     cached.servers = cached.servers.map((s) => (s.id === id ? { ...s, enabled } : s))
     persist()
     return cached.servers

@@ -13,6 +13,7 @@ import { newRepository } from "../../state";
 import { useT } from "../../i18n";
 import type { FileChange } from "../../domain/types";
 import { on as onAppEvent, emit as emitAppEvent } from "../../lib/appEvents";
+import { getPendingEditFor, removePendingEdit } from "../../lib/pendingEdits";
 import { copyText } from "../../lib/clipboard";
 import { usePersistentState } from "../../lib/uiPersist";
 import { getThemeId } from "../../lib/theme";
@@ -24,7 +25,7 @@ import {
 import { DiffEditor } from "@monaco-editor/react";
 import { ContextMenu, type MenuItem } from "../sidebar/ContextMenu";
 import { CommandPalette, type PaletteItem } from "../palette/CommandPalette";
-import { FileTree } from "./FileTree";
+import { FileTree, refreshTree } from "./FileTree";
 import { fileIcon } from "./iconMap";
 import "./FilesPanel.css";
 
@@ -111,7 +112,6 @@ export function FilesPanel(): JSX.Element {
   const t = useT();
   const [tab, setTab] = useState<Tab>("files");
   const [rootDragOver, setRootDragOver] = useState(false);
-  const [treeKey, setTreeKey] = useState(0);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
 
@@ -152,7 +152,9 @@ export function FilesPanel(): JSX.Element {
     setHits([]);
   }, [activeRepo?.path]);
 
-  const refresh = (): void => setTreeKey((k) => k + 1);
+  const refresh = (): void => {
+    if (activeRepo?.path) refreshTree(activeRepo.path);
+  };
 
   const createAtRoot = useCallback(
     (kind: "file" | "dir"): void => {
@@ -225,8 +227,11 @@ export function FilesPanel(): JSX.Element {
   }
 
   useEffect(() => {
-    return onAppEvent("fs:changed", () => setTreeKey((k) => k + 1));
-  }, []);
+    return onAppEvent("fs:changed", ({ root }) => {
+      const target = root || activeRepo?.path;
+      if (target) refreshTree(target);
+    });
+  }, [activeRepo?.path]);
 
   useEffect(() => {
     if (!searchOpen || !activeRepo?.path) return;
@@ -334,6 +339,15 @@ export function FilesPanel(): JSX.Element {
       { label: t("files.menu.copy"), onClick: () => copyText(menu.name) },
       { label: t("files.menu.copyPath"), onClick: () => copyText(menu.path) },
       { label: t("files.menu.cut"), onClick: () => copyText(menu.path) },
+      {
+        label: window.api?.window?.platform === "darwin" ? "Показать в Finder" : "Показать в проводнике",
+        onClick: () => void window.api.fs.revealInFinder?.(menu.path),
+      },
+      {
+        label: "Быстрый просмотр (QuickLook)",
+        shortcut: "Space",
+        onClick: () => void window.api.fs.quickLook?.(menu.path),
+      },
       { separator: true },
       {
         label: t("files.menu.rename"),
@@ -601,7 +615,6 @@ export function FilesPanel(): JSX.Element {
                 </div>
               </div>
               <FileTree
-                key={treeKey}
                 dir={activeRepo.path}
                 depth={0}
                 openDirs={openDirs}
@@ -781,6 +794,8 @@ function ChangesView({
     });
     if (ok) {
       onReverted(c.path);
+      const pending = getPendingEditFor(absPath) || getPendingEditFor(c.path);
+      if (pending) removePendingEdit(pending.id);
       emitAppEvent("editor:reload", { path: absPath });
     }
   }

@@ -11,14 +11,14 @@ import {
   Loader2,
 } from "lucide-react";
 import type { ChatMessage, MessageSegment, ToolCall } from "../../domain/types";
-import { useT } from "../../i18n";
+import { translateForLanguage, useT } from "../../i18n";
 import type { TKey } from "../../i18n/translations";
 import { Markdown } from "./Markdown";
 import { highlightLine } from "../../lib/highlight";
 import { fileIcon } from "../files/iconMap";
 import { runCommandWatched } from "../../lib/runCommand";
 import { copyText } from "../../lib/clipboard";
-import { useApp } from "../../state/AppContext";
+import { on as onAppEvent } from "../../lib/appEvents";
 
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
@@ -80,33 +80,56 @@ const TOOL_LABEL: Record<string, TKey> = {
   git_time_travel: "tool.git_time_travel",
 };
 
-const TOOL_VERB: Record<string, string> = {
-  read_file: "Read",
-  write_file: "Created",
-  edit_file: "Edited",
-  list_dir: "Listed",
-  create_dir: "Created",
-  delete_path: "Deleted",
-  search: "Searched",
-  run_command: "Ran",
-  web_search: "Searched web",
-  fetch_url: "Fetched",
-  open_path: "Opened",
-  move_path: "Moved",
-  copy_path: "Copied",
-  read_memory: "Read memory",
-  write_memory: "Saved memory",
-  git_time_travel: "Git history",
-  browser_open: "Opened",
-  browser_read: "Read page",
-  browser_screenshot: "Looked at",
-  add_skill: "Added skill",
-  add_mcp_server: "Added MCP",
-  list_mcp_servers: "Listed MCP",
-  github_connect: "GitHub",
-  github_status: "GitHub",
-  github_commit: "Committed",
-  report_progress: "Thinking",
+const TOOL_ACTIVITY: Record<string, TKey> = {
+  read_file: "activity.readFile",
+  write_file: "activity.createFile",
+  edit_file: "activity.fixFile",
+  list_dir: "activity.exploreFolder",
+  create_dir: "activity.createFolder",
+  delete_path: "activity.remove",
+  search: "activity.searchProject",
+  get_file_outline: "activity.inspectStructure",
+  find_symbol_definition: "activity.findDefinition",
+  find_symbol_references: "activity.findUsages",
+  codebase_map: "activity.mapProject",
+  get_ast_tree: "activity.inspectStructure",
+  get_symbol_scope: "activity.inspectStructure",
+  lsp_diagnostics: "activity.checkDiagnostics",
+  lsp_find_references: "activity.findUsages",
+  lsp_goto_definition: "activity.findDefinition",
+  run_command: "activity.checkTerminal",
+  propose_command: "activity.prepareCommand",
+  web_search: "activity.searchWeb",
+  fetch_url: "activity.openPage",
+  open_path: "activity.open",
+  move_path: "activity.move",
+  copy_path: "activity.copy",
+  read_memory: "activity.recall",
+  write_memory: "activity.remember",
+  remember_file_context: "activity.remember",
+  git_time_travel: "activity.checkGit",
+  browser_open: "activity.openBrowser",
+  browser_read: "activity.readPage",
+  browser_screenshot: "activity.inspectScreen",
+  computer_screenshot: "activity.inspectScreen",
+  computer_list_windows: "activity.checkWindows",
+  computer_focus_window: "activity.switchWindow",
+  computer_click: "activity.click",
+  computer_type: "activity.enterText",
+  computer_keypress: "activity.pressKey",
+  computer_scroll: "activity.scroll",
+  computer_list_processes: "activity.checkProcesses",
+  add_skill: "activity.addSkill",
+  create_skill: "activity.createSkill",
+  list_skills: "activity.checkSkills",
+  add_mcp_server: "activity.addMcp",
+  list_mcp_servers: "activity.checkMcp",
+  list_ssh_hosts: "activity.checkServers",
+  ssh_connect: "activity.connectServer",
+  github_connect: "activity.connectGithub",
+  github_status: "activity.checkGithub",
+  github_commit: "activity.commit",
+  report_progress: "activity.thinking",
 };
 
 const FILE_TOOLS = new Set(["read_file", "write_file", "edit_file"]);
@@ -179,15 +202,37 @@ function baseName(p: string): string {
 }
 
 function toolTarget(tool: ToolCall): string {
-  const i = tool.input ?? {};
-  if (typeof i.path === "string") return i.path;
-  if (typeof i.target === "string") return i.target;
-  if (typeof i.from === "string" && typeof i.to === "string")
-    return `${i.from} → ${i.to}`;
-  if (typeof i.command === "string") return i.command;
-  if (typeof i.query === "string") return i.query;
-  if (typeof i.url === "string") return i.url;
-  if (typeof i.summary === "string") return i.summary;
+  const input = tool.input ?? {};
+  const text = (key: string): string | null =>
+    typeof input[key] === "string" && String(input[key]).trim()
+      ? String(input[key]).trim()
+      : null;
+
+  // Prefer the thing the agent is actually investigating over an optional
+  // folder scope, so rows read like “Ищу handleLogin”, not “Ищу src”.
+  if (tool.name === "search" || tool.name === "web_search") {
+    return text("query") ?? text("path") ?? "";
+  }
+  if (tool.name === "find_symbol_definition" || tool.name === "find_symbol_references") {
+    return text("symbol") ?? "";
+  }
+  if (tool.name === "create_skill" || tool.name === "add_mcp_server") {
+    return text("name") ?? text("url") ?? "";
+  }
+  if (tool.name === "list_skills") return text("repo") ?? "";
+  if (tool.name === "git_time_travel") {
+    return text("query") ?? text("path") ?? text("ref") ?? text("action") ?? "";
+  }
+  if (tool.name === "computer_keypress") return text("keys") ?? "";
+  if (tool.name === "ssh_connect") return text("target") ?? text("host") ?? "";
+
+  if (text("path")) return text("path") ?? "";
+  if (text("target")) return text("target") ?? "";
+  if (text("from") && text("to")) return `${text("from")} → ${text("to")}`;
+  if (text("command")) return text("command") ?? "";
+  if (text("query")) return text("query") ?? "";
+  if (text("url")) return text("url") ?? "";
+  if (text("summary")) return text("summary") ?? "";
   return "";
 }
 
@@ -198,6 +243,8 @@ function ToolRow({
   repoPath: string | null;
 }): JSX.Element {
   const t = useT();
+  const activityT = (key: TKey): string =>
+    tool.activityLanguage ? translateForLanguage(tool.activityLanguage, key) : t(key);
   const [open, setOpen] = useState(false);
 
   if (tool.command) {
@@ -207,12 +254,20 @@ function ToolRow({
   const displayName =
     tool.name === "write_file" && tool.meta?.existed ? "edit_file" : tool.name;
   const label = TOOL_LABEL[displayName] ? t(TOOL_LABEL[displayName]) : displayName;
-  const verb = TOOL_VERB[displayName] ?? label;
+  const recoverableRetry = tool.result?.startsWith("Retry:") ?? false;
+  const activityKey = TOOL_ACTIVITY[displayName];
+  const verb = recoverableRetry
+    ? activityT("activity.refreshingContext")
+    : activityKey
+      ? activityT(activityKey)
+      : label;
   const target = toolTarget(tool);
+  const progressStep = displayName === "report_progress";
+  const showVerb = !progressStep || !target;
   const isFile =
     FILE_TOOLS.has(tool.name) && target && /\.[A-Za-z0-9]{1,8}$/.test(target);
   const meta = tool.meta;
-  const expandable = Boolean(meta?.diff || tool.result);
+  const expandable = Boolean(meta?.diff || (tool.result && !recoverableRetry));
 
   return (
     <div className={`tool${open ? " tool--open" : ""}`}>
@@ -225,16 +280,16 @@ function ToolRow({
         <span className="tool__verbicon" aria-hidden="true">
           <ToolGlyph name={displayName} size={17} />
         </span>
-        <span className="tool__verb">{verb}</span>
+        {showVerb && <span className="tool__verb">{verb}</span>}
         {target && (
           <span className="tool__file">
             <span className="tool__name">
               {isFile ? baseName(target) : target}
             </span>
-            {meta && (
-              <span className="tool__counts">
-                <span className="tool__added">+{meta.added}</span>
-                <span className="tool__removed">−{meta.removed}</span>
+            {meta && (meta.added > 0 || meta.removed > 0) && (
+              <span className="tool__counts" aria-label={`${meta.added} added, ${meta.removed} removed`}>
+                {meta.added > 0 && <span className="tool__added">+{meta.added}</span>}
+                {meta.removed > 0 && <span className="tool__removed">−{meta.removed}</span>}
               </span>
             )}
           </span>
@@ -265,25 +320,30 @@ function ToolRow({
 }
 
 function TaskGroup({ tools }: { tools: ToolCall[] }): JSX.Element {
-  const running = tools.some((tool) => tool.status === "running");
-  const hasError = tools.some((tool) => tool.result?.startsWith("Error:"));
-  const [open, setOpen] = useState(running || hasError);
+  const visibleTools = tools.filter((tool, index) => {
+    if (tool.memoryHit) return false;
+    if (!tool.result?.startsWith("Retry:")) return true;
+    const target = toolTarget(tool);
+    const recoveredLater = tools.slice(index + 1).some(
+      (later) => later.name === tool.name && toolTarget(later) === target && later.mutated,
+    );
+    return !recoveredLater;
+  });
+  const running = visibleTools.some((tool) => tool.status === "running");
+  const hasError = visibleTools.some((tool) => tool.result?.startsWith("Error:"));
+  const [open, setOpen] = useState(true);
   const userToggled = useRef(false);
 
   useEffect(() => {
-    if (running || hasError) setOpen(true);
-    else if (!userToggled.current) setOpen(false);
+    if ((running || hasError) && !userToggled.current) setOpen(true);
   }, [running, hasError]);
 
-  const title = hasError
-    ? "Agent task needs attention"
-    : tools.some((tool) => tool.mutated)
-      ? "Updated project"
-      : "Reviewed project";
+  const state = hasError ? "error" : running ? "running" : "done";
+  const title = `${visibleTools.length} ${visibleTools.length === 1 ? "step" : "steps"}`;
 
   return (
     <section
-      className={`task-group${open ? " task-group--open" : ""}${running ? " task-group--running" : ""}`}
+      className={`task-group task-group--${state}${open ? " task-group--open" : ""}`}
     >
       <button
         type="button"
@@ -294,21 +354,20 @@ function TaskGroup({ tools }: { tools: ToolCall[] }): JSX.Element {
           setOpen((value) => !value);
         }}
       >
+        <span className="task-group__title">{title}</span>
         <ChevronRight
-          size={16}
+          size={13}
           className={`task-group__chevron${open ? " task-group__chevron--open" : ""}`}
         />
-        <span className="task-group__title">{title}</span>
         {running ? (
           <Loader2
-            size={14}
+            size={12}
             className="task-group__spinner"
             aria-label="Running"
           />
-        ) : null}
-        {hasError ? (
+        ) : hasError ? (
           <CircleAlert
-            size={14}
+            size={12}
             className="task-group__error"
             aria-label="Error"
           />
@@ -316,7 +375,7 @@ function TaskGroup({ tools }: { tools: ToolCall[] }): JSX.Element {
       </button>
       <div className="task-group__collapse" aria-hidden={!open}>
         <div className="task-group__body">
-          {tools.map((tool) => (
+          {visibleTools.map((tool) => (
             <div className="task-group__action" key={tool.id}>
               <span className="task-group__node" aria-hidden="true" />
               <ToolRow tool={tool} repoPath={null} />
@@ -356,8 +415,8 @@ function MessageSegments({
   let tools: ToolCall[] = [];
   const flush = (): void => {
     if (!tools.length) return;
-    const actionTools = tools.filter((tool) => !tool.command);
-    const commandTools = tools.filter((tool) => Boolean(tool.command));
+    const actionTools = tools.filter((tool) => !tool.command && !tool.memoryHit);
+    const commandTools = tools.filter((tool) => Boolean(tool.command) && !tool.memoryHit);
     if (actionTools.length)
       result.push(
         <TaskGroup key={`task-${actionTools[0].id}`} tools={actionTools} />,
@@ -393,6 +452,47 @@ function MessageSegments({
 function CommandCard({ command }: { command: string }): JSX.Element {
   const t = useT();
   const [copied, setCopied] = useState(false);
+  const runIdRef = useRef<string | null>(null);
+  const [execution, setExecution] = useState<{
+    status: "idle" | "running" | "success" | "error" | "unknown" | "timeout";
+    output: string;
+    cwd: string | null;
+    exitCode: number | null;
+    startedAt: number | null;
+  }>({ status: "idle", output: "", cwd: null, exitCode: null, startedAt: null });
+
+  useEffect(() => {
+    const offTrace = onAppEvent("terminal:trace", (trace) => {
+      if (trace.runId !== runIdRef.current) return;
+      setExecution({
+        status: "running",
+        output: trace.output,
+        cwd: trace.cwd,
+        exitCode: null,
+        startedAt: trace.startedAt,
+      });
+    });
+    const offResult = onAppEvent("terminal:result", (result) => {
+      if (result.runId !== runIdRef.current) return;
+      setExecution((current) => ({
+        status: result.timedOut
+          ? "timeout"
+          : result.exitCode === null
+            ? "unknown"
+            : result.ok
+              ? "success"
+              : "error",
+        output: result.output,
+        cwd: result.cwd,
+        exitCode: result.exitCode,
+        startedAt: current.startedAt,
+      }));
+    });
+    return () => {
+      offTrace();
+      offResult();
+    };
+  }, []);
 
   function copy(): void {
     copyText(command);
@@ -401,28 +501,21 @@ function CommandCard({ command }: { command: string }): JSX.Element {
   }
 
   function run(): void {
-    runCommandWatched(command);
+    const runId = runCommandWatched(command);
+    runIdRef.current = runId;
+    setExecution({
+      status: "running",
+      output: "Waiting for terminal output…",
+      cwd: null,
+      exitCode: null,
+      startedAt: Date.now(),
+    });
   }
 
   return (
     <div className="cmd-card">
       <div className="cmd-card__head">
-        <svg
-          className="cmd-card__icon"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <rect x="3" y="4" width="18" height="16" rx="2" />
-          <path d="m7 9 3 3-3 3" />
-          <line x1="13" y1="15" x2="17" y2="15" />
-        </svg>
+        <span className="cmd-card__prompt-icon" aria-hidden="true">{">_"}</span>
         <span className="cmd-card__label">{t("tool.command_label")}</span>
         <div className="cmd-card__actions">
           <button
@@ -438,14 +531,58 @@ function CommandCard({ command }: { command: string }): JSX.Element {
             type="button"
             className="cmd-card__btn cmd-card__btn--run"
             onClick={run}
+            disabled={execution.status === "running"}
             aria-label={t("tool.run")}
             data-tip={t("tool.run")}
           >
-            <span>{t("tool.run")}</span>
+            {execution.status === "running" && <Loader2 size={12} className="tool__spin" />}
+            <span>{execution.status === "running" ? "Running" : t("tool.run")}</span>
           </button>
         </div>
       </div>
       <pre className="cmd-card__code">{command}</pre>
+      {execution.status !== "idle" && (
+        <div className={`cmd-card__debug cmd-card__debug--${execution.status}`}>
+          <div className="cmd-card__debug-head">
+            <span className="cmd-card__debug-status">
+              {execution.status === "running"
+                ? "Following terminal output"
+                : execution.status === "success"
+                  ? "Completed successfully"
+                  : execution.status === "error"
+                    ? "Command failed"
+                    : execution.status === "timeout"
+                      ? "Tracking timed out — run again"
+                    : "Completion status unknown"}
+            </span>
+            {execution.cwd && <span className="cmd-card__debug-cwd">{execution.cwd}</span>}
+            {execution.status !== "running" && (
+              <span className="cmd-card__debug-code">exit {execution.exitCode ?? "?"}</span>
+            )}
+          </div>
+          <TerminalDebugOutput output={execution.output || "(no output)"} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TerminalDebugOutput({ output }: { output: string }): JSX.Element {
+  const lines = output.split("\n");
+  return (
+    <div className="cmd-card__debug-output" role="log" aria-live="polite">
+      {lines.map((line, index) => {
+        const kind = /\b(error|failed|failure|fatal|exception|traceback|panic)\b/i.test(line)
+          ? "error"
+          : /\b(warn(?:ing)?|deprecated|skipped)\b/i.test(line)
+            ? "warning"
+            : /\b(pass(?:ed)?|success|done|built|compiled|ok)\b/i.test(line)
+              ? "success"
+              : /^\s*(?:>|\$|PS\s|C:\\)/i.test(line)
+                ? "command"
+                : "normal";
+        return <div key={index} className={`cmd-card__debug-line cmd-card__debug-line--${kind}`}>{line || " "}</div>;
+      })}
     </div>
   );
 }
@@ -488,12 +625,9 @@ function DiffView({ diff }: { diff: string }): JSX.Element {
 
 function MessageItemBase({ message }: { message: ChatMessage }): JSX.Element {
   const t = useT();
-  const { state } = useApp();
-  const repoPath =
-    state.repositories.find((r) => r.id === state.activeRepositoryId)?.path ??
-    null;
   const isUser = message.role === "user";
-  const hasTools = !isUser && message.toolCalls && message.toolCalls.length > 0;
+  const hasTools =
+    !isUser && message.toolCalls && message.toolCalls.some((tool) => !tool.memoryHit);
   const showMeta =
     !isUser &&
     !message.streaming &&
@@ -561,9 +695,11 @@ function MessageItemBase({ message }: { message: ChatMessage }): JSX.Element {
               )}
               {hasTools && (
                 <div className="message__tools">
-                  {message.toolCalls!.map((tc, i) => (
-                    <ToolRow key={i} tool={tc} repoPath={repoPath} />
-                  ))}
+                  {message.toolCalls!
+                    .filter((tool) => !tool.memoryHit)
+                    .map((tc, i) => (
+                      <ToolRow key={tc.id || i} tool={tc} repoPath={null} />
+                    ))}
                 </div>
               )}
             </>

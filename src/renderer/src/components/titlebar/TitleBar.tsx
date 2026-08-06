@@ -179,6 +179,7 @@ export function TitleBar({
   rightOpen = false,
   terminalOpen = false,
   browserOpen = false,
+  sidebarPosition = "left",
 }: {
   onToggleSidebar?: () => void;
   onToggleRight?: () => void;
@@ -189,6 +190,7 @@ export function TitleBar({
   rightOpen?: boolean;
   terminalOpen?: boolean;
   browserOpen?: boolean;
+  sidebarPosition?: "left" | "right";
 }): JSX.Element {
   const [maximized, setMaximized] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -446,7 +448,7 @@ export function TitleBar({
                         </span>
                         {item.shortcut && (
                           <span className="titlebar__dropdown-shortcut">
-                            {item.shortcut}
+                            {isMac ? item.shortcut.replace(/Ctrl/g, "⌘") : item.shortcut}
                           </span>
                         )}
                       </button>
@@ -516,12 +518,16 @@ export function TitleBar({
         <button
           className={`titlebar__icon-btn${leftOpen ? " titlebar__icon-btn--on" : ""}`}
           type="button"
-          aria-label={t("nav.toggleSidebar")}
+          aria-label={t("nav.toggleFiles")}
           aria-pressed={leftOpen}
-          data-tip={t("nav.toggleSidebarHint")}
+          data-tip={t("nav.toggleFilesHint")}
           onClick={onToggleSidebar}
         >
-          <PanelLeftIcon filled={leftOpen} />
+          {sidebarPosition === "left" ? (
+            <PanelLeftIcon filled={leftOpen} />
+          ) : (
+            <PanelRightIcon filled={leftOpen} />
+          )}
         </button>
         {!agentWindow && (
           <>
@@ -538,12 +544,16 @@ export function TitleBar({
             <button
               className={`titlebar__icon-btn${rightOpen ? " titlebar__icon-btn--on" : ""}`}
               type="button"
-              aria-label={t("nav.toggleRight")}
+              aria-label={t("nav.toggleChat")}
               aria-pressed={rightOpen}
-              data-tip={t("nav.toggleRightHint")}
+              data-tip={t("nav.toggleChatHint")}
               onClick={onToggleRight}
             >
-              <PanelRightIcon filled={rightOpen} />
+              {sidebarPosition === "left" ? (
+                <PanelRightIcon filled={rightOpen} />
+              ) : (
+                <PanelLeftIcon filled={rightOpen} />
+              )}
             </button>
             <button
               className="titlebar__icon-btn"

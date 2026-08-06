@@ -21,6 +21,10 @@
   min-height: 0;
 }
 
+.app__row--chat-left {
+  flex-direction: row-reverse;
+}
+
 .app__rightside {
   display: flex;
   flex-direction: column;

@@ -13,6 +13,15 @@ import {
 } from "../../lib/appEvents";
 import { createId } from "../../domain/ids";
 import { getThemeId } from "../../lib/theme";
+import {
+  readTerminalCompletion,
+  stripTerminalCompletionForDisplay,
+  stripTerminalControlSequences,
+  stripWatchedCommandEcho,
+  terminalCompletionSuffix,
+  terminalOutputLooksFailed,
+  terminalPromptReturned,
+} from "../../lib/terminalProtocol";
 import { xtermThemeFor } from "../../theme/themes";
 import "./TerminalPanel.css";
 
@@ -429,49 +438,93 @@ function TerminalTab({
         if (disposed) return;
         const pending = takePendingCommand();
         if (pending) {
-          setTimeout(() => {
-            term.focus();
-            void window.api.terminal.write(id, pending + "\r");
-          }, 120);
+          setTimeout(() => void writeRunRequest(pending), 120);
         }
         setTimeout(() => term.focus(), 0);
       });
     }
 
-    let shellPref: string = "auto";
-    void window.api.settings
-      .getGeneral()
-      .then((g) => {
-        shellPref = g.defaultShell ?? "auto";
-      })
-      .catch(() => {});
-
-    function markerSuffix(): string {
-      const isWin = window.api.window.platform === "win32";
-      if (shellPref === "powershell" || shellPref === "pwsh")
-        return ' ; echo "###CCEND:$LASTEXITCODE###"';
-      if (shellPref === "bash" || shellPref === "gitbash")
-        return ' ; echo "###CCEND:$?###"';
-      if (shellPref === "cmd" || (isWin && shellPref === "auto"))
-        return " & echo ###CCEND:%ERRORLEVEL%###";
-      return ' ; echo "###CCEND:$?###"';
-    }
-
     let watch: {
       runId: string;
       command: string;
+      shellPreference: string;
+      buffer: string;
+      startedAt: number;
+      traceTimer: number | null;
+      promptTimer: number | null;
+      timeoutTimer: number;
+    } | null = null;
+
+    let protocolEcho: {
+      command: string;
+      suffix: string;
       buffer: string;
       timer: number;
     } | null = null;
 
+    function flushProtocolEcho(force = false): boolean {
+      if (!protocolEcho) return false;
+      const current = protocolEcho;
+      const filtered = stripWatchedCommandEcho(
+        current.buffer,
+        current.command,
+        current.suffix,
+        force,
+      );
+      if (!filtered.matched && !force) return false;
+      window.clearTimeout(current.timer);
+      protocolEcho = null;
+      term.write(filtered.matched ? filtered.output : current.buffer);
+      return true;
+    }
+
+    function startProtocolEcho(command: string, suffix: string): void {
+      if (protocolEcho) flushProtocolEcho(true);
+      protocolEcho = {
+        command,
+        suffix,
+        buffer: "",
+        timer: window.setTimeout(() => flushProtocolEcho(true), 600),
+      };
+    }
+
+    function renderTerminalChunk(chunk: string): void {
+      if (protocolEcho) {
+        protocolEcho.buffer += chunk;
+        if (flushProtocolEcho(false)) return;
+        if (protocolEcho && protocolEcho.buffer.length > 64_000) flushProtocolEcho(true);
+        return;
+      }
+      const visible = stripTerminalCompletionForDisplay(chunk);
+      if (visible) term.write(visible);
+    }
+
+    async function writeRunRequest(request: {
+      command: string;
+      watch?: boolean;
+      runId?: string;
+    }): Promise<void> {
+      term.focus();
+      const traced = Boolean(request.watch && request.runId);
+      const shellPreference = await window.api.settings
+        .getGeneral()
+        .then((general) => general.defaultShell ?? "auto")
+        .catch(() => "auto");
+      const suffix = traced
+        ? terminalCompletionSuffix(
+            shellPreference,
+            window.api.window.platform === "win32",
+          )
+        : "";
+      if (traced && request.runId) {
+        startWatch(request.runId, request.command, shellPreference);
+        startProtocolEcho(request.command, suffix);
+      }
+      void window.api.terminal.write(id, request.command + suffix + "\r");
+    }
+
     function cleanOutput(raw: string): string {
-      const stripped = raw
-        // eslint-disable-next-line no-control-regex
-        .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
-        // eslint-disable-next-line no-control-regex
-        .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "")
-        // eslint-disable-next-line no-control-regex
-        .replace(/\x1b[()][0-9A-B]/g, "")
+      const stripped = stripTerminalControlSequences(raw)
         // eslint-disable-next-line no-control-regex
         .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, "")
         .replace(/\r/g, "\n");
@@ -488,29 +541,36 @@ function TerminalTab({
         : text;
     }
 
-    function finishWatch(exitCode: number | null): void {
+    function finishWatch(exitCode: number | null, cwd?: string | null, timedOut = false): void {
       if (!watch) return;
       const done = watch;
       watch = null;
-      window.clearTimeout(done.timer);
+      if (done.traceTimer !== null) window.clearTimeout(done.traceTimer);
+      if (done.promptTimer !== null) window.clearTimeout(done.promptTimer);
+      window.clearTimeout(done.timeoutTimer);
       emitAppEvent("terminal:result", {
         runId: done.runId,
         command: done.command,
         ok: exitCode === 0,
         exitCode,
         output: cleanOutput(done.buffer),
-        cwd: activeRepo?.path ?? null,
+        cwd: cwd?.trim() || activeRepo?.path || null,
+        projectRoot: activeRepo?.path ?? null,
+        timedOut,
       });
     }
 
-    function startWatch(runId: string, command: string): void {
+    function startWatch(runId: string, command: string, shellPreference: string): void {
       finishWatch(null);
       watch = {
         runId,
         command,
+        shellPreference,
         buffer: "",
-        // Long builds, installs and test suites must be watched through completion.
-        timer: window.setTimeout(() => finishWatch(null), 60 * 60 * 1000),
+        startedAt: Date.now(),
+        traceTimer: null,
+        promptTimer: null,
+        timeoutTimer: window.setTimeout(() => finishWatch(null, null, true), 30 * 60 * 1000),
       };
     }
 
@@ -518,14 +578,50 @@ function TerminalTab({
       if (!watch) return;
       // Keep a large rolling transcript while the command is running.
       watch.buffer = (watch.buffer + chunk).slice(-1_000_000);
-      const match = /###CCEND:(-?\d+)###/.exec(watch.buffer);
-      if (match) finishWatch(Number(match[1]));
+      if (watch.traceTimer === null) {
+        watch.traceTimer = window.setTimeout(() => {
+          if (!watch) return;
+          watch.traceTimer = null;
+          emitAppEvent("terminal:trace", {
+            runId: watch.runId,
+            command: watch.command,
+            output: cleanOutput(watch.buffer),
+            cwd: activeRepo?.path ?? null,
+            startedAt: watch.startedAt,
+          });
+        }, 120);
+      }
+      const completion = readTerminalCompletion(watch.buffer);
+      if (completion) {
+        finishWatch(completion.exitCode, completion.cwd);
+        return;
+      }
+
+      const promptReturned = terminalPromptReturned(
+        watch.buffer,
+        watch.shellPreference,
+        window.api.window.platform === "win32",
+      );
+      if (promptReturned && watch.promptTimer === null) {
+        watch.promptTimer = window.setTimeout(() => {
+          if (!watch) return;
+          watch.promptTimer = null;
+          const output = cleanOutput(watch.buffer);
+          // A shell prompt without a marker means the probe itself was not
+          // reached (for example after a PowerShell parser error). Release the
+          // queue immediately instead of leaving the Run button spinning.
+          finishWatch(terminalOutputLooksFailed(output) ? 1 : null);
+        }, 450);
+      } else if (!promptReturned && watch.promptTimer !== null) {
+        window.clearTimeout(watch.promptTimer);
+        watch.promptTimer = null;
+      }
     }
 
     const offData = window.api.terminal.onData((eid, chunk) => {
       if (eid !== id) return;
-      term.write(chunk);
       feedWatch(chunk);
+      renderTerminalChunk(chunk);
     });
     const offExit = window.api.terminal.onExit((eid) => {
       if (eid !== id || disposed) return;
@@ -557,26 +653,24 @@ function TerminalTab({
 
     trySpawn();
 
-    const offRun = onAppEvent("terminal:run", ({ command, watch: w, runId }) => {
+    const offRun = onAppEvent("terminal:run", async ({ command, watch: w, runId }) => {
       if (!focusedRef.current) return;
       if (spawned) {
-        term.focus();
-        const traced = Boolean(w && runId);
-        if (traced && runId) startWatch(runId, command);
-        void window.api.terminal.write(
-          id,
-          command + (traced ? markerSuffix() : "") + "\r",
-        );
+        await writeRunRequest({ command, watch: w, runId });
       } else {
-        queueTerminalCommand(command);
+        queueTerminalCommand({ command, watch: w, runId });
       }
     });
 
     return () => {
       disposed = true;
-      if (watch) {
-        window.clearTimeout(watch.timer);
-        watch = null;
+      // Always release the global watched-command queue when this pane is
+      // removed. Otherwise a closed/remounted terminal leaves every Run card
+      // after it permanently queued behind a run that can no longer finish.
+      if (watch) finishWatch(null, null, true);
+      if (protocolEcho) {
+        window.clearTimeout(protocolEcho.timer);
+        protocolEcho = null;
       }
       cancelAnimationFrame(rafId);
       offData();

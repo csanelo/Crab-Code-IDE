@@ -1,10 +1,11 @@
 import { ipcMain, dialog, shell, BrowserWindow } from 'electron'
+import { handleIpc } from './ipcHelper'
 import { spawn } from 'node:child_process'
 import { readFile, writeFile, readdir, rename, rm, mkdir, cp, stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import iconv from 'iconv-lite'
-import { isRemotePath, parseRemote, ensureRemote, remoteSftp } from './remote'
+import { isRemotePath, parseRemote, ensureRemote, remoteSftp, remoteExec } from './remote'
 
 export interface OpenedFile {
   path: string
@@ -95,7 +96,7 @@ const IGNORED = new Set([
 ])
 
 export function registerFileSystem(win: BrowserWindow): void {
-  ipcMain.handle('fs:open-folder', async () => {
+  handleIpc('fs:open-folder', async () => {
     const res = await dialog.showOpenDialog(win, {
       title: 'Открыть папку',
       properties: ['openDirectory']
@@ -105,7 +106,7 @@ export function registerFileSystem(win: BrowserWindow): void {
     return { path, name: basename(path) }
   })
 
-  ipcMain.handle('fs:open-file', async () => {
+  handleIpc('fs:open-file', async () => {
     const res = await dialog.showOpenDialog(win, {
       title: 'Открыть файл',
       properties: ['openFile']
@@ -116,7 +117,7 @@ export function registerFileSystem(win: BrowserWindow): void {
     return { path, name: basename(path), content } satisfies OpenedFile
   })
 
-  ipcMain.handle('fs:read-dir', async (_e, dir: string) => {
+  handleIpc('fs:read-dir', async (_e, dir: string) => {
     if (isRemotePath(dir)) {
       const r = parseRemote(dir)
       const conn = r && (await ensureRemote(r.id))
@@ -145,7 +146,7 @@ export function registerFileSystem(win: BrowserWindow): void {
     }
   })
 
-  ipcMain.handle('fs:read-file', async (_e, path: string, encoding?: string) => {
+  handleIpc('fs:read-file', async (_e, path: string, encoding?: string) => {
     if (isRemotePath(path)) {
       const r = parseRemote(path)
       const conn = r && (await ensureRemote(r.id))
@@ -171,7 +172,7 @@ export function registerFileSystem(win: BrowserWindow): void {
     }
   })
 
-  ipcMain.handle('fs:read-binary', async (_e, path: string) => {
+  handleIpc('fs:read-binary', async (_e, path: string) => {
     try {
       const buf = await readFile(path)
       return { path, name: basename(path), base64: buf.toString('base64'), size: buf.length }
@@ -180,7 +181,7 @@ export function registerFileSystem(win: BrowserWindow): void {
     }
   })
 
-  ipcMain.handle(
+  handleIpc(
     'fs:write-binary',
     async (_e, payload: { path: string; base64: string }) => {
       try {
@@ -192,7 +193,7 @@ export function registerFileSystem(win: BrowserWindow): void {
     }
   )
 
-  ipcMain.handle(
+  handleIpc(
     'fs:save',
     async (_e, payload: { path: string | null; content: string; encoding?: string }) => {
       if (payload.path && isRemotePath(payload.path)) {
@@ -217,7 +218,7 @@ export function registerFileSystem(win: BrowserWindow): void {
     }
   )
 
-  ipcMain.handle('fs:save-as', async (_e, payload: { content: string; suggestedName?: string }) => {
+  handleIpc('fs:save-as', async (_e, payload: { content: string; suggestedName?: string }) => {
     const res = await dialog.showSaveDialog(win, {
       title: 'Сохранить как',
       defaultPath: payload.suggestedName
@@ -227,7 +228,7 @@ export function registerFileSystem(win: BrowserWindow): void {
     return { path: res.filePath, name: basename(res.filePath) }
   })
 
-  ipcMain.handle(
+  handleIpc(
     'fs:rename',
     async (_e, payload: { path: string; newName: string }) => {
       if (isRemotePath(payload.path)) {
@@ -252,14 +253,13 @@ export function registerFileSystem(win: BrowserWindow): void {
     }
   )
 
-  ipcMain.handle('fs:delete', async (_e, path: string) => {
+  handleIpc('fs:delete', async (_e, path: string) => {
     if (isRemotePath(path)) {
       const r = parseRemote(path)
       const conn = r && (await ensureRemote(r.id))
       if (!r || !conn) return false
       try {
         await remoteSftp.unlink(conn.sftp, r.path).catch(async () => {
-          const { remoteExec } = await import('./remote')
           await remoteExec(r.id, `rm -rf ${JSON.stringify(r.path)}`)
         })
         return true
@@ -268,6 +268,14 @@ export function registerFileSystem(win: BrowserWindow): void {
       }
     }
     try {
+      if (process.platform === 'darwin' || process.platform === 'win32') {
+        try {
+          await shell.trashItem(path)
+          return true
+        } catch {
+          // Fall back to rm if trashItem is unavailable (e.g. external volume)
+        }
+      }
       await rm(path, { recursive: true, force: true })
       return true
     } catch {
@@ -275,7 +283,7 @@ export function registerFileSystem(win: BrowserWindow): void {
     }
   })
 
-  ipcMain.handle(
+  handleIpc(
     'fs:import-data',
     async (_e, payload: { destDir: string; files: { name: string; base64: string }[] }) => {
       const { destDir, files } = payload
@@ -303,7 +311,7 @@ export function registerFileSystem(win: BrowserWindow): void {
     }
   )
 
-  ipcMain.handle(
+  handleIpc(
     'fs:import',
     async (_e, payload: { sources: string[]; destDir: string }) => {
       const { sources, destDir } = payload
@@ -332,13 +340,13 @@ export function registerFileSystem(win: BrowserWindow): void {
     }
   )
 
-  ipcMain.handle('fs:show-in-folder', async (_e, path: string) => {
+  handleIpc('fs:show-in-folder', async (_e, path: string) => {
     if (!path) return false
     shell.showItemInFolder(path)
     return true
   })
 
-  ipcMain.handle(
+  handleIpc(
     'fs:create-file',
     async (_e, payload: { dir: string; name?: string }) => {
       if (isRemotePath(payload.dir)) {
@@ -373,7 +381,7 @@ export function registerFileSystem(win: BrowserWindow): void {
     }
   )
 
-  ipcMain.handle(
+  handleIpc(
     'fs:create-dir',
     async (_e, payload: { dir: string; name?: string }) => {
       if (isRemotePath(payload.dir)) {
@@ -405,7 +413,7 @@ export function registerFileSystem(win: BrowserWindow): void {
     }
   )
 
-  ipcMain.handle(
+  handleIpc(
     'fs:move',
     async (_e, payload: { source: string; destDir: string }) => {
       try {
@@ -444,7 +452,7 @@ export function registerFileSystem(win: BrowserWindow): void {
     }
   )
 
-  ipcMain.handle(
+  handleIpc(
     'fs:revert',
     async (_e, payload: { path: string; before: string; existed: boolean }) => {
       try {
@@ -463,7 +471,7 @@ export function registerFileSystem(win: BrowserWindow): void {
   let searchToken = 0
   const MAX_SCAN = 25_000
 
-  ipcMain.handle(
+  handleIpc(
     'fs:search',
     async (_e, payload: { root: string; query: string; limit?: number }) => {
       const { root, query, limit = 200 } = payload
@@ -516,7 +524,7 @@ export function registerFileSystem(win: BrowserWindow): void {
 
   let symbolToken = 0
 
-  ipcMain.handle(
+  handleIpc(
     'fs:search-symbols',
     async (_e, payload: { root: string; query: string; limit?: number }) => {
       const { root, query, limit = 30 } = payload
@@ -625,7 +633,7 @@ export function registerFileSystem(win: BrowserWindow): void {
 
   let contentSearchToken = 0
 
-  ipcMain.handle(
+  handleIpc(
     'fs:search-content',
     async (
       _e,
@@ -729,7 +737,7 @@ export function registerFileSystem(win: BrowserWindow): void {
     }
   )
 
-  ipcMain.handle(
+  handleIpc(
     'fs:replace-in-file',
     async (
       _e,
@@ -758,7 +766,30 @@ export function registerFileSystem(win: BrowserWindow): void {
     }
   )
 
-  ipcMain.handle('terminal:new', async (_e, cwd: string | null) => {
+  handleIpc('fs:quick-look', async (_e, path: string) => {
+    if (process.platform === 'darwin') {
+      try {
+        const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+        if (win && !win.isDestroyed()) {
+          win.previewFile(path)
+          return true
+        }
+      } catch {}
+    }
+    await shell.openPath(path)
+    return true
+  })
+
+  handleIpc('fs:reveal', async (_e, path: string) => {
+    try {
+      shell.showItemInFolder(path)
+      return true
+    } catch {
+      return false
+    }
+  })
+
+  handleIpc('terminal:new', async (_e, cwd: string | null) => {
     const dir = cwd || process.cwd()
     try {
       if (process.platform === 'win32') {

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useReducer, useRef, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { fileService } from '../../services/fileService'
 import { fileIcon } from './iconMap'
@@ -27,9 +27,30 @@ const ROW_H = 24
 const OVERSCAN = 8
 
 const dirCache = new Map<string, Entry[]>()
+const cacheListeners = new Set<() => void>()
+
+function notifyCacheListeners(): void {
+  for (const listener of cacheListeners) listener()
+}
 
 export function invalidateDir(path: string): void {
   dirCache.delete(path)
+  notifyCacheListeners()
+}
+
+/** Refresh cached directories without ever blanking the visible tree. */
+export function refreshTree(root: string): void {
+  const normalized = root.replace(/[\\/]+$/, '')
+  const paths = [...dirCache.keys()].filter(
+    (path) => path === normalized || path.startsWith(`${normalized}/`) || path.startsWith(`${normalized}\\`),
+  )
+  const targets = paths.length > 0 ? paths : [root]
+  void Promise.all(
+    targets.map(async (path) => {
+      const list = await fileService.readDir(path)
+      dirCache.set(path, list as Entry[])
+    }),
+  ).then(notifyCacheListeners)
 }
 
 interface FlatRow {
@@ -48,7 +69,7 @@ function Guides({ depth }: { depth: number }): JSX.Element {
   )
 }
 
-export function FileTree({
+function FileTreeBase({
   dir,
   depth = 0,
   ...rest
@@ -64,11 +85,12 @@ export function FileTree({
 
   const { openDirs } = rest
 
-  const mountedRef = useRef(false)
-  if (!mountedRef.current) {
-    mountedRef.current = true
-    dirCache.clear()
-  }
+  useEffect(() => {
+    cacheListeners.add(bump)
+    return () => {
+      cacheListeners.delete(bump)
+    }
+  }, [])
 
   const rows: FlatRow[] = []
   const pendingLoads: string[] = []
@@ -158,6 +180,17 @@ export function FileTree({
     </div>
   )
 }
+
+// Chat streaming updates the global app state many times per second. The tree
+// data itself rarely changes, so keep it completely outside that render path.
+export const FileTree = memo(
+  FileTreeBase,
+  (previous, next) =>
+    previous.dir === next.dir &&
+    previous.depth === next.depth &&
+    previous.openDirs === next.openDirs &&
+    previous.renamingPath === next.renamingPath,
+)
 
 function TreeFolder({
   entry,

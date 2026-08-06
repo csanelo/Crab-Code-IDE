@@ -85,8 +85,8 @@ export function GlobalPalette({
   const q = query.trim().toLowerCase()
   const filtered = q
     ? commands.filter(
-        (c) => c.title.toLowerCase().includes(q) || (c.subtitle?.toLowerCase().includes(q) ?? false)
-      )
+      (c) => c.title.toLowerCase().includes(q) || (c.subtitle?.toLowerCase().includes(q) ?? false)
+    )
     : commands
 
   const items: PaletteItem<Command>[] = filtered.slice(0, 50).map((c) => {

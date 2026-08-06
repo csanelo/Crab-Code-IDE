@@ -1,14 +1,19 @@
 import type { ChatMessage, ToolCall } from "../domain/types";
+import type { ContextUsageSnapshot } from "../../../shared/contextUsage";
 import { getReasoningEffort } from "../lib/reasoningEffort";
 
 interface WireMessage {
   role: "user" | "assistant";
   content: string;
   images?: { mimeType: string; dataUrl: string }[];
+  reasoning_content?: string;
+  reasoningContent?: string;
 }
 
 export interface StreamHandlers {
   onChunk: (text: string) => void;
+  onContextUsage: (usage: ContextUsageSnapshot) => void;
+  onAborted: () => void;
   onTool: (tool: ToolCall) => void;
   onDone: () => void;
   onError: (message: string) => void;
@@ -40,10 +45,12 @@ class AgentService {
           mimeType: attachment.mimeType,
           dataUrl: attachment.dataUrl,
         }));
+      const reasoning = message.reasoning_content ?? message.reasoningContent;
       return {
         role: message.role,
         content: message.content,
         images: images && images.length > 0 ? images : undefined,
+        ...(reasoning ? { reasoning_content: reasoning } : {}),
       };
     });
 
@@ -55,7 +62,19 @@ class AgentService {
         flushTimer = null;
         flush();
       // Batch streaming updates so rendering stays responsive while another chat is busy.
-      }, 80);
+      }, 120);
+    });
+    const offContextUsage = window.api.agent.onContextUsage((id, usage) => {
+      if (id === requestId) handlers.onContextUsage(usage);
+    });
+    const offAborted = window.api.agent.onAborted((id) => {
+      if (id !== requestId) return;
+      if (flushTimer) {
+        clearTimeout(flushTimer);
+        flushTimer = null;
+      }
+      buffer = "";
+      handlers.onAborted();
     });
     const offTool = window.api.agent.onTool((id, ev) => {
       if (id === requestId) handlers.onTool(ev as ToolCall);
@@ -89,6 +108,8 @@ class AgentService {
 
     return () => {
       offChunk();
+      offContextUsage();
+      offAborted();
       offTool();
       offDone();
       offError();
