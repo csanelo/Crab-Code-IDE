@@ -354,7 +354,7 @@ const api = {
         theme: "dark" | "light";
         themeId: string;
         defaultShell:
-          "auto" | "cmd" | "powershell" | "pwsh" | "bash" | "gitbash";
+          "auto" | "cmd" | "powershell" | "pwsh" | "bash" | "zsh" | "gitbash";
         enterToSend: boolean;
         autosave: boolean;
         restoreOnStart: boolean;

@@ -4,6 +4,7 @@ export type TerminalShellPreference =
   | "powershell"
   | "pwsh"
   | "bash"
+  | "zsh"
   | "gitbash";
 
 export interface TerminalCompletion {

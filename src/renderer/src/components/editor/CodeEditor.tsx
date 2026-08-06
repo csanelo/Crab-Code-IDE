@@ -187,6 +187,7 @@ function encLabel(id: string): string {
 
 export function CodeEditor(): JSX.Element {
   const t = useT()
+  const isMac = window.api?.window?.platform === 'darwin'
   const { state, recordChange } = useApp()
   const repoPath =
     state.repositories.find((r) => r.id === state.activeRepositoryId)?.path ?? null
@@ -1325,7 +1326,6 @@ export function CodeEditor(): JSX.Element {
   }
 
   if (files.length === 0) {
-    const isMac = window.api?.window?.platform === 'darwin'
     const modKey = isMac ? '⌘' : 'Ctrl'
     return (
       <div className="ceditor ceditor--empty">

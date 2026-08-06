@@ -162,7 +162,7 @@ export const SettingsView = memo(SettingsViewBase)
 
 
 function GeneralSection(): JSX.Element {
-  type ShellKind = 'auto' | 'cmd' | 'powershell' | 'pwsh' | 'bash' | 'gitbash'
+  type ShellKind = 'auto' | 'cmd' | 'powershell' | 'pwsh' | 'bash' | 'zsh' | 'gitbash'
   type PanelLayout = 'files-left' | 'chat-left'
   interface General {
     language: UiLang
@@ -257,6 +257,7 @@ function GeneralSection(): JSX.Element {
                   { value: 'powershell', label: 'PowerShell' },
                   { value: 'pwsh', label: 'PowerShell 7 (pwsh)' },
                   { value: 'bash', label: 'bash' },
+                  { value: 'zsh', label: 'zsh' },
                   { value: 'gitbash', label: 'Git Bash' }
                 ]}
                 onChange={(v) => update({ defaultShell: v as ShellKind })}

@@ -2,7 +2,7 @@ import type { IpcMain } from 'electron'
 import { handleIpc } from './ipcHelper'
 import Store from 'electron-store'
 
-export type ShellKind = 'auto' | 'cmd' | 'powershell' | 'pwsh' | 'bash' | 'gitbash'
+export type ShellKind = 'auto' | 'cmd' | 'powershell' | 'pwsh' | 'bash' | 'zsh' | 'gitbash'
 
 export type UiLang = 'en' | 'zh' | 'hi' | 'es' | 'fr' | 'ar' | 'bn' | 'pt' | 'ru' | 'id'
 

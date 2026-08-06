@@ -213,6 +213,7 @@ export function registerFileSystem(win: BrowserWindow): void {
         if (res.canceled || !res.filePath) return null
         target = res.filePath
       }
+      if (!target) return null
       await writeFile(target, encodeContent(payload.content, payload.encoding))
       return { path: target, name: basename(target) }
     }

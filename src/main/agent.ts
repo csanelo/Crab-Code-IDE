@@ -1,4 +1,5 @@
 import { app, BrowserWindow, clipboard, dialog, nativeImage, shell, type IpcMain } from "electron";
+import { createHash, randomUUID } from "node:crypto";
 import { getActiveProvider } from "./providers";
 import {
   TOOL_DEFS,

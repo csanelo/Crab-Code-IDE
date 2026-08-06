@@ -496,7 +496,7 @@ export function FilesPanel(): JSX.Element {
               onClear={() => activeRepo && clearChanges(activeRepo.id)}
               onReverted={(path) => {
                 if (activeRepo && path) removeChange(activeRepo.id, path);
-                setTreeKey((k) => k + 1);
+                refresh();
               }}
             />
           ) : !activeRepo || !activeRepo.path ? (
