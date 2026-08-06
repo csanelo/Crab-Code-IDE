@@ -211,5 +211,5 @@ CrabCode is distributed under the [MIT License](LICENSE).
 ---
 
 <div align="center">
-  <sub>CrabCode 0.3.2 · maintained by <a href="https://t.me/csanelo">@csanelo</a></sub>
+  <sub>CrabCode 0.3.3· maintained by <a href="https://t.me/csanelo">@csanelo</a></sub>
 </div>
