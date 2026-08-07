@@ -221,9 +221,10 @@ export function AppProvider({
       (repository) => repository.id === state.activeRepositoryId,
     );
     if (!active?.path || active.source === "ssh") return;
+    const rootPath = active.path;
     let cancelled = false;
-    void window.api.skills.sync(active.path).then(() => {
-      if (!cancelled) emit("fs:changed", { root: active.path });
+    void window.api.skills.sync(rootPath).then(() => {
+      if (!cancelled) emit("fs:changed", { root: rootPath });
     });
     return () => {
       cancelled = true;

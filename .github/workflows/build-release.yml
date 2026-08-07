@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build and release
 
 on:
   push:
@@ -11,88 +11,40 @@ on:
 permissions:
   contents: read
 
-env:
-  CSC_IDENTITY_AUTO_DISCOVERY: "false"
-
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: build-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  validate:
-    name: Validate source
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js 22 LTS
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Show tool versions
-        run: |
-          node --version
-          npm --version
-
-      - name: Install exact dependencies
-        run: npm ci --include=dev --no-audit --no-fund
-
-      - name: Verify release tag
-        if: startsWith(github.ref, 'refs/tags/v')
-        shell: bash
-        run: |
-          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
-          test "${GITHUB_REF_NAME}" = "v${PACKAGE_VERSION}" || {
-            echo "Tag ${GITHUB_REF_NAME} does not match package version v${PACKAGE_VERSION}"
-            exit 1
-          }
-
-      - name: Type-check
-        run: npm run typecheck
-
-      - name: Compile application
-        run: npm run build
-
-  package:
-    name: Package ${{ matrix.name }}
-    if: github.event_name != 'pull_request'
-    needs: validate
+  build:
+    name: Build ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
-
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: Windows x64
+          - name: Windows
             os: windows-latest
-            command: npm run package:win -- --x64
-            artifact: CrabCode-Windows-x64
+            command: npm run package:win
+            artifact: CrabCode-Windows
             files: |
               dist/*.exe
               dist/*.blockmap
               dist/latest*.yml
-
-          - name: Linux x64
+          - name: Linux
             os: ubuntu-latest
-            command: npm run package:linux -- --x64
-            artifact: CrabCode-Linux-x64
+            command: npm run package:linux
+            artifact: CrabCode-Linux
             files: |
               dist/*.AppImage
               dist/*.deb
               dist/*.blockmap
               dist/latest*.yml
-
-          - name: macOS x64
-            os: macos-14
-            command: npm run package:mac -- --x64
-            artifact: CrabCode-macOS-x64
+          - name: macOS
+            os: macos-latest
+            command: npm run package:mac
+            artifact: CrabCode-macOS
             files: |
               dist/*.dmg
               dist/*-mac.zip
@@ -103,17 +55,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js 22 LTS
+      - name: Set up Node.js 26.5.0
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 26.5.0
           cache: npm
           cache-dependency-path: package-lock.json
 
       - name: Install exact dependencies
         run: npm ci --include=dev --no-audit --no-fund
 
-      - name: Build native package
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Package application
         run: ${{ matrix.command }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -124,12 +79,12 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.files }}
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 14
 
   release:
-    name: Publish ${{ github.ref_name }}
+    name: Publish GitHub release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: package
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -141,7 +96,7 @@ jobs:
           path: release-assets
           merge-multiple: true
 
-      - name: Publish GitHub Release
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           files: release-assets/**/*

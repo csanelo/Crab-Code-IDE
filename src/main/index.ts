@@ -212,7 +212,7 @@ function setupAppMenu(lang: string = currentLang): void {
                 submenu: [
                   {
                     label: "Clear Recent",
-                    role: "clearRecent" as const,
+                    role: "clearRecentDocuments" as const,
                   },
                 ],
               },
@@ -305,8 +305,8 @@ function setupAppMenu(lang: string = currentLang): void {
           label: t.devTools || "Toggle Developer Tools",
           accelerator: "CmdOrCtrl+Alt+I",
           click: (_item, focusedWindow) => {
-            if (focusedWindow && !focusedWindow.isDestroyed()) {
-              focusedWindow.webContents.toggleDevTools();
+            if (focusedWindow && 'webContents' in focusedWindow && !focusedWindow.isDestroyed()) {
+              (focusedWindow as BrowserWindow).webContents.toggleDevTools();
             }
           },
         },
